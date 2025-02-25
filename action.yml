@@ -46,7 +46,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       working-directory: ${{ inputs.root }}
     - name: Build package
-      if: github.event_name == 'release' && github.event.action == 'published'
+      if: startsWith(github.ref, 'refs/tags/')
       run: python $GITHUB_ACTION_PATH/run.py --local --build --repo="$GITHUB_REPO" --ref="$GITHUB_REF"
       shell: bash
       env:
@@ -54,17 +54,10 @@ runs:
         GITHUB_REPO: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
       working-directory: ${{ inputs.root }}
-    - name: Upload metadata
-      if: github.event_name == 'release' && github.event.action == 'published'
-      uses: actions/upload-artifact@v4
+    - name: Upload files
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
       with:
-        name: ammpackage.json
-        path: ${{ inputs.root }}/build/ammpackage.json
-        if-no-files-found: error
-    - name: Upload code
-      if: github.event_name == 'release' && github.event.action == 'published'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ammcode.tsv
-        path: ${{ inputs.root }}/build/ammcode.tsv
-        if-no-files-found: error
+        files: |
+          ${{ inputs.root }}/build/ammpackage.json
+          ${{ inputs.root }}/build/ammcode.tsv

@@ -13,9 +13,8 @@ on:
   push:
     branches:
       - main
-  release:
-    types:
-      - published
+    tags:
+      - *
 jobs:
   build:
     runs-on: ubuntu-latest
