@@ -1,4 +1,4 @@
-package = "fin-env"
+package = "loader"
 version = "dev-1"
 source = {
    url = "https://github.com/taminomara/amm"
