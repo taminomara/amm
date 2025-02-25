@@ -1,16 +1,17 @@
-local nick = require "ammcore/util/nick"
-local packageName = require "ammcore/pkg/packageName"
-local localProvider       = require "ammcore/pkg/providers/local"
-local filesystemHelpers   = require "ammcore/util/filesystemHelpers"
-local json                = require "ammcore/contrib/json"
-local version             = require "ammcore/pkg/version"
-local log                 = require "ammcore/util/log"
+local nick              = require "ammcore/util/nick"
+local packageName       = require "ammcore/pkg/packageName"
+local localProvider     = require "ammcore/pkg/providers/local"
+local filesystemHelpers = require "ammcore/util/filesystemHelpers"
+local json              = require "ammcore/contrib/json"
+local version           = require "ammcore/pkg/version"
+local log               = require "ammcore/util/log"
+local build             = require "ammcore/pkg/build"
 
-local logger = log.Logger:New()
+local logger            = log.Logger:New()
 
-local parsed = nick.parse(computer.getInstance().nick)
+local parsed            = nick.parse(computer.getInstance().nick)
 
-local user = parsed:getOne("user", tostring)
+local user              = parsed:getOne("user", tostring)
 if not user then error("No github user specified") end
 
 local repo = parsed:getOne("repo", tostring)
@@ -46,28 +47,17 @@ pkg.version = version.parse(ver)
 
 filesystem.createDir("build/", true)
 
+local metadata = json.encode(pkg:serialize())
+
 logger:info("Writing build/ammpackage.json")
-filesystemHelpers.writeFile("build/ammpackage.json", json.encode(pkg:serialize()))
+filesystemHelpers.writeFile("build/ammpackage.json", metadata)
 
-logger:info("Writing build/ammcode.tsv")
-local escapes = {
-    ["\a"]=[[\a]], ["\b"]=[[\b]], ["\f"]=[[\f]], ["\n"]=[[\n]], ["\r"]=[[\r]],
-    ["\t"]=[[\t]], ["\v"]=[[\v]], ["\\"]=[[\\]], ["\'"]=[[\']], ["\""]=[[\"]],
-}
-local code = ""
-local function writeFile(root)
-    for _, name in ipairs(filesystem.children(root)) do
-        local path = filesystem.path(2, root, name)
-        if filesystem.isFile(path) then
-            code = code .. path .. "\t" .. filesystemHelpers.readFile(path):gsub("\r\n", "\n"):gsub("[\a\b\f\n\r\t\v\\\'\"]", escapes) .. "\n"
-        elseif filesystem.isDir(path) then
-            writeFile(path)
-        end
-    end
-end
-writeFile(name)
-code = code .. name .. "/_version.lua\treturn [[" .. tostring(pkg.version) .. "]]\n"
-
-filesystemHelpers.writeFile("build/ammcode.tsv", code)
+logger:info("Writing build/ammcode.json")
+local outputFiles = {}
+build.travelDir(name, "", "%.lua$", outputFiles)
+build.callBuildScript(name, pkg.version, outputFiles)
+outputFiles["_version.lua"] = "return [[" .. tostring(pkg.version) .. "]]\n"
+outputFiles[".ammpackage.json"] = metadata
+filesystemHelpers.writeFile("build/ammcode.json", json.encode(outputFiles))
 
 logger:info("Successfully built %s version %s", name, pkg.version)
