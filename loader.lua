@@ -549,7 +549,7 @@ function filesystem.path(conversion, ...)
     for _, component in ipairs(components) do
         if component:match("^/") then
             res = ""
-        elseif not res:match("/$") then
+        elseif res:len() > 0 and not res:match("/$") then
             res = res .. "/"
         end
         res = res .. component
