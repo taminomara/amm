@@ -1,6 +1,9 @@
 name: 'AMM Package Build'
 description: 'Build and publish an AMM package'
 inputs:
+  token:
+    description: 'A Github Personal Access Token'
+    required: true
   root:
     description: 'Directory with AMM packages.'
     required: true
@@ -61,3 +64,5 @@ runs:
         files: |
           ${{ inputs.root }}/build/ammpackage.json
           ${{ inputs.root }}/build/ammcode.tsv
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}

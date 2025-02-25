@@ -21,4 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: taminomara/amm@action
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 ```
