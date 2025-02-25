@@ -16,11 +16,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup python
-      uses: actions/setup-python@v5
-      with:
-        python-version: 3.12
-        cache: 'pip'
     - name: Setup lua
       uses: leafo/gh-actions-lua@v10
       with:
