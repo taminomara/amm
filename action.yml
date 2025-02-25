@@ -46,7 +46,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       working-directory: ${{ inputs.root }}
     - name: Build package
-      if: github.event_name == 'release' && github.event.action == 'created'
+      if: github.event_name == 'release' && github.event.action == 'published'
       run: python $GITHUB_ACTION_PATH/run.py --local --build --repo="$GITHUB_REPO" --ref="$GITHUB_REF"
       shell: bash
       env:
@@ -55,14 +55,14 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       working-directory: ${{ inputs.root }}
     - name: Upload metadata
-      if: github.event_name == 'release' && github.event.action == 'created'
+      if: github.event_name == 'release' && github.event.action == 'published'
       uses: actions/upload-artifact@v4
       with:
         name: ammpackage.json
         path: ${{ inputs.root }}/build/ammpackage.json
         if-no-files-found: error
     - name: Upload code
-      if: github.event_name == 'release' && github.event.action == 'created'
+      if: github.event_name == 'release' && github.event.action == 'published'
       uses: actions/upload-artifact@v4
       with:
         name: ammcode.tsv
