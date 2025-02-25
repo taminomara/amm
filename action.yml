@@ -64,5 +64,4 @@ runs:
         files: |
           ${{ inputs.root }}/build/ammpackage.json
           ${{ inputs.root }}/build/ammcode.tsv
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+        token: ${{ inputs.token }}
