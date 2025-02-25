@@ -17,3 +17,4 @@ jobs:
         with:
           test: true
           local: true
+          token: ${{ secrets.GITHUB_TOKEN }}
