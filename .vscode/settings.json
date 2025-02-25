@@ -1,0 +1,13 @@
+{
+  "jira-plugin.workingProject": "",
+  "Lua.runtime.pathStrict": true,
+  "Lua.runtime.path": ["?.lua"],
+  "Lua.type.castNumberToInteger": false,
+  "Lua.type.checkTableShape": true,
+  "Lua.type.inferParamType": true,
+  "Lua.workspace.library": ["${workspaceFolder}/.amm_packages"],
+  "cSpell.words": ["ammcore", "ammtest", "ammlib"],
+  "Lua.completion.requireSeparator": "/",
+  "Lua.workspace.preloadFileSize": 1024,
+  "Lua.runtime.version": "Lua 5.4",
+}

@@ -1,0 +1,75 @@
+name: 'AMM Package Build'
+description: 'Build and publish an AMM package'
+inputs:
+  root:
+    description: 'Directory with AMM packages.'
+    required: true
+    default: '.'
+  test:
+    description: 'Whether to run tests or not.'
+    required: true
+    default: false
+  local:
+    description: 'AMM package is located in this repository (used for the AMM repository itself).'
+    required: true
+    default: false
+runs:
+  using: "composite"
+  steps:
+    - name: Setup python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+        cache: 'pip'
+    - name: Setup lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: "5.4"
+    - name: Setup luarocks
+      uses: leafo/gh-actions-luarocks@v4
+    - name: Setup lua dependencies
+      run: luarocks install --only-deps $GITHUB_ACTION_PATH/loader-dev-1.rockspec
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+    - name: Setup AMM
+      run: python $GITHUB_ACTION_PATH/run.py $AMM_LOCAL --setup --repo="$GITHUB_REPO" --ref="$GITHUB_REF"
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
+        AMM_LOCAL: ${{ inputs.local == 'true' && '--local' || '' }}
+      working-directory: ${{ inputs.root }}
+    - name: Run tests
+      if: inputs.test == 'true'
+      run: python $GITHUB_ACTION_PATH/run.py --local --test --repo="$GITHUB_REPO" --ref="$GITHUB_REF"
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
+      working-directory: ${{ inputs.root }}
+    - name: Build package
+      if: github.event_name == 'release' && github.event.action == 'created'
+      run: python $GITHUB_ACTION_PATH/run.py --local --build --repo="$GITHUB_REPO" --ref="$GITHUB_REF"
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
+      working-directory: ${{ inputs.root }}
+    - name: Upload metadata
+      if: github.event_name == 'release' && github.event.action == 'created'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ammpackage.json
+        path: ${{ inputs.root }}/build/ammpackage.json
+        if-no-files-found: error
+    - name: Upload code
+      if: github.event_name == 'release' && github.event.action == 'created'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ammcode.tsv
+        path: ${{ inputs.root }}/build/ammcode.tsv
+        if-no-files-found: error
