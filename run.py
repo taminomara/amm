@@ -1,6 +1,6 @@
 import argparse
-import os
 import pathlib
+import re
 import subprocess
 
 
@@ -33,12 +33,10 @@ def main():
                         help="run the package build")
     parser.add_argument("--nick",
                         help="run the package using this computer nick")
-    parser.add_argument("--user",
-                        help="run the package using this computer nick")
+    parser.add_argument("--ref",
+                        help="name of git reference")
     parser.add_argument("--repo",
-                        help="run the package using this computer nick")
-    parser.add_argument("--tag",
-                        help="run the package using this computer nick")
+                        help="name of github repo")
     config = parser.parse_args()
 
     args = []
@@ -47,12 +45,13 @@ def main():
         args.append("--local")
 
     nick_args = []
-    if config.user:
-        nick_args.append(f"user={config.user}")
     if config.repo:
-        nick_args.append(f"repo={config.repo}")
-    if config.tag:
-        nick_args.append(f"tag={config.tag}")
+        if match := re.match(r"^(?P<user>.+)/(?P<repo>.+)$", config.repo):
+             nick_args.append(f"user={match.group('user')}")
+             nick_args.append(f"repo={match.group('repo')}")
+    if config.ref:
+        if match := re.match(r"^refs/tags/(?P<tag>.+)$", config.ref):
+            nick_args.append(f"tag={match.group('tag')}")
 
     if config.setup:
         run(*args, "ammcore/bin/installPackages", "#", *nick_args)
