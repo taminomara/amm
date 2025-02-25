@@ -63,5 +63,5 @@ runs:
       with:
         files: |
           ${{ inputs.root }}/build/ammpackage.json
-          ${{ inputs.root }}/build/ammcode.tsv
+          ${{ inputs.root }}/build/ammcode.json
         token: ${{ inputs.token }}
