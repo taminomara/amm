@@ -683,4 +683,5 @@ end
 local ok, err = _xpcall(main, _debug.traceback, ...)
 if not ok then
     computer.log(4, err)
+    _os.exit(1)
 end
