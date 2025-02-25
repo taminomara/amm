@@ -1,0 +1,55 @@
+--- This code was downloaded from `https://taminomara.github.io/ammcore/bootstrap.lua`.
+--- It contains AMM package manager for Fixit Networks.
+
+--- Contains all files of the `ammcore` package.
+--- @type table<string, string>
+local moduleCode = {[[{ modules }]]}
+
+local escapes = {
+    [ [[a]] ]="\a", [ [[b]] ]="\b", [ [[f]] ]="\f", [ [[n]] ]="\n", [ [[r]] ]="\r",
+    [ [[t]] ]="\t", [ [[v]] ]="\v", [ [[\]] ]="\\", [ [[']] ]="\'", [ [["]] ]="\"",
+}
+
+--- In-memory loader, looks up code in the `moduleCode` table.
+---
+--- @param path string
+--- @return string?
+local function loader(path)
+    local code = moduleCode[path]
+    return code and code:gsub("\\(.)", escapes)
+end
+
+local api = {}
+
+function api.init(config)
+    -- Find a drive to install AMM.
+    filesystem.initFileSystem("/dev")
+    local devices = filesystem.children("/dev")
+    if #devices == 0 then
+        error("BootloaderError: no hard drive detected")
+    end
+    config.driveId = config.driveId or devices[1]
+
+    local path = "ammcore/_loader.lua"
+
+    -- Get loader code.
+    local code = loader(path)
+    if not code then
+        error(string.format("ImportError: no module named %s", path))
+    end
+
+    -- Compile loader code.
+    local codeFn, err = load(code, path)
+    if not codeFn then
+        error(string.format("ImportError: failed to parse %s: %s", path, err))
+    end
+
+    -- Import loader code.
+    local bootloaderApi = codeFn()
+
+    -- Run loader.
+    config.target = loader
+    bootloaderApi.init(config)
+end
+
+return api

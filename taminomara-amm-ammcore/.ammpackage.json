@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0",
+  "devRequirements": {
+    "taminomara-amm-ammtest": "~=1.0"
+  }
+}
