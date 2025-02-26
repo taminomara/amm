@@ -1,22 +1,17 @@
---- This code was downloaded from `https://taminomara.github.io/ammcore/bootstrap.lua`.
+--- This code was downloaded from `https://taminomara.github.io/amm/bootstrap.lua`.
 --- It contains AMM package manager for Fixit Networks.
 
 --- Contains all files of the `ammcore` package.
 --- @type table<string, string>
-local moduleCode = {[[{ modules }]]}
-
-local escapes = {
-    [ [[a]] ]="\a", [ [[b]] ]="\b", [ [[f]] ]="\f", [ [[n]] ]="\n", [ [[r]] ]="\r",
-    [ [[t]] ]="\t", [ [[v]] ]="\v", [ [[\]] ]="\\", [ [[']] ]="\'", [ [["]] ]="\"",
-}
+--- @diagnostic disable-next-line: assign-type-mismatch
+local moduleCode = [[{ modules }]]
 
 --- In-memory loader, looks up code in the `moduleCode` table.
 ---
 --- @param path string
 --- @return string?
 local function loader(path)
-    local code = moduleCode[path]
-    return code and code:gsub("\\(.)", escapes)
+    return moduleCode[path]
 end
 
 local api = {}

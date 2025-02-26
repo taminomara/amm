@@ -15,7 +15,7 @@ if not internetCard then
 end
 
 -- Download bootstrap code.
-local res, code = internetCard:request("https://taminomara.github.io/ammcore/bootstrap.lua", "GET", ""):await()
+local res, code = internetCard:request("https://taminomara.github.io/amm/bootstrap.lua", "GET", ""):await()
 if not res then
     error("Failed fetching AMM loader: couldn't connect to server")
 elseif res ~= 200 then
