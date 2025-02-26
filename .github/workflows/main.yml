@@ -24,7 +24,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Write bootloader
         if: startsWith(github.ref, 'refs/tags/')
-        run: python compile_bootloader.py
+        run: python compile_bootstrap.py
         shell: bash
       - uses: actions/upload-pages-artifact@v3
         if: startsWith(github.ref, 'refs/tags/')
