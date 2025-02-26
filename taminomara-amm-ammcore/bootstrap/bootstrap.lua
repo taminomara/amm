@@ -42,7 +42,7 @@ function api.init(config)
     end
 
     -- Compile loader code.
-    local codeFn, err = load(code, path)
+    local codeFn, err = load(code, path, "bt", _ENV)
     if not codeFn then
         error(string.format("ImportError: failed to parse %s: %s", path, err))
     end

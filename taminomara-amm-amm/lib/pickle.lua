@@ -118,7 +118,7 @@ end
 --- @return pickle.Ser
 function pickle.unpickle(s)
     if type(s) ~= "string" then error("Can't unpickle a " .. type(s) .. ", only strings") end
-    local gen = load("return " .. s)
+    local gen = load("return " .. s, "<pickled data>", "bt", {})
     if not gen then error("Unpickling failed") end
     return process(gen())
 end
