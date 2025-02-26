@@ -32,6 +32,7 @@ function api.init(config)
         error("BootloaderError: no hard drive detected")
     end
     config.driveId = config.driveId or devices[1]
+    filesystem.mount(filesystem.path("/dev", config.driveId), "/")
 
     local path = "ammcore/_loader.lua"
 
