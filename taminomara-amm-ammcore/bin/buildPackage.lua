@@ -52,12 +52,18 @@ local metadata = json.encode(pkg:serialize())
 logger:info("Writing build/ammpackage.json")
 filesystemHelpers.writeFile("build/ammpackage.json", metadata)
 
-logger:info("Writing build/ammcode.json")
+logger:info("Writing build/package")
 local outputFiles = {}
 build.travelDir(name, "", "%.lua$", outputFiles)
 build.callBuildScript(name, pkg.version, outputFiles)
 outputFiles["_version.lua"] = "return [[" .. tostring(pkg.version) .. "]]\n"
 outputFiles[".ammpackage.json"] = metadata
-filesystemHelpers.writeFile("build/ammcode.json", json.encode(outputFiles))
+
+local code = {}
+for filename, content in pairs(outputFiles) do
+    table.insert(code, string.format("[%q]=%q", filename, content))
+end
+local packageData = string.format("{%s}", table.concat(code, ","))
+filesystemHelpers.writeFile("build/package", packageData)
 
 logger:info("Successfully built %s version %s", name, pkg.version)

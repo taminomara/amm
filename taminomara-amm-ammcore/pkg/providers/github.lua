@@ -209,7 +209,7 @@ function ns.GithubProvider:_loadData(user, repo)
         for _, asset in ipairs(release["assets"]) do
             if asset["name"] == "ammpackage.json" then
                 metadataUrl = asset["browser_download_url"]
-            elseif asset["name"] == "ammcode.tsv" then
+            elseif asset["name"] == "package" then
                 codeUrl = asset["browser_download_url"]
             end
         end
