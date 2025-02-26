@@ -23,6 +23,8 @@ end
 local api = {}
 
 function api.init(config)
+    config = config or {}
+
     -- Find a drive to install AMM.
     filesystem.initFileSystem("/dev")
     local devices = filesystem.children("/dev")
