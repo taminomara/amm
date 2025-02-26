@@ -11,7 +11,13 @@ local moduleCode = [[{ modules }]]
 --- @param path string
 --- @return string?
 local function loader(path)
-    return moduleCode[path]
+    if path:match("^ammcore/") then
+        return moduleCode[path:gsub("^ammcore/", "")]
+    elseif path:match("^taminomara-amm-ammcore/") then
+        return moduleCode[path:gsub("^taminomara-amm-ammcore/", "")]
+    else
+        return nil
+    end
 end
 
 local api = {}
