@@ -37,6 +37,15 @@ elseif packageUser ~= user or packageRepo ~= repo then
     error("Invalid release tag " .. tag .. ": package does not match repo")
 end
 
+do
+    local parsedVer
+    local ok, err = pcall(function() parsedVer = version.parse(ver) end)
+    if not ok then
+        error("Invalid release version " .. tag .. ": " .. err)
+    end
+    ver = tostring(parsedVer) -- canonize
+end
+
 local devProvider = localProvider.LocalProvider:New("/", true)
 local pkgs, found = devProvider:findPackageVersions(name)
 if not found or #pkgs ~= 1 then
@@ -44,13 +53,13 @@ if not found or #pkgs ~= 1 then
 end
 
 local pkg = pkgs[1]
-pkg.version = version.parse(ver)
-
-filesystem.createDir("build/", true)
 
 local metaData = pkg:serialize()
+metaData.version = ver
 local buildData = metaData.build or {}
 local metaDataJson = json.encode(metaData)
+
+filesystem.createDir("build/", true)
 
 logger:info("Writing build/ammpackage.json")
 

@@ -13,7 +13,8 @@ local ns                = {}
 
 local logger            = log.Logger:New()
 
-local cachePath         = "/.amm_packages/gh-cache.json"
+local cacheDir          = "/.amm_packages"
+local cachePath         = filesystem.path(cacheDir, "gh-cache.json")
 
 --- Package version that was loaded from github.
 ---
@@ -29,7 +30,7 @@ ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVe
 --- @param self T
 --- @return T
 function ns.GithubPackageVersion:New(name, version, cacheData, provider)
-    self = ns.PackageVersion.New(self, name, version, provider)
+    self = package.PackageVersion.New(self, name, version, provider)
 
     --- @private
     --- @type ammcore.pkg.providers.github.CacheVersion
@@ -145,12 +146,15 @@ end
 --- @private
 --- @param user string
 --- @param repo string
-function ns.GithubProvider:_loadData(user, repo)
+--- @param name string
+function ns.GithubProvider:_loadData(user, repo, name)
     local ghName = string.format("%s/%s", user, repo)
 
     if self._freshPackages[ghName] then
         return
     end
+
+    logger:info("Fetching versions for %s", name)
 
     --- @type ammcore.pkg.providers.github.CacheRepo
     local cache = { packages = {} }
@@ -249,7 +253,13 @@ function ns.GithubProvider:_loadData(user, repo)
         ::continue::
     end
 
-    logger:info("Repo https://github.com/%s/%s: fetched %s releases across %s packages", user, repo, nTags, nPackages)
+    logger:info(
+        "Fetched %s release%s across %s package%s",
+        nTags,
+        nTags > 1 and "s" or "",
+        nPackages,
+        nPackages > 1 and "s" or ""
+    )
 end
 
 function ns.GithubProvider:findPackageVersions(name)
@@ -259,7 +269,7 @@ function ns.GithubProvider:findPackageVersions(name)
         return {}, false
     end
 
-    self:_loadData(user, repo)
+    self:_loadData(user, repo, name)
 
     local ghName = string.format("%s/%s", user, repo)
 
@@ -281,6 +291,16 @@ function ns.GithubProvider:findPackageVersions(name)
     end
 
     return result, true
+end
+
+function ns.GithubProvider:saveCache()
+    if not filesystem.exists(cacheDir) then
+        filesystem.createDir(cacheDir, true)
+    elseif not filesystem.isDir(cacheDir) then
+        logger:warning("Unable to save github cache: %s is not a directory", cacheDir)
+        return
+    end
+    filesystemHelpers.writeFile(cachePath, json.encode(self._packages))
 end
 
 return ns

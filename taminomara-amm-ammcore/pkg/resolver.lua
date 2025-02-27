@@ -34,7 +34,6 @@ function Candidate:New(name, versions)
             return lhs.version > rhs.version
         end
     end)
-    for _, v in ipairs(self.versions) do print(v.version, v.availableLocally) end
 
     --- Indicates that this candidate has a pinned version.
     ---
