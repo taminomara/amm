@@ -15,7 +15,6 @@
     "io": "disable",
     "bit": "disable",
     "bit32": "disable",
-    "debug": "disable",
     "ffi": "disable",
     "jit": "disable",
     "jit.profile": "disable",

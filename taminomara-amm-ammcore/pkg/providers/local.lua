@@ -4,6 +4,7 @@ local ammPackageJson   = require "ammcore/pkg/packageJson"
 local version          = require "ammcore/pkg/version"
 local packageName      = require "ammcore/pkg/packageName"
 local package          = require "ammcore/pkg/packageVersion"
+local _loader          = require "ammcore/_loader"
 
 --- Local package provider.
 local ns               = {}
@@ -54,6 +55,10 @@ end
 
 function ns.LocalPackageVersion:serialize()
     return self.data
+end
+
+function ns.LocalPackageVersion:install(packageRoot)
+    error("This package is already installed")
 end
 
 --- Implements a provider that loads packages from a directory

@@ -1,15 +1,14 @@
 --- Implements the `require` function and code loaders.
-local api = {}
+local ns = {}
 
 --- @private
 --- @type table<string, { loaded: boolean, value: any }>
 local _modules = {}
-_modules["ammcore/_loader.lua"] = { loaded = true, value = api }
+_modules["ammcore/_loader.lua"] = { loaded = true, value = ns }
 
---- @private
-api._loaders = {}
+local _loaders = {}
 
-function api._loaders.drive()
+function _loaders.drive()
     -- Locate a hard drive.
     filesystem.initFileSystem("/dev")
     if not AMM_BOOT_CONFIG.driveId then
@@ -25,7 +24,7 @@ function api._loaders.drive()
 
     local pathTemplates = { "/taminomara-amm-%s", "/%s", "/.amm_packages/lib/taminomara-amm-%s", "/.amm_packages/lib/%s" }
 
-    --- @type fun(path: string): string?
+    --- @type fun(path: string): string?, string?
     return function(path)
         -- Locate package.
         local pkg = path:match("^(.-)/")
@@ -58,11 +57,11 @@ function api._loaders.drive()
             code = code .. chunk
         end
 
-        return code
+        return code, realPath
     end
 end
 
-function api._loaders.net()
+function _loaders.net()
     -- Find a network card.
     local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
     if not networkCard then
@@ -98,19 +97,19 @@ function api._loaders.net()
             AMM_BOOT_CONFIG.netCodeServerAddr))
     end
 
-    --- @type fun(path: string): string?
+    --- @type fun(path: string): string?, string?
     return function(path)
         networkCard:send(AMM_BOOT_CONFIG.netCodeServerAddr, 0x1CD, "get", path)
 
         -- Wait for response.
         local deadline = computer.millis() + 500
-        local event, sender, port, message, filename, code
+        local event, sender, port, message, filename, code, realPath
         while true do
             local now = computer.millis()
             if now > deadline then
                 error("BootloaderError: timeout while waiting for response from a code server")
             end
-            event, _, sender, port, message, filename, code = event.pull(now - deadline)
+            event, _, sender, port, message, filename, code, realPath = event.pull(now - deadline)
             if (
                     event == "NetworkMessage"
                     and sender == AMM_BOOT_CONFIG.netCodeServerAddr
@@ -122,11 +121,12 @@ function api._loaders.net()
             end
         end
 
-        return code
+        return code, realPath
     end
 end
 
 local loader
+local loaderKind
 
 if require then
     computer.log(2, "BootloaderWarning: `require` function is already present")
@@ -140,25 +140,29 @@ function require(path)
         error("BootloaderError: `require` called before `init`", 2)
     end
 
-    if not type(path) == "string" then
+    if type(path) ~= "string" then
         error("ImportError: expected a string, got " .. type(path), 2)
     end
     path = filesystem.path(2, path)
     if not path:match("%.lua$") then
         path = path .. ".lua"
     end
+    local shortAmmMod = path:match("^taminomara-amm-([^/]*)")
+    if shortAmmMod then
+        error(string.format("ImportError: use 'require %q' instead", shortAmmMod), 2)
+    end
 
     if not _modules[path] then
-        local code = loader(path)
+        local code, realPath = loader(path)
         if not code then
             error(string.format("ImportError: no module named %s", path), 2)
         end
 
         _modules[path] = { loaded = false }
 
-        local codeFn, err = load(code, path, "bt", _ENV)
+        local codeFn, err = load(code, realPath, "bt", _ENV)
         if not codeFn then
-            error(string.format("Syntax error in %s: %s", path, err), 2)
+            error(string.format("Syntax error in %s: %s", realPath, err), 2)
         end
 
         _modules[path] = { loaded = true, value = codeFn() }
@@ -170,7 +174,7 @@ function require(path)
 end
 
 --- Initializes and installs the global `require` function.
-function api.init(config)
+function ns.init(config)
     if loader then
         error("BootloaderError: Loader is already installed.")
     end
@@ -185,14 +189,21 @@ function api.init(config)
 
     if type(config.target) == "function" then
         loader = config.target
+        loaderKind = "bootstrap"
     elseif type(config.target) == "string" then
-        if not api._loaders[config.target] then
+        if not _loaders[config.target] then
             error(string.format("BootloaderError: config.target has invalid value %s", config.target))
         end
-        loader = api._loaders[config.target]()
+        loader = _loaders[config.target]()
+        loaderKind = config.target
     else
         error("BootloaderError: config.target should be a string")
     end
 end
 
-return api
+--- @return "drive"|"net"|"bootstrap"|string
+function ns.getLoaderKind()
+    return loaderKind
+end
+
+return ns

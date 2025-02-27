@@ -1,2 +1,2 @@
-builder:copyDir(".vscode", "_data/server/.vscode", "")
-builder:copyFile(".gitignore", "_data/server/.gitignore")
+builder:copyDir(".vscode", "_templates/server/.vscode", "")
+builder:copyFile(".gitignore", "_templates/server/.gitignore")

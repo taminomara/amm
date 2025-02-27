@@ -48,7 +48,7 @@ function ns.GithubPackageVersion:getRequirements()
         self:_loadData()
     elseif not self._requirements then
         self._requirements = {}
-        for name, spec in pairs(self._cacheData.data.requirements) do
+        for name, spec in pairs(self._cacheData.data.requirements or {}) do
             self._requirements[name] = version.parseSpec(spec)
         end
     end
@@ -98,6 +98,59 @@ function ns.GithubPackageVersion:_loadData()
 
     self._cacheData.data = data
     self._requirements = requirements
+end
+
+function ns.GithubPackageVersion:install(packageRoot)
+    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+    if not internetCard then
+        error("GitHub dependency provider requires an internet card to download code")
+    end
+
+    logger:debug("Fetching %s", self._cacheData.codeUrl)
+    local res, rawCode = internetCard:request(self._cacheData.codeUrl, "GET", ""):await()
+    if not res then
+        error("Couldn't connect to github")
+    elseif res ~= 200 then
+        error("Got an error from github API: " .. tostring(res))
+    end
+
+    local fn, err = load("return " .. rawCode, "<package bundle>", "bt", {})
+    if not fn then
+        error(string.format("Failed to parse package bundle for package %s==%s: %s", self.name, self.version, err))
+    end
+
+    logger:debug("Unpacking %s to %s", self.name, packageRoot)
+
+    local files = fn()
+    if type(files) ~= "table" then
+        error(string.format("Invalid package bundle for package %s==%s", self.name, self.version))
+    end
+    for path, content in pairs(files) do
+        if type(path) ~= "string" or type(content) ~= "string" then
+            error(string.format("Invalid package bundle for package %s==%s", self.name, self.version))
+        end
+
+        local filePath = filesystem.path(packageRoot, filesystem.path(2, path))
+        local fileDir = filePath:match("^(.*)/[^/]*$")
+        logger:trace("Writing %s", filePath)
+        filesystem.createDir(fileDir, true)
+        filesystemHelpers.writeFile(filePath, content)
+    end
+
+    -- Verify installation.
+    local version, _, _, data = ammPackageJson.parseFromFile(filesystem.path(packageRoot, ".ammpackage.json"))
+    if data.name ~= self.name then
+        error(string.format(
+            "Invalid package bundle for package %s==%s: name from downloaded ammpackage.json doesn't match the package name",
+            self.name, self.version
+        ))
+    end
+    if version ~= self.version then
+        error(string.format(
+            "Invalid package bundle for package %s==%s: version from downloaded ammpackage.json doesn't match the package version",
+            self.name, self.version
+        ))
+    end
 end
 
 --- @class ammcore.pkg.providers.github.CacheVersion

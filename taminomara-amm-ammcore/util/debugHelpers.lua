@@ -6,7 +6,7 @@ local debugHelpers = {}
 --- @param n integer?
 --- @return string
 function debugHelpers.getMod(n)
-    local mod = debugHelpers.getFile((n or 1) + 1):gsub("[/\\]", ".")
+    local mod = debugHelpers.getFile((n or 1) + 1):gsub("[/\\]", "."):gsub("^taminomara-amm-", "")
     if debug.getinfo((n or 1) + 1).what ~= "main" then
         mod = mod .. ".<locals>"
     end
@@ -22,6 +22,7 @@ function debugHelpers.getFile(n)
 
     local path
     if not path then path = src:match("^%[string \"(.-)%.lua\"%]$") end
+    if path then path = path:gsub("^%[[^%]]*%]%s*", "") end
     if not path then path = src:match("^(EEPROM)$") end
     return path or "<unknown>"
 end

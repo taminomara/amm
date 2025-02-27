@@ -1,5 +1,5 @@
 local version = require "ammcore/pkg/version"
-local test = require "ammtest/test"
+local test = require "ammtest/index"
 
 local suite = test.suite()
 

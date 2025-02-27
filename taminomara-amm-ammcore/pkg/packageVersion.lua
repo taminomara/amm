@@ -32,15 +32,23 @@ function ns.PackageVersion:New(name, version, provider)
     --- @type ammcore.pkg.provider.Provider
     self.provider = provider
 
-    --- True if provider has code for this package cached locally.
+    --- True if this package is already installed.
     ---
     --- @type boolean
-    self.availableLocally = false
+    self.isInstalled = false
 
     --- Indicates that this version is installed in dev mode.
     ---
     --- @type boolean
     self.isDevMode = false
+
+    --- Indicates that this is a broken version,
+    --- and should not be considered for installation.
+    ---
+    --- Resolver marks versions as broken if they throw errors from `getRequirements`.
+    ---
+    --- @type boolean
+    self.isBroken = false
 
     --- @private
     --- @type table<string, ammcore.pkg.version.VersionSpec>?
@@ -67,6 +75,13 @@ end
 ---
 --- @return ammcore.pkg.ammPackageJson.AmmPackageJson
 function ns.PackageVersion:serialize()
+    error("Not implemented")
+end
+
+--- Download and install this package to the given directory.
+---
+--- @param packageRoot string
+function ns.PackageVersion:install(packageRoot)
     error("Not implemented")
 end
 

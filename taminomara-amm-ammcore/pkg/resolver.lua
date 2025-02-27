@@ -28,8 +28,8 @@ function Candidate:New(name, versions)
     --- @type ammcore.pkg.package.PackageVersion[]
     self.versions = versions
     table.sort(self.versions, function(lhs, rhs)
-        if lhs.availableLocally ~= rhs.availableLocally then
-            return lhs.availableLocally
+        if lhs.isInstalled ~= rhs.isInstalled then
+            return lhs.isInstalled
         else
             return lhs.version > rhs.version
         end
@@ -137,17 +137,17 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
     local combinedSpec = version.VersionSpec:New()
 
     if rootRequirements[name] then
-        res = res .. string.format("AMM_PACKAGES requires %s%s\n", name, rootRequirements[name])
+        res = res .. string.format("AMM_PACKAGES requires %s %s\n", name, rootRequirements[name])
         combinedSpec = combinedSpec .. rootRequirements[name]
     end
 
     for _, pinnedVersion in ipairs(bestAttempt) do
         local candidate = pinnedVersion.candidate.versions[pinnedVersion.versionIndex]
-        if candidate then
+        if candidate and not candidate.isBroken then
             local requirements = candidate:getAllRequirements()
             if requirements[name] then
                 res = res .. string.format(
-                    "Package %s==%s requires %s%s\n",
+                    "Package %s==%s requires %s %s\n",
                     candidate.name,
                     candidate.version,
                     name,
@@ -160,23 +160,29 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
 
     for _, ver in ipairs(failedPkg.candidate.versions) do
         if combinedSpec:matches(ver.version) then
-            res = res .. string.format(
-                "Version %s==%s can'be used because it requires ", name, ver.version
-            )
-            local sep = ""
-            local requirements = ver:getAllRequirements()
-            for _, pinnedVersion in ipairs(bestAttempt) do
-                local candidate = pinnedVersion.candidate.versions[pinnedVersion.versionIndex]
-                if (
-                        candidate
-                        and requirements[candidate.name]
-                        and not requirements[candidate.name]:matches(ver.version)
-                    ) then
-                    res = res .. sep .. string.format("%s%s", candidate.name, requirements[candidate.name])
-                    sep = ","
+            if ver.isBroken then
+                res = res .. string.format(
+                    "Version %s==%s can'be used because it was skipped\n", name, ver.version
+                )
+            else
+                res = res .. string.format(
+                    "Version %s==%s can'be used because it requires ", name, ver.version
+                )
+                local sep = ""
+                local requirements = ver:getAllRequirements()
+                for _, pinnedVersion in ipairs(bestAttempt) do
+                    local candidate = pinnedVersion.candidate.versions[pinnedVersion.versionIndex]
+                    if (
+                            candidate
+                            and requirements[candidate.name]
+                            and not requirements[candidate.name]:matches(ver.version)
+                        ) then
+                        res = res .. sep .. string.format("%s %s", candidate.name, requirements[candidate.name])
+                        sep = ","
+                    end
                 end
+                res = res .. "\n"
             end
-            res = res .. "\n"
         end
     end
 
@@ -244,7 +250,20 @@ local function resolve(rootRequirements, provider)
             local requirements
             local isViable = true
 
-            -- 1. Check if requirements of previously pinned candidate versions
+            if pinnedVersion.isBroken then
+                goto continue
+            end
+
+            -- Check if root requirements allow using this version.
+            if (
+                    rootRequirements[pinnedVersion.name]
+                    and not rootRequirements[pinnedVersion.name]:matches(pinnedVersion.version)
+                ) then
+                pinnedCandidate.candidate.conflicts = pinnedCandidate.candidate.conflicts + 1
+                goto continue
+            end
+
+            -- Check if requirements of previously pinned candidate versions
             -- allow using this version.
             for name, prevPinnedVersion in pairs(pinnedByName) do
                 local prevRequirements = prevPinnedVersion:getAllRequirements()
@@ -262,16 +281,17 @@ local function resolve(rootRequirements, provider)
                 goto continue
             end
 
-            -- 2. Fetch candidate requirements.
+            -- Fetch candidate requirements.
             do
                 local ok, err = pcall(function() requirements = pinnedVersion:getAllRequirements() end)
                 if not ok then
-                    logger:warning("Skipping %s version %s: %s", pinnedVersion.name, pinnedVersion.version, err)
+                    pinnedVersion.isBroken = true
+                    logger:warning("Skipping %s==%s: %s", pinnedVersion.name, pinnedVersion.version, err)
                     goto continue
                 end
             end
 
-            -- 3. Check that new requirements are compatible
+            -- Check that new requirements are compatible
             -- with previously pinned candidate versions
             for name, spec in pairs(requirements) do
                 if pinnedByName[name] and not spec:matches(pinnedByName[name].version) then

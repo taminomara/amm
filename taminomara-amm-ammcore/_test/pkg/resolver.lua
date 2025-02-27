@@ -1,5 +1,5 @@
 local resolver      = require "ammcore/pkg/resolver"
-local test          = require "ammtest/test"
+local test          = require "ammtest/index"
 local provider      = require "ammcore/pkg/provider"
 local class         = require "ammcore/util/class"
 local localProvider = require "ammcore/pkg/providers/local"
@@ -150,5 +150,20 @@ suite:case("conflict", function()
         resolver.resolve,
         { { baz = version.parseSpec("*") }, provider },
         "Can't find appropriate version for package bar"
+    )
+end)
+
+suite:case("root requirements not satisfied", function()
+    local provider = TestProvider:New({
+        baz = {
+            ["1"] = {},
+            ["2"] = {},
+        },
+    })
+
+    test.assertError(
+        resolver.resolve,
+        { { baz = version.parseSpec(">=3") }, provider },
+        "Can't find appropriate version for package baz"
     )
 end)

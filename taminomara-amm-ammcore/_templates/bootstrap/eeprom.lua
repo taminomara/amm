@@ -1,53 +1,29 @@
 --- This code will load AMM and initialize the computer.
 
---[[{ if prog ~= "ammcore.bin.server" }]]
---- Name of this computer, used for monitoring.
-AMM_FACTORY_NAME = [[{ factoryName }]]
-
---[[{ end }]]
---[[{ if prog == "ammcore.bin.server" }]]
 --- Packages to install in addition to the loader system.
-AMM_PACKAGES = {
-    --[[{ for _, package in ipairs(packages) }]]
-    [ [[{ package.name }]] ] = [[{ package.version }]],
-    --[[{ end }]]
-}
+AMM_PACKAGES = [[{ packages }]]
 
---- If set to `true`, AMM will do a clean install of all packages.
-AMM_PKG_FORCE_CLEAN_INSTALL = false
-
---[[{ end }]]
 --- Configuration for loading source code.
 AMM_BOOT_CONFIG = {
     --- Program to run, parsed from computer's nick by default.
     prog = [[{ prog }]],
+    -- prog = "ammcore/bin/installPackages", -- to install new packages
+    -- prog = "ammcore/bin/updatePackages", -- to update all packages to the latest version
+    -- prog = "ammcore/bin/resetPackages", -- to do a clean install
 
     --- Where to find the program: either `drive` or `net`.
     target = [[{ target }]],
 
-    --[[{ if target == "drive" }]]
     --- Id of the hard drive which contains the code.
-    --- Required if `target = "drive"` and computer has multiple hard drives.
+    --- Required if `target = "drive"` and the computer has multiple hard drives.
     driveId = [[{ driveId }]],
-
-    --[[{ end }]]
-    --[[{ if target == "net" }]]
-    --- Address of the server which serves the code.
-    --- By default, the first code server that responds is used.
-    netCodeServerAddr = [[{ netCodeServerAddr }]],
-    --[[{ end }]]
 }
-
-
-
-
-AMM_BOOT_CONFIG = {target = "drive"}
 
 -- Implementation
 
 local loaders = {}
 
---- @type fun(path: string): string?
+--- @type fun(path: string): string?, string?
 function loaders.drive(path)
     -- Locate a hard drive.
     if not filesystem.initFileSystem("/dev") then
@@ -106,10 +82,10 @@ function loaders.drive(path)
     -- Cleanup: loader will mount everything by itself.
     filesystem.unmount("/")
 
-    return code
+    return code, realPath
 end
 
---- @type fun(path: string): string?
+--- @type fun(path: string): string?, string?
 function loaders.net(path)
     -- Find a network card.
     local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
@@ -133,13 +109,13 @@ function loaders.net(path)
 
     -- Wait for response.
     local deadline = computer.millis() + 500
-    local event, sender, port, message, filename, code
+    local event, sender, port, message, filename, code, realPath
     while true do
         local now = computer.millis()
         if now > deadline then
             error("BootloaderError: timeout while waiting for response from a code server")
         end
-        event, _, sender, port, message, filename, code = event.pull(now - deadline)
+        event, _, sender, port, message, filename, code, realPath = event.pull(now - deadline)
         if (
                 event == "NetworkMessage"
                 and (not AMM_BOOT_CONFIG.netCodeServerAddr or sender == AMM_BOOT_CONFIG.netCodeServerAddr)
@@ -159,7 +135,7 @@ function loaders.net(path)
     AMM_BOOT_CONFIG.netCodeServerAddr = sender
     computer.log(0, string.format("Using code server %s", sender))
 
-    return code
+    return code, realPath
 end
 
 if not AMM_BOOT_CONFIG then
@@ -170,16 +146,16 @@ elseif not loaders[AMM_BOOT_CONFIG.target] then
     error(string.format("BootloaderError: AMM_BOOT_CONFIG.target has invalid value %s", AMM_BOOT_CONFIG.target))
 else
     local path = "ammcore/_loader.lua"
-    local code = loaders[AMM_BOOT_CONFIG.target](path)
+    local code, realPath = loaders[AMM_BOOT_CONFIG.target](path)
 
     if not code then
         error(string.format("ImportError: no module named %s", path))
     end
 
     -- Compile loader code.
-    local fn, err = load(code, path)
+    local fn, err = load(code, realPath)
     if not fn then
-        error(string.format("ImportError: failed to parse %s: %s", path, err))
+        error(string.format("ImportError: failed to parse %s: %s", realPath, err))
     end
 
     -- Init loader.

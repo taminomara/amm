@@ -4,7 +4,7 @@ local severity = require "amm/lib/severity"
 local log = require "ammcore/util/log"
 local errorReporter = require "amm/lib/errorReporter"
 local controller = require "amm/lib/controller"
-local recipeHelpers = require "ammcore/util/recipeHelpers"
+local recipeHelpers = require "amm/lib/recipeHelpers"
 
 -- Production line controller.
 local lc = {}

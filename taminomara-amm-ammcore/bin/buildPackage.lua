@@ -6,7 +6,6 @@ local json              = require "ammcore/contrib/json"
 local version           = require "ammcore/pkg/version"
 local log               = require "ammcore/util/log"
 local build             = require "ammcore/pkg/packageBuilder"
-local glob              = require "ammcore/contrib/glob"
 
 local logger            = log.Logger:New()
 

@@ -239,9 +239,9 @@ end
 
 --- @return string
 function ns.VersionSpec:__tostring()
-    local res, sep = "", ""
+    local res, sep, opSep = "", "", #self._specs == 1 and " " or ""
     for _, spec in ipairs(self._specs) do
-        res = res .. sep .. spec.op .. tostring(spec.version)
+        res = res .. sep .. spec.op .. opSep .. tostring(spec.version)
         sep = ", "
     end
     return res
