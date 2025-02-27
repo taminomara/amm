@@ -47,7 +47,6 @@ luac.out
 
 # AMM-specific files
 .amm_packages/
-.amm_staging/
 .amm_state/
 build/
 

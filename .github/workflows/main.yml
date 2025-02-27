@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-      - name: Test and build AMM package
+      - name: Test and build an AMM package
         uses: taminomara/amm@action
         with:
           test: true
@@ -48,4 +48,4 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
+        uses: actions/deploy-pages@v4

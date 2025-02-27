@@ -11,7 +11,7 @@ ns.AggregateProvider = class.create("AggregateProvider", provider.Provider)
 --- @param providers ammcore.pkg.provider.Provider[]
 ---
 --- @generic T: ammcore.pkg.provider.AggregateProvider
---- @param self T
+--- @param self T|ammcore.pkg.provider.AggregateProvider
 --- @return T
 function ns.AggregateProvider:New(providers)
     self = provider.Provider.New(self)

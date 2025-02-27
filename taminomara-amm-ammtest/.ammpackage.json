@@ -1,6 +1,15 @@
 {
+  "name": "taminomara-amm-ammtest",
   "version": "1.0.0",
+  "description": "Testing suite for AMM packages.",
+  "author": "Tamika Nomara <taminomara@gmail.com>",
+  "license": "MIT",
+  "urls": {
+    "code": "https://github.com/taminomara/amm",
+    "issues": "https://github.com/taminomara/amm/issues",
+    "docs": "https://taminomara.github.io/amm"
+  },
   "requirements": {
-    "taminomara-amm-ammcore": "~=1.0"
+    "taminomara-amm-ammcore": "~1.0"
   }
 }

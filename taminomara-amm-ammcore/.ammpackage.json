@@ -1,6 +1,19 @@
 {
+  "name": "taminomara-amm-ammcore",
   "version": "1.0.0",
+  "description": "Implements packaging system, import system and universal bootloader for AMM.",
+  "author": "Tamika Nomara <taminomara@gmail.com>",
+  "license": "MIT",
+  "urls": {
+    "code": "https://github.com/taminomara/amm",
+    "issues": "https://github.com/taminomara/amm/issues",
+    "docs": "https://taminomara.github.io/amm"
+  },
   "devRequirements": {
-    "taminomara-amm-ammtest": "~=1.0"
+    "taminomara-amm-ammtest": "~1.0"
+  },
+  "build": {
+    "files": ["*", "!_build.lua", "!test/*"],
+    "script": "_build.lua"
   }
 }

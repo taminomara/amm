@@ -2,8 +2,8 @@
 
 --- Packages to install in addition to the loader system.
 AMM_PACKAGES = {
-    "taminomara/amm/amm ~= 1.0",
-    "taminomara/amm/ammlib ~= 1.0",
+    "taminomara-amm-amm ~= 1.0",
+    "taminomara-amm-ammlib ~= 1.0",
 }
 
 -- Implementation

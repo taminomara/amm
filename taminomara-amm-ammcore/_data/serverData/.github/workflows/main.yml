@@ -1,0 +1,24 @@
+name: Build and publish an AMM package
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - '*/v*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Test and build an AMM package
+        uses: taminomara/amm@action
+        with:
+          test: true
+          local: true
+          token: ${{ secrets.GITHUB_TOKEN }}

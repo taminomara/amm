@@ -5,7 +5,8 @@ local filesystemHelpers = require "ammcore/util/filesystemHelpers"
 local json              = require "ammcore/contrib/json"
 local version           = require "ammcore/pkg/version"
 local log               = require "ammcore/util/log"
-local build             = require "ammcore/pkg/build"
+local build             = require "ammcore/pkg/packageBuilder"
+local glob              = require "ammcore/contrib/glob"
 
 local logger            = log.Logger:New()
 
@@ -25,7 +26,7 @@ if not name or not ver then
     error("Invalid release tag " .. tag)
 end
 
-logger:info("Building %s", name)
+logger:info("Building %s==%s", name, ver)
 
 local isValid, packageUser, packageRepo = packageName.parseFullPackageName(name)
 if not isValid then
@@ -47,23 +48,24 @@ pkg.version = version.parse(ver)
 
 filesystem.createDir("build/", true)
 
-local metadata = json.encode(pkg:serialize())
+local metaData = pkg:serialize()
+local buildData = metaData.build or {}
+local metaDataJson = json.encode(metaData)
 
 logger:info("Writing build/ammpackage.json")
-filesystemHelpers.writeFile("build/ammpackage.json", metadata)
+
+filesystemHelpers.writeFile("build/ammpackage.json", metaDataJson)
 
 logger:info("Writing build/package")
-local outputFiles = {}
-build.travelDir(name, "", "%.lua$", outputFiles)
-build.callBuildScript(name, pkg.version, outputFiles)
-outputFiles["_version.lua"] = "return [[" .. tostring(pkg.version) .. "]]\n"
-outputFiles[".ammpackage.json"] = metadata
 
-local code = {}
-for filename, content in pairs(outputFiles) do
-    table.insert(code, string.format("[%q]=%q", filename, content))
+local builder = build.PackageBuilder:New(name, tostring(version))
+builder:copyDir(name, "", buildData.files or {"*.lua"}, true)
+if buildData.script then
+    build.callBuildScript(name, buildData.script, builder)
 end
-local packageData = string.format("{%s}", table.concat(code, ","))
-filesystemHelpers.writeFile("build/package", packageData)
+builder:addFile("_version.lua", "return [[" .. tostring(pkg.version) .. "]]\n", true)
+builder:addFile(".ammpackage.json", metaDataJson, true)
 
-logger:info("Successfully built %s version %s", name, pkg.version)
+filesystemHelpers.writeFile("build/package", builder:build())
+
+logger:info("Successfully built %s==%s", name, pkg.version)

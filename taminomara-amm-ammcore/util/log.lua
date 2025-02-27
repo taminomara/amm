@@ -11,7 +11,7 @@ local log = {}
 --- otherwise your changes might not be noticed.
 ---
 --- @type table<string, log.Level>
-AMM_LOG_LEVELS = AMM_LOG_LEVELS or { [""] = "Info" }
+AMM_LOG_LEVELS = AMM_LOG_LEVELS or { [""] = "Debug" }
 
 --- Logging level.
 ---

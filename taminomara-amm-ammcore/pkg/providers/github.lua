@@ -6,14 +6,14 @@ local json              = require "ammcore/contrib/json"
 local log               = require "ammcore/util/log"
 local packageName       = require "ammcore/pkg/packageName"
 local package           = require "ammcore/pkg/packageVersion"
-local ammPackageJson    = require "ammcore/pkg/ammPackageJson"
+local ammPackageJson    = require "ammcore/pkg/packageJson"
 
 --- Github package provider.
 local ns                = {}
 
 local logger            = log.Logger:New()
 
-local cachePath         = "/.amm_packages.gh-cache.json"
+local cachePath         = "/.amm_packages/gh-cache.json"
 
 --- Package version that was loaded from github.
 ---
@@ -22,18 +22,18 @@ ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVe
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
---- @param data ammcore.pkg.providers.github.CacheVersion
+--- @param cacheData ammcore.pkg.providers.github.CacheVersion
 --- @param provider ammcore.pkg.providers.github.GithubProvider
 ---
 --- @generic T: ammcore.pkg.package.GithubPackageVersion
 --- @param self T
 --- @return T
-function ns.GithubPackageVersion:New(name, version, data, provider)
+function ns.GithubPackageVersion:New(name, version, cacheData, provider)
     self = ns.PackageVersion.New(self, name, version, provider)
 
     --- @private
     --- @type ammcore.pkg.providers.github.CacheVersion
-    self._data = data
+    self._cacheData = cacheData
 
     --- @private
     --- @type table<string, ammcore.pkg.version.VersionSpec>
@@ -43,37 +43,11 @@ function ns.GithubPackageVersion:New(name, version, data, provider)
 end
 
 function ns.GithubPackageVersion:getRequirements()
-    if not self._data.requirements then
-        local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
-        if not internetCard then
-            error("GitHub dependency provider requires an internet card to download code")
-        end
-
-        logger:debug("Fetching %s", self._data.metadataUrl)
-        local res, rawMetadata = internetCard:request(self._data.metadataUrl, "GET", ""):await()
-        if not res then
-            error("Couldn't connect to github")
-        elseif res ~= 200 then
-            error("Got an error from github API: " .. tostring(res))
-        end
-
-        local data
-        local ok, err = pcall(function() data = json.decode(rawMetadata) end)
-        if not ok then
-            error("Failed to parse response from github: " .. err)
-        end
-
-        local ver, requirements = ammPackageJson.parse(data, "github response")
-
-        if ver ~= self.version then
-            error("Package metadata version is inconsistent with release version")
-        end
-
-        self._data.requirements = data["requirements"] or {}
-        self._requirements = requirements
+    if not self._cacheData.data then
+        self:_loadData()
     elseif not self._requirements then
         self._requirements = {}
-        for name, spec in pairs(self._data.requirements) do
+        for name, spec in pairs(self._cacheData.data.requirements) do
             self._requirements[name] = version.parseSpec(spec)
         end
     end
@@ -85,10 +59,50 @@ function ns.GithubPackageVersion:getDevRequirements()
     return {}
 end
 
+function ns.GithubPackageVersion:serialize()
+    if not self._cacheData.data then
+        self:_loadData()
+    end
+    return self._cacheData.data
+end
+
+--- @private
+function ns.GithubPackageVersion:_loadData()
+    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+    if not internetCard then
+        error("GitHub dependency provider requires an internet card to download code")
+    end
+
+    logger:debug("Fetching %s", self._cacheData.metadataUrl)
+    local res, rawMetadata = internetCard:request(self._cacheData.metadataUrl, "GET", ""):await()
+    if not res then
+        error("Couldn't connect to github")
+    elseif res ~= 200 then
+        error("Got an error from github API: " .. tostring(res))
+    end
+
+    local rawData
+    local ok, err = pcall(function() rawData = json.decode(rawMetadata) end)
+    if not ok then
+        error("Failed to parse response from github: " .. err)
+    end
+
+    local ver, requirements, _, data = ammPackageJson.parse(rawData, "github response")
+    if data.name ~= self.name then
+        error("Package metadata name is inconsistent with release name")
+    end
+    if ver ~= self.version then
+        error("Package metadata version is inconsistent with release version")
+    end
+
+    self._cacheData.data = data
+    self._requirements = requirements
+end
+
 --- @class ammcore.pkg.providers.github.CacheVersion
 --- @field metadataUrl string
 --- @field codeUrl string
---- @field requirements table<string, string>?
+--- @field data? ammcore.pkg.ammPackageJson.AmmPackageJson
 
 --- @class ammcore.pkg.providers.github.CacheRepo
 --- @field packages table<string, table<string, ammcore.pkg.providers.github.CacheVersion>>
@@ -229,8 +243,7 @@ function ns.GithubProvider:_loadData(user, repo)
         nTags = nTags + 1
 
         if oldCache and oldCache.packages[releasePkg] and oldCache.packages[releasePkg][releaseVerCanon] then
-            cache.packages[releasePkg][releaseVerCanon].requirements = oldCache.packages[releasePkg][releaseVerCanon]
-                .requirements
+            cache.packages[releasePkg][releaseVerCanon].data = oldCache.packages[releasePkg][releaseVerCanon].data
         end
 
         ::continue::
@@ -257,7 +270,8 @@ function ns.GithubProvider:findPackageVersions(name)
     pkg = pkg or ""
 
     if not self._packages[ghName].packages[pkg] then
-        logger:warning("Repo https://github.com/%s/%s: package not found")
+        logger:warning("Repo https://github.com/%s/%s: package not found", user, repo)
+        return {}, false
     end
 
     local result = {}

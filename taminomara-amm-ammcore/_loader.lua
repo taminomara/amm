@@ -23,7 +23,7 @@ function api._loaders.drive()
     -- Mount a hard drive.
     filesystem.mount(filesystem.path("/dev", AMM_BOOT_CONFIG.driveId), "/")
 
-    local pathTemplates = { "/taminomara-amm-%s", "/%s", "/.amm_packages/taminomara-amm-%s", "/.amm_packages/%s" }
+    local pathTemplates = { "/taminomara-amm-%s", "/%s", "/.amm_packages/lib/taminomara-amm-%s", "/.amm_packages/lib/%s" }
 
     --- @type fun(path: string): string?
     return function(path)

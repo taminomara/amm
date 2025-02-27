@@ -13,7 +13,7 @@ ns.Version = class.create("Version")
 function ns.Version:New(...)
     self = class.Base.New(self)
 
-    --- @private
+    --- @package
     --- @type (integer|"*")[]
     self._components = { ... }
 
@@ -24,11 +24,13 @@ function ns.Version:New(...)
     return self
 end
 
---- Return version without its last component.
+--- Return version with its last component replaced by wildcard.
 ---
 --- @return ammcore.pkg.version.Version
-function ns.Version:up()
-    return ns.Version:New(table.unpack(self._components, 1, #self._components - 1))
+function ns.Version:makeWild()
+    local res = ns.Version:New(table.unpack(self._components, 1, #self._components - 1))
+    table.insert(res._components, "*")
+    return res
 end
 
 --- @return string
@@ -59,7 +61,7 @@ function ns.Version:canonicalString()
     return self._canonicalString
 end
 
---- Check that versions are compatible (i.e. `x~=1.0.5` means `x>=1.0.5 and x==1.0.*`).
+--- Check that versions are compatible (i.e. `x~1.0.5` means `x>=1.0.5 and x==1.0.*`).
 ---
 --- @param lhs ammcore.pkg.version.Version
 --- @param rhs ammcore.pkg.version.Version
@@ -169,18 +171,6 @@ function ns.Version.__gt(lhs, rhs)
     return false
 end
 
---- Append component to a version.
----
---- @param lhs ammcore.pkg.version.Version
---- @param rhs integer|"*"
---- @return ammcore.pkg.version.Version
-function ns.Version.__concat(lhs, rhs)
-    if not (type(rhs) == "number" or rhs == "*") then error("invalid version component") end
-    local result = ns.Version:New(table.unpack(lhs._components))
-    table.insert(result._components, rhs)
-    return result
-end
-
 --- Parse a version string.
 ---
 --- @param s string
@@ -214,17 +204,6 @@ function ns.parse(s, allowStar)
     return ns.Version:New(table.unpack(components))
 end
 
---- @type table<string, fun(a: ammcore.pkg.version.Version, b: ammcore.pkg.version.Version): boolean>
-local ops = {
-    ["~="] = function(a, b) return a:compat(b) end,
-    ["=="] = function(a, b) return a == b end,
-    ["!="] = function(a, b) return a ~= b end,
-    [">="] = function(a, b) return a >= b end,
-    [">"] = function(a, b) return a > b end,
-    ["<="] = function(a, b) return a <= b end,
-    ["<"] = function(a, b) return a < b end,
-}
-
 --- Represents a version specification, i.e. a parsed requirement version.
 ---
 --- @class ammcore.pkg.version.VersionSpec: class.Base
@@ -240,12 +219,20 @@ function ns.VersionSpec:New(version)
     self = class.Base.New(self)
 
     --- @package
-    --- @type { version: ammcore.pkg.version.Version, op: string, cmp: fun(a: ammcore.pkg.version.Version, b: ammcore.pkg.version.Version): boolean }[]
+    --- @type { version: ammcore.pkg.version.Version, op: string }[]
     self._specs = {}
 
     if version then
-        table.insert(self._specs, { version = version, op = "==", cmp = ops["=="] })
+        table.insert(self._specs, { version = version, op = "==" })
     end
+
+    --- @private
+    --- @type (fun(x: ammcore.pkg.version.Version): boolean)?
+    self._cmp = nil
+
+    --- @private
+    --- @type boolean?
+    self._isExact = nil
 
     return self
 end
@@ -274,17 +261,34 @@ function ns.VersionSpec.__concat(lhs, rhs)
     return res
 end
 
+--- @private
+function ns.VersionSpec:_compile()
+    local c = VersionSpecCompiler:New()
+    for _, spec in ipairs(self._specs) do
+        c:add(spec.op, spec.version)
+    end
+    self._cmp, self._isExact = c:compile()
+end
+
 --- Return `true` if this spec matches the given version.
 ---
 --- @param ver ammcore.pkg.version.Version
 --- @return boolean
 function ns.VersionSpec:matches(ver)
-    for _, spec in ipairs(self._specs) do
-        if not spec.cmp(ver, spec.version) then
-            return false
-        end
+    if not self._cmp then
+        self:_compile()
     end
-    return true
+    return self._cmp(ver)
+end
+
+--- Return `true` if this spec pins an exact version of a package.
+---
+--- @return boolean
+function ns.VersionSpec:isExact()
+    if self._isExact == nil then
+        self:_compile()
+    end
+    return self._isExact
 end
 
 --- Parse a version string.
@@ -294,19 +298,18 @@ end
 function ns.parseSpec(specs)
     local res = ns.VersionSpec:New()
 
-    for spec in (specs .. ","):gmatch("%s*(.-),%s*") do
+    for spec in (specs .. ","):gmatch("(.-),") do
         if spec:len() > 0 then
-            local op, s = spec:match("^%s*([<>=~]*)%s*(.*)%s*$")
+            local op, s = spec:match("^%s*([!<>=~]*)%s*(.-)%s*$")
             if op == "" then
                 op = "=="
             end
-            if not ops[op] then
+            if not VersionSpecCompiler._ops[op] then
                 error("unknown version comparator " .. op)
             end
             table.insert(res._specs, {
                 version = ns.parse(s, op == "" or op == "==" or op == "!="),
                 op = op,
-                cmp = ops[op],
             })
         end
     end
@@ -314,158 +317,213 @@ function ns.parseSpec(specs)
     return res
 end
 
--- --- @class Version
+--- @private
+--- @class ammcore.pkg.version.VersionSpecCompiler: class.Base
+VersionSpecCompiler = class.create("VersionSpecCompiler")
 
--- --- @class VersionSpec
--- --- @field satisfies fun(self: VersionSpec, v: Version): boolean
+--- @package
+VersionSpecCompiler._ops = {
+    ["~"] = function(self, ver) self:addCompat(ver) end,
+    ["=="] = function(self, ver) self:addEq(ver) end,
+    ["!="] = function(self, ver) self:addNe(ver) end,
+    [">="] = function(self, ver) self:addGe(ver) end,
+    [">"] = function(self, ver) self:addGt(ver) end,
+    ["<="] = function(self, ver) self:addLe(ver) end,
+    ["<"] = function(self, ver) self:addLt(ver) end,
+}
 
--- --- @class Package
--- --- @field name string
--- --- @field versions PackageVersion[]
--- --- @field nRequired integer
--- --- @field resolutionPriorityBoost integer
+--- @generic T: ammcore.pkg.version.VersionSpecCompiler
+--- @param self T
+--- @return T
+function VersionSpecCompiler:New()
+    self = class.Base.New(self)
 
--- --- @class PackageVersion
--- --- @field version Version
--- --- @field requirements table<string, VersionSpec>
+    --- @private
+    --- @type ammcore.pkg.version.Version?
+    self._upperLimit = nil
 
--- --- Package resolution algorithm is, in worst case, NP-hard. We use a backtracking
--- --- algotithm with heuristics to solve this problem.
--- function version.resolve()
---     --- @type table<string, Package>
---     local packages = {}
---     --- @type Package[]
---     local unpinnedVersions = {}
+    --- @private
+    --- @type boolean?
+    self._upperLimitInclusive = nil
 
---     --- Stack of packages for which we've pinned a version.
---     ---
---     --- Top of the stack is the current package, for which we're trying to find
---     --- an acceptable version.
---     ---
---     --- @type [Package, integer][]
---     local backtrackStack = {}
---     --- @type table<string, PackageVersion>
---     local pinnedVersions = {}
+    --- @private
+    --- @type ammcore.pkg.version.Version?
+    self._lowerLimit = nil
 
---     do
---         local nextPackage = table.remove(unpinnedVersions)
---         if not nextPackage then
---             -- No more packages to pin, success!
---             return pinnedVersions
---         end
+    --- @private
+    --- @type boolean?
+    self._lowerLimitInclusive = nil
 
---         table.insert(
---             backtrackStack,
---             {
---                 package = nextPackage,
---                 versionIndex = 0,
---             }
---         )
---     end
+    --- @private
+    --- @type ammcore.pkg.version.Version?
+    self._exactLimit = nil
 
---     while true do
---         -- Get current package. We're iterating through its versions, and seeing
---         -- if there is one that's able to satisfy all constraints.
---         local currentPackage, currentVersionIndex = table.unpack(backtrackStack[#backtrackStack])
+    --- @private
+    --- @type ammcore.pkg.version.Version[]
+    self._exclusions = {}
 
---         -- On a previous iteration of the `while` loop we've checked this version
---         -- and determined that it is not eligible. Thus, we'll not be including
---         -- requirements for this version to the solution.
---         if currentVersionIndex >= 1 then
---             for requirementName, _ in pairs(currentPackage.versions[currentVersionIndex].requirements) do
---                     if not packages[requirementName] then
---                         -- We haven't seen this package before, fetch its metadata.
---                         local requirementPackage = fetchPackageMetadata(requirementName)
---                         if not requirementPackage then
---                             computer.log(2, "Unable to find metadata for package " .. requirementName)
---                             eligible = false
---                             break
---                         end
---                         packages[requirementName] = requirementPackagecandidateVersion
---                     end
---                 packages[requirementName].nRequired = packages[requirementName].nRequired - 1
---             end
---         end
+    --- @private
+    --- @type boolean
+    self._isNa = false
 
---         -- Continue iterating over potential version candidates.
---         local foundEligibleCandidate = false
---         for i = currentVersionIndex + 1, #currentPackage.versions do
---             currentVersionIndex = i
---             local candidateVersion = currentPackage.versions[currentVersionIndex]
+    return self
+end
 
---             -- Check that this candidate doesn't conflict with already pinned versions.
---             local eligible = true
---             if eligible then
---                 -- Check that requirements of other pinned packages don't conflict with this package.
---                 for pinnedName, pinnedVersion in pairs(pinnedVersions) do
---                     if (
---                             pinnedVersion.requirements[currentPackage.name]
---                             and not pinnedVersion.requirements[currentPackage.name]:satisfies(candidateVersion.version)
---                         ) then
---                         currentPackage.resolutionPriorityBoost = currentPackage.resolutionPriorityBoost + 1
---                         packages[pinnedName].resolutionPriorityBoost = packages[pinnedName].resolutionPriorityBoost + 1
---                         eligible = false
---                         break
---                     end
---                 end
---             end
---             if eligible then
---                 -- Check that requirements of this package don't conflict with previously pinned packages.
---                 for requirementName, requirementVersionSpec in pairs(.requirements) do
---                     if (
---                             pinnedVersions[requirementName]
---                             and not requirementVersionSpec:satisfies(pinnedVersions[requirementName].version)
---                         ) then
---                         currentPackage.resolutionPriorityBoost = currentPackage.resolutionPriorityBoost + 1
---                         packages[requirementName].resolutionPriorityBoost = packages[requirementName]
---                         .resolutionPriorityBoost + 1
---                         eligible = false
---                         break
---                     end
---                 end
---             end
---
---             if eligible then
---                 foundEligibleCandidate = true
---                 break
---             end
---         end
+--- @param op string
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:add(op, ver)
+    if not self._isNa then
+        VersionSpecCompiler._ops[op](self, ver)
+    end
+end
 
---         if foundEligibleCandidate then
---             -- We were able to find a next candidate version.
---             backtrackStack[#backtrackStack][2] = currentVersionIndex
---             pinnedVersions[currentPackage.name] = currentPackage.versions[currentVersionIndex]
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addCompat(ver)
+    self:addGe(ver)
+    self:addEq(ver:makeWild())
+end
 
---             -- We will include requirements from this version to the solution.
---             for requirementName, _ in pairs(currentPackage.versions[currentVersionIndex]) do
---                 packages[requirementName].nRequired = packages[requirementName].nRequired + 1
---             end
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addEq(ver)
+    local cur = self._exactLimit
+    if not cur then
+        self._exactLimit = ver
+    else
+        self._exactLimit = ns.Version:New()
+        for i = 1, math.max(#ver._components, #cur._components) do
+            local v = ver._components[i] or 0
+            local c = cur._components[i] or 0
 
---             local nextPackage = table.remove(unpinnedVersions)
---             if not nextPackage then
---                 -- No more packages to pin, success!
---                 return pinnedVersions
---             end
+            if v == c then
+                table.insert(self._exactLimit._components, v)
+            elseif v == "*" then
+                table.insert(self._exactLimit._components, c)
+            elseif c == "*" then
+                table.insert(self._exactLimit._components, v)
+            else
+                self._isNa = true
+                return
+            end
+        end
+    end
+end
 
---             table.insert(
---                 backtrackStack,
---                 {
---                     package = nextPackage,
---                     versionIndex = 0,
---                 }
---             )
---         else
---             -- Backtrack.
---             table.remove(backtrackStack, #backtrackStack)
---             pinnedVersions[currentPackage.name] = nil
---             table.insert(unpinnedVersions, currentPackage)
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addNe(ver)
+    table.insert(self._exclusions, ver)
+end
 
---             if #backtrackStack == 0 then
---                 -- Checked all candidates, failure =(
---                 return nil
---             end
---         end
---     end
--- end
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addGe(ver)
+    if not self._lowerLimit or self._lowerLimit < ver then
+        self._lowerLimit = ver
+        self._lowerLimitInclusive = true
+    end
+end
+
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addGt(ver)
+    if not self._lowerLimit or self._lowerLimit <= ver then
+        self._lowerLimit = ver
+        self._lowerLimitInclusive = false
+    end
+end
+
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addLe(ver)
+    if not self._upperLimit or self._upperLimit > ver then
+        self._upperLimit = ver
+        self._upperLimitInclusive = true
+    end
+end
+
+--- @param ver ammcore.pkg.version.Version
+function VersionSpecCompiler:addLt(ver)
+    if not self._upperLimit or self._upperLimit >= ver then
+        self._upperLimit = ver
+        self._upperLimitInclusive = false
+    end
+end
+
+--- @return (fun(v: ammcore.pkg.version.Version): boolean), boolean
+function VersionSpecCompiler:compile()
+    if self._isNa then
+        return function() return false end, true
+    end
+
+    local isExact = (
+        self._exactLimit
+        and self._exactLimit._components[#self._exactLimit._components] ~= "*"
+        or false
+    )
+
+    local pa = {}
+    local cmp = {}
+    local env = { ipairs=ipairs }
+    if self._exactLimit then
+        env.exactLimit = self._exactLimit
+        table.insert(pa, "local exactLimit = exactLimit")
+        table.insert(cmp, "if not (x == exactLimit) then return false end")
+    end
+    if self._lowerLimit then
+        if self._lowerLimitInclusive then
+            if isExact and not (self._exactLimit >= self._lowerLimit) then
+                return function() return false end, true
+            elseif not isExact then
+                env.lowerLimit = self._lowerLimit
+                table.insert(pa, "local lowerLimit = lowerLimit")
+                table.insert(cmp, "if not (x >= lowerLimit) then return false end")
+            end
+        else
+            if isExact and not (self._exactLimit > self._lowerLimit) then
+                return function() return false end, true
+            elseif not isExact then
+                env.lowerLimit = self._lowerLimit
+                table.insert(pa, "local lowerLimit = lowerLimit")
+                table.insert(cmp, "if not (x > lowerLimit) then return false end")
+            end
+        end
+    end
+    if self._upperLimit then
+        if self._upperLimitInclusive then
+            if isExact and not (self._exactLimit <= self._upperLimit) then
+                return function() return false end, true
+            elseif not isExact then
+                env.upperLimit = self._upperLimit
+                table.insert(pa, "local upperLimit = upperLimit")
+                table.insert(cmp, "if not (x <= upperLimit) then return false end")
+            end
+        else
+            if isExact and not (self._exactLimit < self._upperLimit) then
+                return function() return false end, true
+            elseif not isExact then
+                env.upperLimit = self._upperLimit
+                table.insert(pa, "local upperLimit = upperLimit")
+                table.insert(cmp, "if not (x < upperLimit) then return false end")
+            end
+        end
+    end
+    if #self._exclusions > 0 then
+        if isExact then
+            for _, exclusion in ipairs(self._exclusions) do
+                if self._exactLimit == exclusion then
+                    return function() return false end, true
+                end
+            end
+        else
+            env.exclusions = self._exclusions
+            table.insert(pa, "local exclusions = exclusions")
+            table.insert(cmp, "for _, exclusion in ipairs(exclusions) do if x == exclusion then return false end end")
+        end
+    end
+    table.insert(cmp, "return true")
+
+    local code = string.format(
+        "%s; return function(x) %s end",
+        table.concat(pa, ";"), table.concat(cmp, ";")
+    )
+
+    return assert(load(code, "<version comparator>", "t", env))(), isExact
+end
 
 return ns

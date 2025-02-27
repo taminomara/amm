@@ -1,9 +1,18 @@
 {
+  "name": "taminomara-amm-amm",
   "version": "1.0.0",
+  "description": "Advanced Machine Monitoring framework.",
+  "author": "Tamika Nomara <taminomara@gmail.com>",
+  "license": "MIT",
+  "urls": {
+    "code": "https://github.com/taminomara/amm",
+    "issues": "https://github.com/taminomara/amm/issues",
+    "docs": "https://taminomara.github.io/amm"
+  },
   "requirements": {
-    "taminomara-amm-ammcore": "~=1.0"
+    "taminomara-amm-ammcore": "~1.0"
   },
   "devRequirements": {
-    "taminomara-amm-ammtest": "~=1.0"
+    "taminomara-amm-ammtest": "~1.0"
   }
 }

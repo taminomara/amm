@@ -1,3 +1,4 @@
+local resolver = require "ammcore/pkg/resolver"
 local ns                = {}
 
 --- Check if all requirements can be satisfied by the given provider.
@@ -75,12 +76,7 @@ function ns.verify(rootRequirements, provider)
 end
 
 function ns.install(rootRequirements, provider)
-end
-
-function ns.installEeprom()
-end
-
-function ns.main()
+    resolver.resolve(rootRequirements, provider)
 end
 
 return ns
