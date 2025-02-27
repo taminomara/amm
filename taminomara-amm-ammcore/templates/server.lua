@@ -7,7 +7,7 @@ local ns = {}
 
 local function writeServerTemplate(root, templateRoot)
     for _, name in ipairs(filesystem.children(templateRoot)) do
-        local templatePath = filesystem.path(root, name)
+        local templatePath = filesystem.path(templateRoot, name)
         local rootPath = filesystem.path(root, name)
         if filesystem.isFile(templatePath) then
             if not filesystem.exists(rootPath) then
@@ -32,15 +32,9 @@ function ns.writeServerTemplate()
         error("Server templates only available with drive loader")
     end
 
-    if filesystem.exists("/.amm_state/serverTemplateWritten") then
-        return
-    end
-
     local file = debugHelpers.getFile()
     local dir = assert(file:match("^(.*)/[^/]*/[^/]*$"))
     writeServerTemplate("/", filesystem.path(dir, "_templates/server"))
-    filesystem.createDir("/.amm_state", true)
-    filesystemHelpers.writeFile("/.amm_state/serverTemplateWritten", "")
 end
 
 return ns

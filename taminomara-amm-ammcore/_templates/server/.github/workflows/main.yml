@@ -19,6 +19,4 @@ jobs:
       - name: Test and build an AMM package
         uses: taminomara/amm@action
         with:
-          test: true
-          local: true
           token: ${{ secrets.GITHUB_TOKEN }}
