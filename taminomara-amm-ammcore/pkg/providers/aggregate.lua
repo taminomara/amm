@@ -5,13 +5,13 @@ local ns = {}
 
 --- A provider that combines results from other providers.
 ---
---- @class ammcore.pkg.provider.AggregateProvider: ammcore.pkg.provider.Provider
+--- @class ammcore.pkg.providers.aggregate.AggregateProvider: ammcore.pkg.provider.Provider
 ns.AggregateProvider = class.create("AggregateProvider", provider.Provider)
 
 --- @param providers ammcore.pkg.provider.Provider[]
 ---
---- @generic T: ammcore.pkg.provider.AggregateProvider
---- @param self T|ammcore.pkg.provider.AggregateProvider
+--- @generic T: ammcore.pkg.providers.aggregate.AggregateProvider
+--- @param self T|ammcore.pkg.providers.aggregate.AggregateProvider
 --- @return T
 function ns.AggregateProvider:New(providers)
     self = provider.Provider.New(self)

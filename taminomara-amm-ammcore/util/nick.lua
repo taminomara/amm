@@ -2,12 +2,12 @@ local class = require "ammcore/util/class"
 local log   = require "ammcore/util/log"
 
 --- Utilities for parsing component nicks.
-local nick = {}
+local ns = {}
 
 local logger = log.Logger:New()
 
---- @class nick.ParsedNick: class.Base, { [string]: string[] }
-nick.ParsedNick = class.create("ParsedNick")
+--- @class ammcore.util.nick.ParsedNick: class.Base, { [string]: string[] }
+ns.ParsedNick = class.create("ParsedNick")
 
 --- Return the first value for parameter `name`, parsed by function `ty`.
 ---
@@ -15,7 +15,7 @@ nick.ParsedNick = class.create("ParsedNick")
 --- @param name string
 --- @param ty fun(s: string): T
 --- @return T?
-function nick.ParsedNick:getOne(name, ty)
+function ns.ParsedNick:getOne(name, ty)
     local value = self[name]
     if not value or not value[1] then
         return nil
@@ -34,7 +34,7 @@ end
 --- @param name string
 --- @param ty fun(s: string): T
 --- @return T[]
-function nick.ParsedNick:getAll(name, ty)
+function ns.ParsedNick:getAll(name, ty)
     local result = {}
     for _, value in ipairs(self[name] or {}) do
         local parsed = ty(value)
@@ -57,10 +57,10 @@ end
 --- are gathered into a single array.
 ---
 --- @param s string
---- @return nick.ParsedNick
-function nick.parse(s)
+--- @return ammcore.util.nick.ParsedNick
+function ns.parse(s)
     s = string.gsub(s, "^.-#", "")
-    local result = nick.ParsedNick:New()
+    local result = ns.ParsedNick:New()
     for k, v in string.gmatch(s, "(%w+)=(%S*)") do
         result[k] = result[k] or {}
         table.insert(result[k], v)
@@ -68,4 +68,4 @@ function nick.parse(s)
     return result
 end
 
-return nick
+return ns

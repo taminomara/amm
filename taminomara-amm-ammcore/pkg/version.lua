@@ -71,7 +71,7 @@ function ns.Version.compat(lhs, rhs)
     for i = 1, len do
         local lhsComponent = lhs._components[i] or 0
         local rhsComponent = rhs._components[i] or 0
-        if lhsComponent == "*" or rhsComponent == "*" then error("Star is not allowed here") end
+        if lhsComponent == "*" or rhsComponent == "*" then error("star is not allowed here") end
         if i == len then
             return lhsComponent >= rhsComponent
         elseif lhsComponent ~= rhsComponent then
@@ -109,7 +109,7 @@ function ns.Version.__le(lhs, rhs)
     for i = 1, len do
         local lhsComponent = lhs._components[i] or 0
         local rhsComponent = rhs._components[i] or 0
-        if lhsComponent == "*" or rhsComponent == "*" then error("Star is not allowed here") end
+        if lhsComponent == "*" or rhsComponent == "*" then error("star is not allowed here") end
         if lhsComponent ~= rhsComponent then
             return lhsComponent <= rhsComponent
         end
@@ -127,7 +127,7 @@ function ns.Version.__lt(lhs, rhs)
     for i = 1, len do
         local lhsComponent = lhs._components[i] or 0
         local rhsComponent = rhs._components[i] or 0
-        if lhsComponent == "*" or rhsComponent == "*" then error("Star is not allowed here") end
+        if lhsComponent == "*" or rhsComponent == "*" then error("star is not allowed here") end
         if lhsComponent ~= rhsComponent then
             return lhsComponent < rhsComponent
         end
@@ -145,7 +145,7 @@ function ns.Version.__ge(lhs, rhs)
     for i = 1, len do
         local lhsComponent = lhs._components[i] or 0
         local rhsComponent = rhs._components[i] or 0
-        if lhsComponent == "*" or rhsComponent == "*" then error("Star is not allowed here") end
+        if lhsComponent == "*" or rhsComponent == "*" then error("star is not allowed here") end
         if lhsComponent ~= rhsComponent then
             return lhsComponent >= rhsComponent
         end
@@ -163,7 +163,7 @@ function ns.Version.__gt(lhs, rhs)
     for i = 1, len do
         local lhsComponent = lhs._components[i] or 0
         local rhsComponent = rhs._components[i] or 0
-        if lhsComponent == "*" or rhsComponent == "*" then error("Star is not allowed here") end
+        if lhsComponent == "*" or rhsComponent == "*" then error("star is not allowed here") end
         if lhsComponent ~= rhsComponent then
             return lhsComponent > rhsComponent
         end
@@ -181,24 +181,24 @@ function ns.parse(s, allowStar)
     local seenStar = false
     for component in (s .. "."):gmatch("(.-)%.") do
         if seenStar then
-            error("star is only allowed in the last version component")
+            error("star is only allowed in the last version component", 0)
         end
         if allowStar and component == "*" then
             table.insert(components, "*")
             seenStar = true
         elseif component == "*" then
-            error("star is not allowed here")
+            error("star is only allowed with '==' and '!=' operators", 0)
         else
             local n = math.tointeger(component)
             if not n then
-                error("version component is not an integer: " .. component)
+                error(string.format("version component is not an integer: %s", component), 0)
             end
             table.insert(components, n)
         end
     end
 
     if #components == 0 then
-        error("empty version")
+        error("empty version", 0)
     end
 
     return ns.Version:New(table.unpack(components))
@@ -252,7 +252,7 @@ end
 --- @return ammcore.pkg.version.VersionSpec
 function ns.VersionSpec.__concat(lhs, rhs)
     if not class.isChildOf(rhs, ns.VersionSpec) then
-        error(string.format("Can't append %s to a version spec", rhs))
+        error(string.format("can't append %s to a version spec", rhs))
     end
 
     local res = ns.VersionSpec:New()
@@ -305,7 +305,7 @@ function ns.parseSpec(specs)
                 op = "=="
             end
             if not VersionSpecCompiler._ops[op] then
-                error("unknown version comparator " .. op)
+                error(string.format("unknown operator %s", op), 0)
             end
             table.insert(res._specs, {
                 version = ns.parse(s, op == "" or op == "==" or op == "!="),

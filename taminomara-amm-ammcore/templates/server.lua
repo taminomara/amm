@@ -1,4 +1,4 @@
-local _loader = require "ammcore/_loader"
+local bootloader = require "ammcore/bootloader"
 local debugHelpers = require "ammcore/util/debugHelpers"
 local filesystemHelpers = require "ammcore/util/filesystemHelpers"
 
@@ -28,13 +28,13 @@ end
 --- I.e. you install the AMM server, open its hard drive in your IDE,
 --- and you're all set up!
 function ns.writeServerTemplate()
-    if _loader.getLoaderKind() ~= "drive" then
-        error("Server templates only available with drive loader")
+    if bootloader.getLoaderKind() ~= "drive" then
+        error("server templates only available with drive loader")
     end
 
     local file = debugHelpers.getFile()
     local dir = assert(file:match("^(.*)/[^/]*/[^/]*$"))
-    writeServerTemplate("/", filesystem.path(dir, "_templates/server"))
+    writeServerTemplate(bootloader.getDevRoot(), filesystem.path(dir, "_templates/server"))
 end
 
 return ns

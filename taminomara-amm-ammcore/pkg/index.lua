@@ -6,6 +6,7 @@ local localProvider     = require "ammcore/pkg/providers/local"
 local githubProvider    = require "ammcore/pkg/providers/github"
 local aggregateProvider = require "ammcore/pkg/providers/aggregate"
 local fin               = require "ammcore/util/fin"
+local bootloader        = require "ammcore/bootloader"
 
 local ns                = {}
 
@@ -13,16 +14,16 @@ local logger            = log.Logger:New()
 
 --- Get package provider with locally installed packages.
 ---
---- @return ammcore.pkg.provider.Provider
+--- @return ammcore.pkg.providers.local.LocalProvider
 function ns.getInstalledPackages()
-    return localProvider.LocalProvider:New(".amm_packages/lib", false)
+    return localProvider.LocalProvider:Local()
 end
 
 --- Get package provider with local dev packages.
 ---
 --- @return ammcore.pkg.providers.local.LocalProvider
 function ns.getDevPackages()
-    return localProvider.LocalProvider:New(".", true)
+    return localProvider.LocalProvider:Dev()
 end
 
 --- Scan `AMM_PACKAGES` and dev packages to get root requirements.
@@ -33,23 +34,23 @@ function ns.gatherRootRequirements(devPackages)
     local rootRequirements = devPackages:getRootRequirements()
     if AMM_PACKAGES then
         if type(AMM_PACKAGES) ~= "table" then
-            error("BootloaderError: AMM_PACKAGES is not a table")
+            error("AMM_PACKAGES is not a table")
         end
         for _, req in ipairs(AMM_PACKAGES) do
             if type(req) ~= "string" then
-                error("BootloaderError: invalid package requirement in AMM_PACKAGES: " .. req)
+                error(string.format("invalid package requirement in AMM_PACKAGES: %s", req))
             end
 
             local name, spec = req:match("^([%w_-]*)(.*)$")
 
             if not packageName.parseFullPackageName(name) then
-                error("BootloaderError: invalid package name in AMM_PACKAGES: " .. name)
+                error(string.format("invalid package name in AMM_PACKAGES: %s", name))
             end
 
             local parsedSpec
             local ok, err = pcall(function() parsedSpec = version.parseSpec(spec) end)
             if not ok then
-                error("BootloaderError: invalid package requirement in AMM_PACKAGES: " .. name .. ": " .. err)
+                error(string.format("invalid package requirement in AMM_PACKAGES: %s: %s", name, err))
             end
 
             if rootRequirements[name] then
@@ -145,11 +146,16 @@ end
 --- Resolve and install packages.
 ---
 --- @param rootRequirements any
---- @param devPackages ammcore.pkg.provider.Provider
---- @param installedPackages ammcore.pkg.provider.Provider
---- @return number nUpdated number of updated packages
---- @return number nInstalled number of freshly installed packages
-function ns.install(rootRequirements, devPackages, installedPackages)
+--- @param devPackages ammcore.pkg.providers.local.LocalProvider
+--- @param installedPackages ammcore.pkg.providers.local.LocalProvider
+--- @param updateAll boolean?
+--- @return number nUpgraded
+--- @return number nDowngraded
+--- @return number nInstalled
+--- @return number nUninstalled
+function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
+    local srvRoot = assert(bootloader.getSrvRoot())
+
     local githubPackages = githubProvider.GithubProvider:New()
     local _ <close> = fin.defer(githubPackages.saveCache, githubPackages)
 
@@ -157,57 +163,80 @@ function ns.install(rootRequirements, devPackages, installedPackages)
         devPackages, installedPackages, githubPackages
     })
 
-    local resolvedPackages = resolver.resolve(rootRequirements, provider)
+    local resolvedPackages = resolver.resolve(rootRequirements, provider, updateAll)
 
-    local nUpdated, nInstalled = 0, 0
+    local nUpgraded, nDowngraded, nInstalled, nUninstalled = 0, 0, 0, 0
 
-    if filesystem.exists(".amm_packages/staging") then
-        filesystem.remove(".amm_packages/staging", true)
+    local stagingPath = filesystem.path(srvRoot, "staging")
+    if filesystem.exists(stagingPath) then
+        filesystem.remove(stagingPath, true)
     end
-    filesystem.createDir(".amm_packages/staging", true)
+    filesystem.createDir(stagingPath, true)
+
+    local installed = {}
 
     for _, pkg in ipairs(resolvedPackages) do
+        installed[pkg.name] = true
+
         if not pkg.isInstalled then
-            local _, foundInstalledPackage = installedPackages:findPackageVersions(pkg.name)
-            if foundInstalledPackage then
-                nUpdated = nUpdated + 1
+            local installed, foundInstalledPackage = installedPackages:findPackageVersions(pkg.name)
+
+            local opetaion = ""
+            if foundInstalledPackage and #installed == 1 then
+                if pkg.version > installed[1].version then
+                    opetaion = string.format(" (upgrade from %s)", installed[1].version)
+                    nUpgraded = nUpgraded + 1
+                else
+                    opetaion = string.format(" (downgrade from %s)", installed[1].version)
+                    nDowngraded = nDowngraded + 1
+                end
             else
                 nInstalled = nInstalled + 1
             end
 
-            local stagingPath = filesystem.path(".amm_packages/staging", pkg.name)
-            local destinationPath = filesystem.path(".amm_packages/lib", pkg.name)
+            local pkgStagingPath = filesystem.path(stagingPath, pkg.name)
+            local destinationPath = filesystem.path(srvRoot, "packages", pkg.name)
 
-            logger:info("Installing package %s==%s", pkg.name, pkg.version)
-            pkg:install(stagingPath)
+            logger:info("Installing package %s == %s%s", pkg.name, pkg.version, opetaion)
+            pkg:install(pkgStagingPath)
 
             if filesystem.exists(destinationPath) then
                 filesystem.remove(destinationPath, true)
             end
 
-            logger:debug("Moving %s -> %s", stagingPath, destinationPath)
-            filesystem.move(stagingPath, destinationPath)
+            logger:debug("Moving %s -> %s", pkgStagingPath, destinationPath)
+            filesystem.move(pkgStagingPath, destinationPath)
         end
     end
 
-    filesystem.remove(".amm_packages/staging", true)
+    for name, _ in pairs(installedPackages:getRootRequirements()) do
+        if not installed[name] then
+            logger:info("Uninstalling package %s", name)
+            local destinationPath = filesystem.path(srvRoot, "packages", name)
+            filesystem.remove(destinationPath, true)
+            nUninstalled = nUninstalled + 1
+        end
+    end
 
-    return nUpdated, nInstalled
+    filesystem.remove(stagingPath, true)
+
+    return nUpgraded, nDowngraded, nInstalled, nUninstalled
 end
 
 --- Check local installation and update it if needed.
 ---
+--- @param updateAll boolean? if `true`, force-install latest versions of all packages.
 --- @returns boolean didUpdate `true` if any packages were updated, and restart is required.
-function ns.checkAndUpdate()
+function ns.checkAndUpdate(updateAll)
     local devPackages = ns.getDevPackages()
     local installedPackages = ns.getInstalledPackages()
 
     local rootRequirements = ns.gatherRootRequirements(devPackages)
 
-    if not ns.verify(rootRequirements, devPackages, installedPackages) then
+    if updateAll or not ns.verify(rootRequirements, devPackages, installedPackages) then
         logger:info("Updating installed packages")
-        local nUpdated, nInstalled = ns.install(rootRequirements, devPackages, installedPackages)
-        logger:info("Updated %s packages, installed %s packages", nUpdated, nInstalled)
+        local nUpgraded, nDowngraded, nInstalled, nUninstalled = ns.install(rootRequirements, devPackages, installedPackages, updateAll)
+        logger:info("Updating complete: %s upgraded, %s downgraded, %s installed, %s uninstalled", nUpgraded, nDowngraded, nInstalled, nUninstalled)
     else
         logger:info("Packages are up-to-date")
     end

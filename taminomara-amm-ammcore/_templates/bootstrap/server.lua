@@ -1,8 +1,10 @@
 --- This code will fetch AMM package loader over the internet and setup this computer.
 
---- Packages to install in addition to the loader system.
-AMM_PACKAGES = {
-    -- "taminomara-amm-amm ~= 1.0",
+local config = {
+    --- Packages to install in addition to the loader system.
+    packages = {
+        -- "taminomara-amm-amm ~= 1.0",
+    }
 }
 
 -- Implementation
@@ -16,20 +18,20 @@ end
 -- Download bootstrap code.
 local res, code = internetCard:request("https://taminomara.github.io/amm/bootstrap.lua", "GET", ""):await()
 if not res then
-    error("Failed fetching AMM loader: couldn't connect to server")
+    error("failed fetching AMM loader: couldn't connect to server")
 elseif res ~= 200 then
-    error("Failed fetching AMM loader: error " .. tostring(res))
+    error(string.format("failed fetching AMM loader: HTTP error %s", res))
 end
 
 -- Compile bootstrap code.
 local fn, err = load(code, "<bootstrap>")
 if not fn then
-    error("Failed parsing AMM loader: " .. tostring(err))
+    error(string.format("failed parsing AMM loader: %s", err))
 end
 
 -- Init loader.
 local bootloaderApi = fn()
-bootloaderApi.init()
+bootloaderApi.init(config)
 
 -- Run the program.
 require("ammcore/bin/installServer")

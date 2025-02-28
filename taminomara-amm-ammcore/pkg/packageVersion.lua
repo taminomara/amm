@@ -61,28 +61,28 @@ end
 ---
 --- @return table<string, ammcore.pkg.version.VersionSpec>
 function ns.PackageVersion:getRequirements()
-    error("Not implemented")
+    error("not implemented")
 end
 
 --- Get or fetch dev requirements for this version.
 ---
 --- @return table<string, ammcore.pkg.version.VersionSpec>
 function ns.PackageVersion:getDevRequirements()
-    error("Not implemented")
+    error("not implemented")
 end
 
 --- Return a table that can be serialized to `ammpackage.json`.
 ---
 --- @return ammcore.pkg.ammPackageJson.AmmPackageJson
 function ns.PackageVersion:serialize()
-    error("Not implemented")
+    error("not implemented")
 end
 
 --- Download and install this package to the given directory.
 ---
 --- @param packageRoot string
 function ns.PackageVersion:install(packageRoot)
-    error("Not implemented")
+    error("not implemented")
 end
 
 --- Get or fetch requirements for this version. Add dev requirements

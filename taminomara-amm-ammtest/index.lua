@@ -1,10 +1,12 @@
-local fin = require "ammcore/util/fin"
+local fin          = require "ammcore/util/fin"
 local debugHelpers = require "ammcore/util/debugHelpers"
+local bootloader   = require "ammcore/bootloader"
+local provider     = require "ammcore/pkg/providers/local"
 
 --- AMM test library.
-local test = {}
+local test         = {}
 
-local file = debugHelpers.getFile()
+local file         = debugHelpers.getFile()
 
 --- Pretty print implementation.
 ---
@@ -110,7 +112,8 @@ end
 
 local _AssertErrorMeta = { __tostring = function(self) return "AssertError: " .. tostring(self.msg) end }
 local function AssertError(msg, vars, fmt, ...)
-    return setmetatable({ msg = msg, vars = vars, fmt = fmt, args = { ... }, loc = debugHelpers.getLoc(4) }, _AssertErrorMeta)
+    return setmetatable({ msg = msg, vars = vars, fmt = fmt, args = { ... }, loc = debugHelpers.getLoc(4) },
+        _AssertErrorMeta)
 end
 
 local _FailMeta = { __tostring = function(self) return "Fail: " .. tostring(self.msg) end }
@@ -840,19 +843,15 @@ end
 ---
 --- @param name string?
 function test.loadTests(name)
-    if not AMM_BOOT_CONFIG then
-        error("Test library only works with the standard AMM bootloader with drive target.")
-    end
-    if AMM_BOOT_CONFIG.target ~= "drive" then
-        error("Test library only works with the drive bootloader.")
+    if bootloader.getLoaderKind() ~= "drive" then
+        error("test library only works with drive loader")
     end
 
-    local provider = require "ammcore/pkg/providers/local"
-    local loader = provider.LocalProvider:New("/", true)
+    local loader = provider.LocalProvider:Dev()
 
     for pkgName, _ in pairs(loader:getRootRequirements()) do
         if not name or pkgName == name then
-            loadTests(filesystem.path("/", pkgName, "test"))
+            loadTests(filesystem.path(bootloader.getDevRoot(), pkgName, "_test"))
         end
     end
 end
@@ -863,7 +862,7 @@ end
 function test.run()
     local results = {}
     for _, suite in ipairs(suites) do
-        local _<close> = pushPatchContext()
+        local _ <close> = pushPatchContext()
 
         local suiteResult = test.result(suite.name)
         table.insert(results, suiteResult)
@@ -879,7 +878,7 @@ function test.run()
         end
 
         for _, case in pairs(suite._cases) do
-            local _<close> = pushPatchContext()
+            local _ <close> = pushPatchContext()
 
             local testResult = test.caseResult(case.name, case.loc)
             table.insert(suiteResult.cases, testResult)
@@ -895,7 +894,7 @@ function test.run()
             end
 
             do
-                local _<close> = pushPatchContext()
+                local _ <close> = pushPatchContext()
 
                 test.patch(testData, "isInTest", true)
                 test.patch(testData, "output", {})

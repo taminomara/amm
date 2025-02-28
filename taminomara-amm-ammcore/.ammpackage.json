@@ -13,7 +13,6 @@
     "taminomara-amm-ammtest": "~1.0"
   },
   "build": {
-    "files": ["*", "!_build.lua", "!test/*"],
-    "script": "_build.lua"
+    "addFiles": ["_templates/*"]
   }
 }

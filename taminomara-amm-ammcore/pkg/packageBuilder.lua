@@ -2,6 +2,7 @@ local filesystemHelpers = require "ammcore/util/filesystemHelpers"
 local glob              = require "ammcore/contrib/glob"
 local class             = require "ammcore/util/class"
 local log               = require "ammcore/util/log"
+local bootloader        = require "ammcore/bootloader"
 
 --- Build script API.
 local ns = {}
@@ -44,21 +45,23 @@ end
 
 --- Copy a directory to the package.
 ---
---- @param src string directory source, relative to the repository root.
+--- @param src string directory source, relative to the development root.
 --- @param dst string directory destination, relative to the package root.
 --- @param pat string | string[] globs for files to include. Defaults to `*.lua`, i.e. all lua files.
 --- @param override boolean? whether to override existing files.
 function ns.PackageBuilder:copyDir(src, dst, pat, override)
     pat = pat or "*.lua"
 
-    if type(src) ~= "string" then error("Expected a string, got %s", src) end
-    if type(dst) ~= "string" then error("Expected a string, got %s", dst) end
+    if type(src) ~= "string" then error("expected src to be a string, got %s", src) end
+    if type(dst) ~= "string" then error("expected dst to be a string, got %s", dst) end
+
+    src = filesystem.path(assert(bootloader.getDevRoot()), src)
 
     if not filesystem.exists(src) then
-        error("Directory does not exist: " .. src)
+        error("directory does not exist: " .. src)
     end
     if not filesystem.isDir(src) then
-        error("Not a directory: " .. src)
+        error("not a directory: " .. src)
     end
 
     self:_travelDir(src, dst, glob.compile(pat), override)
@@ -66,18 +69,20 @@ end
 
 --- Copy a file to the package.
 ---
---- @param src string file source, relative to the repository root.
+--- @param src string file source, relative to the dev root.
 --- @param dst string file destination, relative to the package root.
 --- @param override boolean?
 function ns.PackageBuilder:copyFile(src, dst, override)
-    if type(src) ~= "string" then error("Expected a string, got %s", src) end
-    if type(dst) ~= "string" then error("Expected a string, got %s", dst) end
+    if type(src) ~= "string" then error("expected src to be a string, got %s", src) end
+    if type(dst) ~= "string" then error("expected dst to be a string, got %s", dst) end
+
+    src = filesystem.path(assert(bootloader.getDevRoot()), src)
 
     if not filesystem.exists(src) then
-        error("File does not exist: " .. src)
+        error(string.format("file does not exist: %s", src))
     end
     if not filesystem.isFile(src) then
-        error("Not a file: " .. src)
+        error(string.format("not a file: %s", src))
     end
 
     src = filesystem.path(1, src)
@@ -95,8 +100,8 @@ end
 --- @param contents string file contents.
 --- @param override boolean?
 function ns.PackageBuilder:addFile(dst, contents, override)
-    if type(dst) ~= "string" then error("Expected a string, got %s", dst) end
-    if type(contents) ~= "string" then error("Expected a string, got %s", contents) end
+    if type(dst) ~= "string" then error("expected dst to be a string, got %s", dst) end
+    if type(contents) ~= "string" then error("expected contents to be a string, got %s", contents) end
 
     dst = filesystem.path(2, dst)
 
@@ -152,13 +157,12 @@ end
 --- Call the build script.
 ---
 --- @param name string
---- @param script string
 --- @param builder ammcore.pkg.packageBuilder.PackageBuilder
-function ns.callBuildScript(name, script, builder)
-    local buildScriptPath = filesystem.path(name, script)
+function ns.callBuildScript(name, builder)
+    local buildScriptPath = filesystem.path(assert(bootloader.getDevRoot()), name, "_build.lua")
 
     if not filesystem.exists(buildScriptPath) then
-        error(string.format("Can't find build script for package %s: %s", name, buildScriptPath))
+        return
     end
 
     local env = {
@@ -195,9 +199,9 @@ function ns.callBuildScript(name, script, builder)
     env._G = env
 
     local code = filesystemHelpers.readFile(buildScriptPath)
-    local fn, err = load(code, "<build script>", "bt", env)
+    local fn, err = load(code, "@" .. buildScriptPath, "t", env)
     if not fn then
-        error(string.format("BuildError: failed to parse %s: %s", buildScriptPath, err))
+        error(string.format("failed parsing %s: %s", buildScriptPath, err))
     end
 
     logger:debug("Running build script %s", buildScriptPath)

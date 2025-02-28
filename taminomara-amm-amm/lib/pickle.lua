@@ -1,4 +1,4 @@
-local class = require "amm/util/class"
+local class = require "ammcore/util/class"
 
 --- A module for serializing and deserializing lua values.
 local pickle = {}

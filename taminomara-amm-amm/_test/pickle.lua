@@ -1,4 +1,4 @@
-local test = require "amm/lib/test"
+local test = require "ammtest/index"
 local pickle = require "amm/lib/pickle"
 
 local suite = test.suite("pickle")

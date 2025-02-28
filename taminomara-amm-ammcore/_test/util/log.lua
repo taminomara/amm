@@ -1,4 +1,4 @@
-local test = require "amm/lib/test"
+local test = require "ammtest/index"
 local log = require "ammcore/util/log"
 
 local suite = test.suite("log")
@@ -92,8 +92,8 @@ end)
 suite:case("Parent logger", function()
     log.Logger:New("foo").level = "Warn"
 
-    local l = log.Logger:New("foo.bar")
-    test.assertEq(l.name, "foo.bar")
+    local l = log.Logger:New("foo/bar")
+    test.assertEq(l.name, "foo/bar")
     test.assertNil(l.level)
 
     test.assertEq(test.getLogStr(), "")
@@ -105,17 +105,17 @@ suite:case("Parent logger", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo.bar] critical!\n"
-        .. "[foo.bar] error!\n"
-        .. "[foo.bar] warning!\n"
+        "[foo/bar] critical!\n"
+        .. "[foo/bar] error!\n"
+        .. "[foo/bar] warning!\n"
     )
 end)
 
 suite:case("Parent logger override", function()
     log.Logger:New("foo").level = "Warn"
 
-    local l = log.Logger:New("foo.bar")
-    test.assertEq(l.name, "foo.bar")
+    local l = log.Logger:New("foo/bar")
+    test.assertEq(l.name, "foo/bar")
     test.assertNil(l.level)
     l.level = "Info"
     test.assertEq(l.level, "Info")
@@ -129,9 +129,9 @@ suite:case("Parent logger override", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo.bar] critical!\n"
-        .. "[foo.bar] error!\n"
-        .. "[foo.bar] warning!\n"
-        .. "[foo.bar] info!\n"
+        "[foo/bar] critical!\n"
+        .. "[foo/bar] error!\n"
+        .. "[foo/bar] warning!\n"
+        .. "[foo/bar] info!\n"
     )
 end)

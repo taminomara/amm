@@ -1,12 +1,12 @@
 -- Helpers for working with arrays.
-local array = {}
+local ns = {}
 
 --- Check that two tables contain the same keys and values.
 ---
 --- @param array1 table
 --- @param array2 table
 --- @return boolean
-function array.eq(array1, array2)
+function ns.eq(array1, array2)
     if #array1 ~= #array2 then return false end
     for i, v in pairs(array1) do
         if v ~= array2[i] then return false end
@@ -21,7 +21,7 @@ end
 ---
 --- @param arr table
 --- @return boolean
-function array.all(arr)
+function ns.all(arr)
     for _, v in pairs(arr) do
         if not v then return false end
     end
@@ -32,7 +32,7 @@ end
 ---
 --- @param arr table
 --- @return boolean
-function array.any(arr)
+function ns.any(arr)
     for _, v in pairs(arr) do
         if v then return true end
     end
@@ -45,7 +45,7 @@ end
 --- @param t T[]
 --- @param arr T[]
 --- @return T[]
-function array.insertMany(t, arr)
+function ns.insertMany(t, arr)
     for _, v in ipairs(arr) do
         table.insert(t, v)
     end
@@ -60,7 +60,7 @@ end
 --- @param fn fun(..., x: T): U
 --- @param ... any
 --- @return U[]
-function array.map(arr, fn, ...)
+function ns.map(arr, fn, ...)
     local res = {}
     for _, v in ipairs(arr) do
         table.insert(res, fn(..., v))
@@ -68,5 +68,4 @@ function array.map(arr, fn, ...)
     return res
 end
 
-
-return array
+return ns

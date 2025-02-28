@@ -7,18 +7,16 @@ local log               = require "ammcore/util/log"
 local packageName       = require "ammcore/pkg/packageName"
 local package           = require "ammcore/pkg/packageVersion"
 local ammPackageJson    = require "ammcore/pkg/packageJson"
+local bootloader        = require "ammcore/bootloader"
 
 --- Github package provider.
 local ns                = {}
 
 local logger            = log.Logger:New()
 
-local cacheDir          = "/.amm_packages"
-local cachePath         = filesystem.path(cacheDir, "gh-cache.json")
-
 --- Package version that was loaded from github.
 ---
---- @class ammcore.pkg.package.GithubPackageVersion: ammcore.pkg.package.PackageVersion
+--- @class ammcore.pkg.providers.github.GithubPackageVersion: ammcore.pkg.package.PackageVersion
 ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVersion)
 
 --- @param name string
@@ -26,7 +24,7 @@ ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVe
 --- @param cacheData ammcore.pkg.providers.github.CacheVersion
 --- @param provider ammcore.pkg.providers.github.GithubProvider
 ---
---- @generic T: ammcore.pkg.package.GithubPackageVersion
+--- @generic T: ammcore.pkg.providers.github.GithubPackageVersion
 --- @param self T
 --- @return T
 function ns.GithubPackageVersion:New(name, version, cacheData, provider)
@@ -77,23 +75,23 @@ function ns.GithubPackageVersion:_loadData()
     logger:debug("Fetching %s", self._cacheData.metadataUrl)
     local res, rawMetadata = internetCard:request(self._cacheData.metadataUrl, "GET", ""):await()
     if not res then
-        error("Couldn't connect to github")
+        error("failed fetching package metadata: couldn't connect to github", 0)
     elseif res ~= 200 then
-        error("Got an error from github API: " .. tostring(res))
+        error(string.format("failed fetching package metadata: HTTP error %s", res), 0)
     end
 
     local rawData
     local ok, err = pcall(function() rawData = json.decode(rawMetadata) end)
     if not ok then
-        error("Failed to parse response from github: " .. err)
+        error(string.format("failed parsing package metadata: %s", err), 0)
     end
 
     local ver, requirements, _, data = ammPackageJson.parse(rawData, "github response")
     if data.name ~= self.name then
-        error("Package metadata name is inconsistent with release name")
+        error("package metadata name is inconsistent with release name", 0)
     end
     if ver ~= self.version then
-        error("Package metadata version is inconsistent with release version")
+        error("package metadata version is inconsistent with release version", 0)
     end
 
     self._cacheData.data = data
@@ -109,25 +107,25 @@ function ns.GithubPackageVersion:install(packageRoot)
     logger:debug("Fetching %s", self._cacheData.codeUrl)
     local res, rawCode = internetCard:request(self._cacheData.codeUrl, "GET", ""):await()
     if not res then
-        error("Couldn't connect to github")
+        error("failed fetching package contents: couldn't connect to github", 0)
     elseif res ~= 200 then
-        error("Got an error from github API: " .. tostring(res))
+        error(string.format("failed fetching package contents: HTTP error %s", res), 0)
     end
 
     local fn, err = load("return " .. rawCode, "<package bundle>", "bt", {})
     if not fn then
-        error(string.format("Failed to parse package bundle for package %s==%s: %s", self.name, self.version, err))
+        error(string.format("failed parsing package contents: %s", err), 0)
     end
 
     logger:debug("Unpacking %s to %s", self.name, packageRoot)
 
     local files = fn()
     if type(files) ~= "table" then
-        error(string.format("Invalid package bundle for package %s==%s", self.name, self.version))
+        error("failed parsing package contents", 0)
     end
     for path, content in pairs(files) do
         if type(path) ~= "string" or type(content) ~= "string" then
-            error(string.format("Invalid package bundle for package %s==%s", self.name, self.version))
+            error("failed parsing package contents", 0)
         end
 
         local filePath = filesystem.path(packageRoot, filesystem.path(2, path))
@@ -140,16 +138,10 @@ function ns.GithubPackageVersion:install(packageRoot)
     -- Verify installation.
     local version, _, _, data = ammPackageJson.parseFromFile(filesystem.path(packageRoot, ".ammpackage.json"))
     if data.name ~= self.name then
-        error(string.format(
-            "Invalid package bundle for package %s==%s: name from downloaded ammpackage.json doesn't match the package name",
-            self.name, self.version
-        ))
+        error("failed parsing package contents: name from package contents doesn't match name from package metadata", 0)
     end
     if version ~= self.version then
-        error(string.format(
-            "Invalid package bundle for package %s==%s: version from downloaded ammpackage.json doesn't match the package version",
-            self.name, self.version
-        ))
+        error("failed parsing package contents: version from package contents doesn't match version from package metadata", 0)
     end
 end
 
@@ -185,6 +177,7 @@ function ns.GithubProvider:New()
     --- @type table<string, true>
     self._freshPackages = {}
 
+    local cachePath = filesystem.path(assert(bootloader.getSrvRoot()), "github.cache")
     if filesystem.exists(cachePath) and filesystem.isFile(cachePath) then
         local content = filesystemHelpers.readFile(cachePath)
         local ok, err = pcall(function() self._packages = json.decode(content) end)
@@ -221,18 +214,17 @@ function ns.GithubProvider:_loadData(user, repo, name)
     logger:debug("Fetching %s", url)
     local res, rawReleases = self._internetCard:request(url, "GET", ""):await()
     if not res then
-        error("Couldn't connect to github")
+        error("failed fetching package versions: couldn't connect to github", 0)
     elseif res == 404 then
-        logger:warning("Repo https://github.com/%s/%s: package not found", user, repo)
         return
     elseif res ~= 200 then
-        error("Got an error from github API: " .. tostring(res))
+        error(string.format("failed fetching package versions: HTTP error %s", res), 0)
     end
 
     local releases
     local ok, err = pcall(function() releases = json.decode(rawReleases) end)
     if not ok then
-        error("Failed to parse response from github: " .. err)
+        error(string.format("failed parsing package versions: %s", err), 0)
     end
 
     local nTags = 0
@@ -333,7 +325,7 @@ function ns.GithubProvider:findPackageVersions(name)
     pkg = pkg or ""
 
     if not self._packages[ghName].packages[pkg] then
-        logger:warning("Repo https://github.com/%s/%s: package not found", user, repo)
+        logger:warning("Package %s not found on GitHub", name)
         return {}, false
     end
 
@@ -347,12 +339,7 @@ function ns.GithubProvider:findPackageVersions(name)
 end
 
 function ns.GithubProvider:saveCache()
-    if not filesystem.exists(cacheDir) then
-        filesystem.createDir(cacheDir, true)
-    elseif not filesystem.isDir(cacheDir) then
-        logger:warning("Unable to save github cache: %s is not a directory", cacheDir)
-        return
-    end
+    local cachePath = filesystem.path(assert(bootloader.getSrvRoot()), "github.cache")
     filesystemHelpers.writeFile(cachePath, json.encode(self._packages))
 end
 

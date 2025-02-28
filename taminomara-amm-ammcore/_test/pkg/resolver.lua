@@ -7,12 +7,12 @@ local version       = require "ammcore/pkg/version"
 
 local suite         = test.suite()
 
---- @class ammcore.test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
+--- @class ammcore._test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
 local TestProvider  = class.create("TestProvider", provider.Provider)
 
 --- @param packages table<string, table<string, {[string]: string, _local?: boolean}>>
 ---
---- @generic T: ammcore.test.pkg.resolver.TestProvider
+--- @generic T: ammcore._test.pkg.resolver.TestProvider
 --- @param self T
 --- @return T
 function TestProvider:New(packages)
@@ -27,7 +27,7 @@ function TestProvider:New(packages)
             local pkg = localProvider.LocalPackageVersion:New(
                 name, version.parse(ver), self, { name = name, version = ver }
             )
-            pkg.availableLocally = requirements._local and true or false
+            pkg.isInstalled = requirements._local and true or false
             for reqName, spec in pairs(requirements) do
                 if reqName ~= "_local" then
                     --- @diagnostic disable-next-line: param-type-mismatch

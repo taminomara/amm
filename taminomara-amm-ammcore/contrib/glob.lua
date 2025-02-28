@@ -166,13 +166,18 @@ function ns.compile(gs)
     end
 
     return function(s)
+        local matched = false
         for _, pattern in ipairs(patterns) do
             local inverted, p = table.unpack(pattern)
-            if (not string.match(s, p)) ~= inverted then
-                return false
+            if inverted then
+                if string.match(s, p) then
+                    return false
+                end
+            elseif not matched and string.match(s, p) then
+                matched = true
             end
         end
-        return true
+        return matched
     end
 end
 

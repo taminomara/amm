@@ -1,15 +1,18 @@
 local fin = require "ammcore/util/fin"
 
 --- Helpers for working with file system.
-local filesystemHelpers = {}
+local ns = {}
 
 --- Read file at the given path.
 ---
 --- @param path string
 --- @return string
-function filesystemHelpers.readFile(path)
-    if not (filesystem.exists(path) and filesystem.isFile(path)) then
-        error("No file named " .. path)
+function ns.readFile(path)
+    if not filesystem.exists(path) then
+        error(string.format("failed reading file %s: no such file", path))
+    end
+    if not filesystem.isFile(path) then
+        error(string.format("failed reading file %s: not a file", path))
     end
 
     local fd = filesystem.open(path, "r")
@@ -31,10 +34,10 @@ end
 ---
 --- @param path string
 --- @param content string
-function filesystemHelpers.writeFile(path, content)
+function ns.writeFile(path, content)
     local fd, err = filesystem.open(path, "w")
     if not fd then
-        error(err or ("Failed to write file " .. path))
+        error(string.format("failed writing file %s: %s", path, err or "unknown error"))
     end
     local _<close> = fin.defer(fd.close, fd)
 
@@ -45,8 +48,8 @@ end
 ---
 --- @param from string
 --- @param to string
-function filesystemHelpers.copyFile(from, to)
-    filesystemHelpers.writeFile(to, filesystemHelpers.readFile(from))
+function ns.copyFile(from, to)
+    ns.writeFile(to, ns.readFile(from))
 end
 
-return filesystemHelpers
+return ns

@@ -7,6 +7,7 @@ local nick              = require "ammcore/util/nick"
 local array             = require "ammcore/util/array"
 local log               = require "ammcore/util/log"
 local filesystemHelpers = require "ammcore/util/filesystemHelpers"
+local fin               = require "ammcore/util/fin"
 
 --- Facilities for actually running controllers.
 local manager           = {}
@@ -14,10 +15,9 @@ local manager           = {}
 local logger            = log.Logger:New()
 
 local function suppressErrors(callback, ...)
-    local success, err = xpcall(callback, ...)
+    local success, err = fin.xpcall(callback, ...)
     if not success then
-        ---@diagnostic disable-next-line: undefined-field, need-check-nil
-        logger:error(err.message .. "\n" .. err.trace)
+        logger:error("%s\n%s", err.message, err.trace)
     end
 end
 

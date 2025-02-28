@@ -123,32 +123,32 @@ local debugHelpers = require "ammcore/util/debugHelpers"
 ---
 --- Note that you should declare all metamethods before subclassing or instantiating
 --- a class, otherwise they will not be inherited correctly.
-local class = {}
+local ns = {}
 
 --- Base class for all classes.
 ---
 --- @class class.Base
-class.Base = setmetatable({}, { __name = "Base", __tostring = function(self) return self.__name end })
+ns.Base = setmetatable({}, { __name = "Base", __tostring = function(self) return self.__name end })
 
 --- Name of the class.
 ---
 --- @type string
-class.Base.__name = "Base"
+ns.Base.__name = "Base"
 
 --- Name of the module this class was defined in.
 ---
 --- @type string
-class.Base.__module = debugHelpers.getMod()
+ns.Base.__module = debugHelpers.getMod()
 
 --- Full name of the class.
 ---
 --- @type string
-class.Base.__fullname = class.Base.__module .. "." .. class.Base.__name
+ns.Base.__fullname = ns.Base.__module .. ":" .. ns.Base.__name
 
 --- Function for converting class instances to strings.
 ---
 --- @return string
-function class.Base:__tostring() return string.format("%s()", self.__name) end
+function ns.Base:__tostring() return string.format("%s()", self.__name) end
 
 --- Where to find attributes that are missing in a class instance.
 --- By default, they are searched in the class table.
@@ -157,21 +157,21 @@ function class.Base:__tostring() return string.format("%s()", self.__name) end
 --- Do not redefine as a table, otherwise it will not be inherited properly.
 ---
 --- @type table | fun(k: string): any
-class.Base.__index = class.Base
+ns.Base.__index = ns.Base
 
 --- Always points to the class itseld.
 ---
 --- Do not redefine, otherwise inheritance will break.
 ---
 --- @type class.Base
-class.Base.__class = class.Base
+ns.Base.__class = ns.Base
 
 --- Always points to the base class.
 ---
 --- Do not redefine, otherwise inheritance will break.
 ---
 --- @type class.Base?
-class.Base.__base = nil
+ns.Base.__base = nil
 
 --- A class method that will be called whenever a new subclass is created.
 ---
@@ -181,14 +181,15 @@ class.Base.__base = nil
 --- will not have any properties or methods present.
 ---
 --- @protected
-function class.Base:__initSubclass() end
+function ns.Base:__initSubclass() end
 
 --- Constructor.
 ---
 --- @generic T: class.Base
 --- @param self T
 --- @return T
-function class.Base:New()
+function ns.Base:New()
+    --- @diagnostic disable-next-line: undefined-field
     return setmetatable({}, self.__class)
 end
 
@@ -198,11 +199,11 @@ end
 --- @param base class.Base? Base class, defaults to `class.Base`.
 --- @param ... any Other arguments will be passed to `base.__initSubclass`.
 --- @return any
-function class.create(name, base, ...)
-    if type(name) ~= "string" then error("Class name must be a string") end
-    base = base or class.Base
-    if not class.isChildOf(base, class.Base) then error("Class base must be a class") end
-    if not rawequal(base, base.__class) then error("Class base must be a class, got an instance") end
+function ns.create(name, base, ...)
+    if type(name) ~= "string" then error("class name must be a string", 2) end
+    base = base or ns.Base
+    if not ns.isChildOf(base, ns.Base) then error("class base must be a class", 2) end
+    if not rawequal(base, base.__class) then error("class base must be a class, got an instance", 2) end
 
     -- Class is a meta table for class instances.
     local cls = {}
@@ -217,7 +218,7 @@ function class.create(name, base, ...)
     -- Set meta attributes.
     cls.__name = name
     cls.__module = debugHelpers.getMod(2)
-    cls.__fullname = cls.__module .. "." .. cls.__name
+    cls.__fullname = cls.__module .. ":" .. cls.__name
     cls.__class = cls
     cls.__base = base
 
@@ -245,7 +246,11 @@ end
 ---
 --- @param cls class.Base
 --- @param base class.Base
-function class.isChildOf(cls, base)
+function ns.isChildOf(cls, base)
+    if type(cls) ~= "table" or type(base) ~= "table" then
+        return false
+    end
+
     cls = cls.__class
     base = base.__class
 
@@ -260,4 +265,4 @@ function class.isChildOf(cls, base)
     return rawequal(cls, base)
 end
 
-return class
+return ns

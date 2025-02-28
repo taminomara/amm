@@ -10,42 +10,49 @@ local moduleCode = [[{ modules }]]
 ---
 --- @param path string
 --- @return string?
+--- @return string?
 local function loader(path)
+    local realPath
     if path:match("^ammcore/") then
-        return moduleCode[path:gsub("^ammcore/", "")]
+        realPath = path:gsub("^ammcore/", "") .. ".lua"
     elseif path:match("^taminomara-amm-ammcore/") then
-        return moduleCode[path:gsub("^taminomara-amm-ammcore/", "")]
+        realPath = path:gsub("^taminomara-amm-ammcore/", "") .. ".lua"
     else
         return nil
     end
+    return moduleCode[realPath], "bootstrap://" .. realPath
 end
 
 local api = {}
 
 function api.init(config)
     config = config or {}
+    config.devRoot = config.devRoot or "/"
+    config.srvRoot = config.srvRoot or "/.amm"
+    config.driveMountPoint = config.driveMountPoint or "/"
+    config.netCodeServerPort = config.netCodeServerPort or 0x1CD
 
     -- Find a drive to install AMM.
     filesystem.initFileSystem("/dev")
     local devices = filesystem.children("/dev")
     if #devices == 0 then
-        error("BootloaderError: no hard drive detected")
+        error("no hard drive detected")
     end
     config.driveId = config.driveId or devices[1]
-    filesystem.mount(filesystem.path("/dev", config.driveId), "/")
+    filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint)
 
-    local path = "ammcore/_loader.lua"
+    local path = "ammcore/bootloader"
 
     -- Get loader code.
-    local code = loader(path)
+    local code, realPath = loader(path)
     if not code then
-        error(string.format("ImportError: no module named %s", path))
+        error(string.format("no module named %s", path))
     end
 
     -- Compile loader code.
-    local codeFn, err = load(code, path, "bt", _ENV)
+    local codeFn, err = load(code, "@" .. realPath, "t", _ENV)
     if not codeFn then
-        error(string.format("ImportError: failed to parse %s: %s", path, err))
+        error(string.format("failed parsing %s: %s", path, err))
     end
 
     -- Import loader code.

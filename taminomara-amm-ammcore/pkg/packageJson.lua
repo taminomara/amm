@@ -17,7 +17,7 @@ local ns                = {}
 --- @field urls? table<string, string>
 --- @field requirements? table<string, string>
 --- @field devRequirements? table<string, string>
---- @field build? { files?: string[], script?: string }
+--- @field build? { addFiles?: string[], files?: string[] }
 
 --- Schema for `ammcore.pkg.ammPackageJson.AmmPackageJson`.
 local schema = {
@@ -33,8 +33,8 @@ local schema = {
     requirements = { _k = "string", _v = "string" },
     devRequirements = { _k = "string", _v = "string" },
     build = {
+        addFiles = { _k = "number", _v = "string" },
         files = { _k = "number", _v = "string" },
-        script = "string?"
     }
 }
 
@@ -92,7 +92,7 @@ function ns.parseFromFile(path)
     do
         local ok, err = pcall(function() data = json.decode(rawData) end)
         if not ok then
-            error(string.format("Unable to parse %s: %s", path, err))
+            error(string.format("unable to parse %s: %s", path, err), 0)
         end
     end
 
@@ -110,14 +110,14 @@ end
 function ns.parse(data, path)
     local err = checkSchema(data, schema, "")
     if err then
-        error(string.format("Unable to parse %s: %s", path, err))
+        error(string.format("unable to parse %s: %s", path, err), 0)
     end
 
     local ver
     do
         local ok, err = pcall(function() ver = version.parse(data.version) end)
         if not ok then
-            error(string.format("Unable to parse %s: invalid package version %s:", path, data.version, err))
+            error(string.format("unable to parse %s: invalid package version %s:", path, data.version, err), 0)
         end
     end
 
@@ -128,7 +128,7 @@ function ns.parse(data, path)
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
                 if not ok then
-                    error(string.format("Unable to parse %s: requirement %s has invalid version %s: %s", path, k, v, err))
+                    error(string.format("unable to parse %s: requirement %s has invalid version %s: %s", path, k, v, err), 0)
                 end
             end
             requirements[k] = spec
@@ -142,7 +142,7 @@ function ns.parse(data, path)
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
                 if not ok then
-                    error(string.format("Unable to parse %s: dev requirement %s has invalid version %s: %s", path, k, v, err))
+                    error(string.format("unable to parse %s: dev requirement %s has invalid version %s: %s", path, k, v, err), 0)
                 end
             end
             devRequirements[k] = spec

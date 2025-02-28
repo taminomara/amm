@@ -1,4 +1,4 @@
-local test = require "amm/lib/test"
+local test = require "ammtest/index"
 local fin = require "ammcore/util/fin"
 
 local suite = test.suite("fin")

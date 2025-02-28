@@ -1,23 +1,15 @@
 --- This code will load AMM and initialize the computer.
 
---- Packages to install in addition to the loader system.
-AMM_PACKAGES = [[{ packages }]]
-
 --- Configuration for loading source code.
-AMM_BOOT_CONFIG = {
+local config = {
     --- Program to run, parsed from computer's nick by default.
     prog = [[{ prog }]],
-    -- prog = "ammcore/bin/installPackages", -- to install new packages
+    -- prog = "ammcore/bin/installPackages", -- to check and install new packages
     -- prog = "ammcore/bin/updatePackages", -- to update all packages to the latest version
-    -- prog = "ammcore/bin/resetPackages", -- to do a clean install
 
     --- Where to find the program: either `drive` or `net`.
     target = [[{ target }]],
-
-    --- Id of the hard drive which contains the code.
-    --- Required if `target = "drive"` and the computer has multiple hard drives.
-    driveId = [[{ driveId }]],
-}
+--[[{ configExtras }]]}
 
 -- Implementation
 
@@ -26,27 +18,45 @@ local loaders = {}
 --- @type fun(path: string): string?, string?
 function loaders.drive(path)
     -- Locate a hard drive.
-    if not filesystem.initFileSystem("/dev") then
-        error("BootloaderError: failed to init /dev")
-    end
-    if not AMM_BOOT_CONFIG.driveId then
+    filesystem.initFileSystem("/dev")
+    if not config.driveId then
         local devices = filesystem.children("/dev")
         if #devices == 0 then
-            error("BootloaderError: no hard drive detected")
+            error("no hard drive detected")
         elseif #devices > 1 then
-            error("BootloaderError: multiple hard drives detected, AMM_BOOT_CONFIG.driveId is required")
+            error("multiple hard drives detected, config.driveId is required")
         end
-        AMM_BOOT_CONFIG.driveId = devices[1]
-    elseif type(AMM_BOOT_CONFIG.driveId) ~= "string" then
-        error(string.format("BootloaderError: AMM_BOOT_CONFIG.driveId has invalid value %s", AMM_BOOT_CONFIG.driveId))
-    elseif not filesystem.exists(filesystem.path("/dev", AMM_BOOT_CONFIG.driveId)) then
-        error(string.format("BootloaderError: no hard drive with id %s", AMM_BOOT_CONFIG.driveId))
+        config.driveId = devices[1]
+    elseif type(config.driveId) ~= "string" then
+        error(string.format("config.driveId has invalid value %s", config.driveId))
+    elseif not filesystem.exists(filesystem.path("/dev", config.driveId)) then
+        error(string.format("no hard drive with id %s", config.driveId))
     end
 
-    -- Mount a hard drive.
-    filesystem.mount(filesystem.path("/dev", AMM_BOOT_CONFIG.driveId), "/")
+    config.driveMountPoint = config.driveMountPoint or [[{ defaultDriveMountPoint }]]
+    if type(config.driveMountPoint) ~= "string" then
+        error(string.format("config.driveMountPoint has invalid value %s", config.driveMountPoint))
+    end
+    config.devRoot = config.devRoot or [[{ defaultDevRoot }]]
+    if type(config.devRoot) ~= "string" then
+        error(string.format("config.devRoot has invalid value %s", config.devRoot))
+    end
+    config.srvRoot = config.srvRoot or [[{ defaultSrvRoot }]]
+    if type(config.srvRoot) ~= "string" then
+        error(string.format("config.srvRoot has invalid value %s", config.srvRoot))
+    end
 
-    local pathTemplates = { "/taminomara-amm-%s", "/%s", "/.amm_packages/lib/taminomara-amm-%s", "/.amm_packages/lib/%s" }
+    -- Mount a hard drive and create roots.
+    filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint)
+    filesystem.createDir(config.devRoot, true)
+    filesystem.createDir(config.srvRoot, true)
+
+    local pathTemplates = {
+        filesystem.path(config.devRoot, "taminomara-amm-%s"),
+        filesystem.path(config.devRoot, "%s"),
+        filesystem.path(config.srvRoot, "packages/taminomara-amm-%s"),
+        filesystem.path(config.srvRoot, "packages/%s"),
+    }
 
     -- Locate package.
     local pkg = path:match("^(.-)/")
@@ -56,7 +66,7 @@ function loaders.drive(path)
     local realPath = nil
     for _, template in ipairs(pathTemplates) do
         if filesystem.exists(string.format(template, pkg)) then
-            realPath = string.format(template, path)
+            realPath = string.format(template, path) .. ".lua"
             break
         end
     end
@@ -79,9 +89,6 @@ function loaders.drive(path)
         code = code .. chunk
     end
 
-    -- Cleanup: loader will mount everything by itself.
-    filesystem.unmount("/")
-
     return code, realPath
 end
 
@@ -90,21 +97,26 @@ function loaders.net(path)
     -- Find a network card.
     local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
     if not networkCard then
-        error("BootloaderError: no network card detected")
+        error("no network card detected")
+    end
+
+    config.netCodeServerPort = config.netCodeServerPort or [[{ defaultNetCodeServerPort }]] --[[ @as integer ]]
+    if type(config.netCodeServerPort) ~= "number" then
+        error(string.format("config.netCodeServerPort has invalid value %s", config.netCodeServerPort))
     end
 
     -- Prepare a network card.
     event.listen(networkCard)
-    networkCard:open(0x1CD)
+    networkCard:open(config.netCodeServerPort)
 
     -- Send request for loader code.
-    if not AMM_BOOT_CONFIG.netCodeServerAddr then
-        networkCard:broadcast(0x1CD, "get", path)
-    elseif type(AMM_BOOT_CONFIG.netCodeServerAddr) ~= "string" then
-        error(string.format("BootloaderError: AMM_BOOT_CONFIG.netCodeServerAddr has invalid value %s",
-            AMM_BOOT_CONFIG.netCodeServerAddr))
+    if not config.netCodeServerAddr then
+        networkCard:broadcast(config.netCodeServerPort, "get", path)
+    elseif type(config.netCodeServerAddr) ~= "string" then
+        error(string.format("config.netCodeServerAddr has invalid value %s",
+            config.netCodeServerAddr))
     else
-        networkCard:send(AMM_BOOT_CONFIG.netCodeServerAddr, 0x1CD, "get", path)
+        networkCard:send(config.netCodeServerAddr, config.netCodeServerPort, "get", path)
     end
 
     -- Wait for response.
@@ -113,54 +125,54 @@ function loaders.net(path)
     while true do
         local now = computer.millis()
         if now > deadline then
-            error("BootloaderError: timeout while waiting for response from a code server")
+            error("timeout while waiting for response from a code server")
         end
         event, _, sender, port, message, filename, code, realPath = event.pull(now - deadline)
         if (
                 event == "NetworkMessage"
-                and (not AMM_BOOT_CONFIG.netCodeServerAddr or sender == AMM_BOOT_CONFIG.netCodeServerAddr)
-                and port == 0x1CD
+                and (not config.netCodeServerAddr or sender == config.netCodeServerAddr)
+                and port == config.netCodeServerPort
                 and message == "rcv"
                 and filename == path
             ) then
             if code then
                 break
             else
-                computer.log(0, string.format("Response from code server %s: file not found", sender))
+                computer.log(0, string.format("[EEPROM] Response from code server %s: file not found", sender))
             end
         end
     end
 
     -- Got a response.
-    AMM_BOOT_CONFIG.netCodeServerAddr = sender
-    computer.log(0, string.format("Using code server %s", sender))
+    config.netCodeServerAddr = sender
+    print("[EEPROM] Using code server %s", sender)
 
     return code, realPath
 end
 
-if not AMM_BOOT_CONFIG then
-    error("BootloaderError: AMM_BOOT_CONFIG is not defined")
-elseif not AMM_BOOT_CONFIG.target then
-    error("BootloaderError: AMM_BOOT_CONFIG.target is not defined")
-elseif not loaders[AMM_BOOT_CONFIG.target] then
-    error(string.format("BootloaderError: AMM_BOOT_CONFIG.target has invalid value %s", AMM_BOOT_CONFIG.target))
+if not config then
+    error("config is not defined")
+elseif not config.target then
+    error("config.target is not defined")
+elseif not loaders[config.target] then
+    error(string.format("config.target has invalid value %s", config.target))
 else
-    local path = "ammcore/_loader.lua"
-    local code, realPath = loaders[AMM_BOOT_CONFIG.target](path)
+    local path = "ammcore/bootloader"
+    local code, realPath = loaders[config.target](path)
 
     if not code then
-        error(string.format("ImportError: no module named %s", path))
+        error(string.format("no module named %s", path))
     end
 
     -- Compile loader code.
-    local fn, err = load(code, realPath)
+    local fn, err = load(code, "@" .. realPath)
     if not fn then
-        error(string.format("ImportError: failed to parse %s: %s", realPath, err))
+        error(string.format("failed parsing %s: %s", realPath, err))
     end
 
     -- Init loader.
     local bootloaderApi = fn()
-    bootloaderApi.init()
+    bootloaderApi.init(config)
 
     -- Run the program.
     require("ammcore/bin/main")

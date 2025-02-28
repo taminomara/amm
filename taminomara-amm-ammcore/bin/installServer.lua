@@ -1,9 +1,20 @@
 local pkg = require "ammcore/pkg/index"
 local eepromTemplate = require "ammcore/templates/eeprom"
-local serverTemplate = require "ammcore/templates/server"
+local filesystemHelpers = require "ammcore/util/filesystemHelpers"
+local bootloader        = require "ammcore/bootloader"
 
 pkg.checkAndUpdate()
-serverTemplate.writeServerTemplate()
-computer.setEEPROM(eepromTemplate.formatServerEeprom())
+
+print(eepromTemplate.formatServerEeprom("ammcore/bin/server"))
+computer.setEEPROM(
+    eepromTemplate.formatServerEeprom("ammcore/bin/server")
+)
+
+filesystemHelpers.writeFile(
+    filesystem.path(assert(bootloader.getSrvRoot()), "needsServerInit"),
+    ""
+)
+
 print("AMM server successfully installed.")
+
 computer.reset()

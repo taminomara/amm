@@ -12,10 +12,14 @@ local logger    = log.Logger:New()
 --- @class ammcore.pkg.resolver.Candidate: class.Base
 local Candidate = class.create("Candidate")
 
+--- @param name string
+--- @param versions ammcore.pkg.package.PackageVersion[]
+--- @param updateAll boolean?
+---
 --- @generic T: ammcore.pkg.resolver.Candidate
 --- @param self T
 --- @return T
-function Candidate:New(name, versions)
+function Candidate:New(name, versions, updateAll)
     self = class.Base.New(self)
 
     --- Name of this package.
@@ -27,13 +31,21 @@ function Candidate:New(name, versions)
     ---
     --- @type ammcore.pkg.package.PackageVersion[]
     self.versions = versions
-    table.sort(self.versions, function(lhs, rhs)
-        if lhs.isInstalled ~= rhs.isInstalled then
-            return lhs.isInstalled
-        else
-            return lhs.version > rhs.version
-        end
-    end)
+
+    if updateAll then
+        table.sort(self.versions, function(lhs, rhs) return lhs.version > rhs.version end)
+    else
+        table.sort(self.versions, function(lhs, rhs)
+            if lhs.isInstalled ~= rhs.isInstalled then
+                return lhs.isInstalled
+            else
+                return lhs.version > rhs.version
+            end
+        end)
+    end
+    for _, v in ipairs(self.versions) do
+        print(v.name, v.version, v.isInstalled)
+    end
 
     --- Indicates that this candidate has a pinned version.
     ---
@@ -147,7 +159,7 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
             local requirements = candidate:getAllRequirements()
             if requirements[name] then
                 res = res .. string.format(
-                    "Package %s==%s requires %s %s\n",
+                    "Package %s == %s requires %s %s\n",
                     candidate.name,
                     candidate.version,
                     name,
@@ -162,11 +174,11 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
         if combinedSpec:matches(ver.version) then
             if ver.isBroken then
                 res = res .. string.format(
-                    "Version %s==%s can'be used because it was skipped\n", name, ver.version
+                    "Version %s == %s can'be used because it was skipped\n", name, ver.version
                 )
             else
                 res = res .. string.format(
-                    "Version %s==%s can'be used because it requires ", name, ver.version
+                    "Version %s == %s can'be used because it requires ", name, ver.version
                 )
                 local sep = ""
                 local requirements = ver:getAllRequirements()
@@ -191,13 +203,14 @@ end
 
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
 --- @param provider ammcore.pkg.provider.Provider
+--- @param updateAll boolean?
 --- @return { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
-local function resolve(rootRequirements, provider)
+local function resolve(rootRequirements, provider, updateAll)
     --- @type table<string, ammcore.pkg.resolver.Candidate>
     local candidates = {}
 
     for name, spec in pairs(rootRequirements) do
-        local candidate = Candidate:New(name, provider:findPackageVersions(name))
+        local candidate = Candidate:New(name, provider:findPackageVersions(name), updateAll)
 
         candidate.isRootPackage = true
         candidate.requested = 1
@@ -286,7 +299,7 @@ local function resolve(rootRequirements, provider)
                 local ok, err = pcall(function() requirements = pinnedVersion:getAllRequirements() end)
                 if not ok then
                     pinnedVersion.isBroken = true
-                    logger:warning("Skipping %s==%s: %s", pinnedVersion.name, pinnedVersion.version, err)
+                    logger:warning("Skipping %s == %s: %s", pinnedVersion.name, pinnedVersion.version, err)
                     goto continue
                 end
             end
@@ -320,7 +333,7 @@ local function resolve(rootRequirements, provider)
             for name, spec in pairs(pinnedVersion:getAllRequirements()) do
                 if not candidates[name] then
                     -- Haven't seen this package before.
-                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name))
+                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name), updateAll)
                 end
 
                 candidates[name].requested = candidates[name].requested + 1
@@ -361,17 +374,18 @@ local function resolve(rootRequirements, provider)
         end
     end
 
-    error(describeBestAttempt(rootRequirements, bestAttempt))
+    error(describeBestAttempt(rootRequirements, bestAttempt), 0)
 end
 
 --- Find suitable package versions to satisfy the given requirements.
 ---
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
 --- @param provider ammcore.pkg.provider.Provider
+--- @param updateAll boolean?
 --- @return ammcore.pkg.package.PackageVersion[]
-function ns.resolve(rootRequirements, provider)
+function ns.resolve(rootRequirements, provider, updateAll)
     local res = {}
-    for _, candidate in ipairs(resolve(rootRequirements, provider)) do
+    for _, candidate in ipairs(resolve(rootRequirements, provider, updateAll)) do
         table.insert(res, candidate.candidate.versions[candidate.versionIndex])
     end
     return res

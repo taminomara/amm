@@ -4,14 +4,14 @@ local ammPackageJson   = require "ammcore/pkg/packageJson"
 local version          = require "ammcore/pkg/version"
 local packageName      = require "ammcore/pkg/packageName"
 local package          = require "ammcore/pkg/packageVersion"
-local _loader          = require "ammcore/_loader"
+local bootloader       = require "ammcore/bootloader"
 
 --- Local package provider.
 local ns               = {}
 
 --- Package version that was found on the hard drive.
 ---
---- @class ammcore.pkg.package.LocalPackageVersion: ammcore.pkg.package.PackageVersion
+--- @class ammcore.pkg.providers.local.LocalPackageVersion: ammcore.pkg.package.PackageVersion
 ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVersion)
 
 --- @param name string
@@ -19,13 +19,13 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 --- @param provider ammcore.pkg.providers.local.LocalProvider
 --- @param data ammcore.pkg.ammPackageJson.AmmPackageJson
 ---
---- @generic T: ammcore.pkg.package.LocalPackageVersion
+--- @generic T: ammcore.pkg.providers.local.LocalPackageVersion
 --- @param self T
 --- @return T
 function ns.LocalPackageVersion:New(name, version, provider, data)
     self = package.PackageVersion.New(self, name, version, provider)
 
-    self.availableLocally = true
+    self.isInstalled = true
 
     --- Requirements parsed from local storage.
     ---
@@ -58,7 +58,7 @@ function ns.LocalPackageVersion:serialize()
 end
 
 function ns.LocalPackageVersion:install(packageRoot)
-    error("This package is already installed")
+    error("this package is already installed")
 end
 
 --- Implements a provider that loads packages from a directory
@@ -92,7 +92,7 @@ function ns.LocalProvider:New(root, isDev)
             if nameIsValid and filesystem.isDir(path) and filesystem.exists(pkgPath) then
                 local ver, requirements, devRequirements, data = ammPackageJson.parseFromFile(pkgPath)
                 if data.name ~= name then
-                    error(string.format("Package name from %s doesn't match the directory name", pkgPath))
+                    error(string.format("package name from %s doesn't match the directory name", pkgPath), 0)
                 end
                 local pkg = ns.LocalPackageVersion:New(name, ver, self, data)
                 pkg.requirements = requirements
@@ -104,6 +104,24 @@ function ns.LocalProvider:New(root, isDev)
     end
 
     return self
+end
+
+--- Get provider for dev packages.
+---
+--- @generic T: ammcore.pkg.providers.local.LocalProvider
+--- @param self T
+--- @return T
+function ns.LocalProvider:Dev()
+    return self:New(bootloader.getDevRoot(), true)
+end
+
+--- Get provider for local packages.
+---
+--- @generic T: ammcore.pkg.providers.local.LocalProvider
+--- @param self T
+--- @return T
+function ns.LocalProvider:Local()
+    return self:New(filesystem.path(bootloader.getSrvRoot(), "packages"), false)
 end
 
 --- Get all top-level packages as requirements.
