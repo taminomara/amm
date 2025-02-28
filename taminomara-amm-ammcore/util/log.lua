@@ -90,7 +90,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:_log(levelInt, prefix, msg, ...)
-    if self:getEffectiveLevel() >= levelInt then
+    if levelInt >= self:getEffectiveLevel() then
         levelInt = math.min(math.max(0, math.tointeger(levelInt / 100) - 1), 4)
         computer.log(levelInt, prefix .. string.format(msg, ...))
     end

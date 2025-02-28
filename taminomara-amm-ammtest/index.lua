@@ -824,17 +824,18 @@ local function run(what, fn, ...)
     end
 end
 
-local function loadTests(root)
+local function loadTests(root, devRoot)
     if not filesystem.exists(root) then
         return
     end
     for _, filename in ipairs(filesystem.children(root)) do
-        local filepath = filesystem.path(root, filename)
-        local modpath = filepath:match("^(.*)%.lua$")
+        local path = filesystem.path(root, filename)
+        local devPath = filesystem.path(devRoot, filename)
+        local modpath = filesystem.path(devRoot, filename):match("^(.*)%.lua$")
         if modpath then
             require(modpath)
-        elseif filesystem.isDir(filepath) then
-            loadTests(filepath)
+        elseif filesystem.isDir(path) then
+            loadTests(path, devPath)
         end
     end
 end
@@ -851,7 +852,10 @@ function test.loadTests(name)
 
     for pkgName, _ in pairs(loader:getRootRequirements()) do
         if not name or pkgName == name then
-            loadTests(filesystem.path(bootloader.getDevRoot(), pkgName, "_test"))
+            loadTests(
+                filesystem.path(assert(bootloader.getDevRoot()), pkgName, "_test"),
+                filesystem.path(pkgName, "_test")
+            )
         end
     end
 end
