@@ -38,7 +38,7 @@ runs:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
         GITHUB_REPO: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
-        FLAGS: ${{ inputs.local == 'true' && '' || '--global' }}
+        FLAGS: ${{ inputs.local == 'true' && '' || '--remote' }}
       working-directory: ${{ inputs.root }}
     - name: Run tests
       if: inputs.test == 'true'
