@@ -1,4 +1,4 @@
-local class = require "ammcore/util/class"
+local class = require "ammcore.util.class"
 
 --- Utilities for working with control panel modules.
 local controlPanel = {}

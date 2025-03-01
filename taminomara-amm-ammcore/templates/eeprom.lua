@@ -1,5 +1,5 @@
-local bootloader = require "ammcore/bootloader"
-local log        = require "ammcore/util/log"
+local bootloader = require "ammcore.bootloader"
+local log        = require "ammcore.util.log"
 
 local logger     = log.Logger:New()
 
@@ -10,7 +10,7 @@ local ns         = {}
 ---
 --- @param prog string
 function ns.formatServerEeprom(prog)
-    local eepromTemplate = bootloader.findModuleCode("ammcore/_templates/bootstrap/eeprom")
+    local eepromTemplate = bootloader.findModuleCode({"ammcore/_templates/bootstrap/eeprom.lua"})
     assert(eepromTemplate, "can't find the EEPROM template")
 
     local config = bootloader.getBootloaderConfig()
@@ -27,7 +27,7 @@ function ns.formatServerEeprom(prog)
     local configExtras = ""
 
     local function addConfigExtra(name, comment, value)
-        configExtras = configExtras .. "\n    -- " .. comment:gsub("\n", "    -- ")
+        configExtras = configExtras .. "\n    --- " .. comment:gsub("\n", "    --- ")
         configExtras = configExtras .. string.format("\n    %s = %q,\n", name, value)
     end
 
@@ -38,12 +38,12 @@ function ns.formatServerEeprom(prog)
             config.driveId
         )
         if config.packages then
-            configExtras = configExtras .. "\n    -- Additional packages that the server should install."
+            configExtras = configExtras .. "\n    --- Additional packages that the server should install."
             configExtras = configExtras .. "\n    packages = {\n"
-            for _, package in config.packages do
-                configExtras = configExtras .. string.format("\n        %q,\n", package)
+            for _, package in ipairs(config.packages) do
+                configExtras = configExtras .. string.format("        %q,\n", package)
             end
-            configExtras = configExtras .. "\n    },\n"
+            configExtras = configExtras .. "    },\n"
         end
         if config.driveMountPoint ~= vars.defaultDriveMountPoint then
             addConfigExtra(
@@ -83,7 +83,7 @@ function ns.formatServerEeprom(prog)
         end
     end
 
-    logger:trace("Replacing EEPROM with the standard template for %s", config.target)
+    logger:trace("Replacing EEPROM with the standard template for '%s' bootloader", config.target)
 
     return eepromTemplate
         :gsub("%-%-%[%[{%s*configExtras%s*}%]%]", configExtras)

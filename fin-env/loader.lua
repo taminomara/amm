@@ -80,8 +80,7 @@ end
 
 local function ni(mod)
     return function()
-        print("Not implemented in this environment: " .. mod)
-        _os.exit(4)
+        computer.panic("Not implemented in this environment: " .. mod)
     end
 end
 
@@ -203,9 +202,13 @@ function computer.stop()
     _os.exit(0)
 end
 
-computer.setEEPROM = ni("computer.setEEPROM")
+function computer.setEEPROM(eeprom)
+    computer.log(0, string.format("New EEPROM:\n%s", eeprom))
+end
 
-computer.getEEPROM = ni("computer.getEEPROM")
+function computer.getEEPROM()
+    return ""
+end
 
 function computer.beep() end
 
@@ -239,15 +242,15 @@ function computer.isPromoted()
 end
 
 local _verbosity = {
-    [0] = "\x1b[2mDEBUG",
-    [1] = "INFO",
-    [2] = "\x1b[33mWARNING",
-    [3] = "\x1b[31mERROR",
-    [4] = "\x1b[31mCRITICAL",
+    [0] = "\x1b[2m",
+    [1] = "\x1b[0m",
+    [2] = "\x1b[33m",
+    [3] = "\x1b[31m",
+    [4] = "\x1b[31m",
 }
 
 function computer.log(verbosity, message)
-    print(_verbosity[verbosity] .. ": " .. tostring(message) .. "\x1b[0m")
+    print(_verbosity[verbosity] .. tostring(message) .. "\x1b[0m")
 end
 
 -- event ----------------------------------------------------------------
@@ -757,7 +760,7 @@ local function main(...)
     end
 
     bootloaderApi.init(config)
-    require("ammcore/bin/main")
+    require("ammcore.bin.main")
 end
 
 local ok, err = _xpcall(main, _debug.traceback, ...)

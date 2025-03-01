@@ -1,10 +1,10 @@
-local array = require "ammcore/util/array"
-local class = require "ammcore/util/class"
-local severity = require "amm/lib/severity"
-local log = require "ammcore/util/log"
-local errorReporter = require "amm/lib/errorReporter"
-local controller = require "amm/lib/controller"
-local recipeHelpers = require "amm/lib/recipeHelpers"
+local array = require "ammcore.util.array"
+local class = require "ammcore.util.class"
+local severity = require "amm.lib.severity"
+local log = require "ammcore.util.log"
+local errorReporter = require "amm.lib.errorReporter"
+local controller = require "amm.lib.controller"
+local recipeHelpers = require "amm.lib.recipeHelpers"
 
 -- Production line controller.
 local lc = {}

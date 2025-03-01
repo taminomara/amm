@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local controller = require "amm/lib/controller"
+local class = require "ammcore.util.class"
+local controller = require "amm.lib.controller"
 
 --- Inter-controller messaging example.
 local pingPong = {}

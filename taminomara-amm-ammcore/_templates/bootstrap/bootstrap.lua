@@ -8,19 +8,23 @@ local moduleCode = [[{ modules }]]
 
 --- In-memory loader, looks up code in the `moduleCode` table.
 ---
---- @param path string
+--- @param pathCandidates string[]
 --- @return string?
 --- @return string?
-local function loader(path)
-    local realPath
-    if path:match("^ammcore/") then
-        realPath = path:gsub("^ammcore/", "") .. ".lua"
-    elseif path:match("^taminomara-amm-ammcore/") then
-        realPath = path:gsub("^taminomara-amm-ammcore/", "") .. ".lua"
-    else
-        return nil
+local function loader(pathCandidates)
+    for _, pathCandidate in ipairs(pathCandidates) do
+        local realPath
+        if pathCandidate:match("^ammcore/") then
+            realPath = pathCandidate:gsub("^ammcore/", "")
+        elseif pathCandidate:match("^taminomara-amm-ammcore/") then
+            realPath = pathCandidate:gsub("^taminomara-amm-ammcore/", "")
+        else
+            return nil
+        end
+        return moduleCode[realPath], "gh://" .. realPath
     end
-    return moduleCode[realPath], "bootstrap://" .. realPath
+
+    return nil, nil
 end
 
 local api = {}
@@ -31,6 +35,7 @@ function api.init(config)
     config.srvRoot = config.srvRoot or "/.amm"
     config.driveMountPoint = config.driveMountPoint or "/"
     config.netCodeServerPort = config.netCodeServerPort or 0x1CD
+    config.target = loader
 
     -- Find a drive to install AMM.
     filesystem.initFileSystem("/dev")
@@ -41,10 +46,10 @@ function api.init(config)
     config.driveId = config.driveId or devices[1]
     filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint)
 
-    local path = "ammcore/bootloader"
+    local path = "ammcore/bootloader.lua"
 
     -- Get loader code.
-    local code, realPath = loader(path)
+    local code, realPath = loader({ path })
     if not code then
         error(string.format("no module named %s", path))
     end
@@ -59,7 +64,6 @@ function api.init(config)
     local bootloaderApi = codeFn()
 
     -- Run loader.
-    config.target = loader
     bootloaderApi.init(config)
 end
 

@@ -1,13 +1,13 @@
-local nick              = require "ammcore/util/nick"
-local packageName       = require "ammcore/pkg/packageName"
-local localProvider     = require "ammcore/pkg/providers/local"
-local filesystemHelpers = require "ammcore/util/filesystemHelpers"
-local json              = require "ammcore/contrib/json"
-local version           = require "ammcore/pkg/version"
-local log               = require "ammcore/util/log"
-local build             = require "ammcore/pkg/packageBuilder"
-local array             = require "ammcore/util/array"
-local bootloader        = require "ammcore/bootloader"
+local nick              = require "ammcore.util.nick"
+local packageName       = require "ammcore.pkg.packageName"
+local localProvider     = require "ammcore.pkg.providers.local"
+local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local json              = require "ammcore.contrib.json"
+local version           = require "ammcore.pkg.version"
+local log               = require "ammcore.util.log"
+local build             = require "ammcore.pkg.packageBuilder"
+local array             = require "ammcore.util.array"
+local bootloader        = require "ammcore.bootloader"
 
 local logger            = log.Logger:New()
 
@@ -92,7 +92,6 @@ local allowedFiles = buildData.files or array.insertMany(
 
 builder:copyDir(name, "", allowedFiles, true)
 build.callBuildScript(name, builder)
-builder:addFile("_version.lua", "return [[" .. tostring(pkg.version) .. "]]\n", true)
 builder:addFile(".ammpackage.json", metaDataJson, true)
 
 filesystemHelpers.writeFile(filesystem.path(buildDir, "package"), builder:build())

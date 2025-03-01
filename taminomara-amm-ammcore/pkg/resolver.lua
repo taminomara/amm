@@ -1,6 +1,6 @@
-local class     = require "ammcore/util/class"
-local log       = require "ammcore/util/log"
-local version   = require "ammcore/pkg/version"
+local class     = require "ammcore.util.class"
+local log       = require "ammcore.util.log"
+local version   = require "ammcore.pkg.version"
 
 --- Resolves dependencies.
 local ns        = {}

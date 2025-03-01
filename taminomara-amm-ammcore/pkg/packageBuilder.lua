@@ -1,8 +1,8 @@
-local filesystemHelpers = require "ammcore/util/filesystemHelpers"
-local glob              = require "ammcore/contrib/glob"
-local class             = require "ammcore/util/class"
-local log               = require "ammcore/util/log"
-local bootloader        = require "ammcore/bootloader"
+local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local glob              = require "ammcore.contrib.glob"
+local class             = require "ammcore.util.class"
+local log               = require "ammcore.util.log"
+local bootloader        = require "ammcore.bootloader"
 
 --- Build script API.
 local ns = {}
@@ -26,15 +26,25 @@ function ns.PackageBuilder:New(name, version)
     --- Name of the package that is being built.
     ---
     --- @type string
-    self.name = nil
+    self.name = name
 
     --- Version of the package that is being built.
     ---
     --- @type string
-    self.version = nil
+    self.version = version
+
+    --- Root directory of the dev installation.
+    ---
+    --- @type string
+    self.devRoot = assert(bootloader.getDevRoot())
+
+    --- Root directory of the package.
+    ---
+    --- @type string
+    self.pkgRoot = filesystem.path(self.devRoot, name)
 
     --- Do not mess with this. But if you do, make sure that all paths are normalized
-    --- via `filesystem.path(2, ...)`.
+    --- via `filesystem.path(2, ...)` and relative to `pkgRoot`.
     ---
     --- @private
     --- @type table<string, string>
@@ -131,6 +141,20 @@ function ns.PackageBuilder:_travelDir(src, dst, match, override)
             self:_travelDir(src, dst, match, override)
         end
     end
+end
+
+--- Get read-only view of table that maps package filenames to their contents.
+---
+--- @return table<string, string>
+function ns.PackageBuilder:getCode()
+    return setmetatable(
+        {},
+        {
+            __index = self._outputFiles,
+            __newindex = function () error("this table is read-only") end,
+            __pairs = function (self) return pairs(getmetatable(self).__index) end
+        }
+    )
 end
 
 --- Compile the package distribution and return it as a string.

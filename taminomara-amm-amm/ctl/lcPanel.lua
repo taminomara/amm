@@ -1,9 +1,9 @@
-local class        = require "ammcore/util/class"
-local array        = require "ammcore/util/array"
-local controlPanel = require "amm/lib/controlPanel"
-local lc           = require "amm/ctl/lc"
-local severity     = require "amm/lib/severity"
-local controller   = require "amm/lib/controller"
+local class        = require "ammcore.util.class"
+local array        = require "ammcore.util.array"
+local controlPanel = require "amm.lib.controlPanel"
+local lc           = require "amm.ctl.lc"
+local severity     = require "amm.lib.severity"
+local controller   = require "amm.lib.controller"
 
 -- Control panel for production lines.
 local lcPanel      = {}

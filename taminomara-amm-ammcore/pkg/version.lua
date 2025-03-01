@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local array = require "ammcore/util/array"
+local class = require "ammcore.util.class"
+local array = require "ammcore.util.array"
 
 local ns = {}
 
@@ -22,6 +22,13 @@ function ns.Version:New(...)
     self._canonicalString = nil
 
     return self
+end
+
+--- Return version without its last component.
+---
+--- @return ammcore.pkg.version.Version
+function ns.Version:up()
+    return ns.Version:New(table.unpack(self._components, 1, #self._components - 1))
 end
 
 --- Return version with its last component replaced by wildcard.

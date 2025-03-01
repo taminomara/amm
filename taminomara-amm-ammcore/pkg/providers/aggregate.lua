@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local provider = require "ammcore/pkg/provider"
+local class = require "ammcore.util.class"
+local provider = require "ammcore.pkg.provider"
 
 local ns = {}
 

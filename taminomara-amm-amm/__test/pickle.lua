@@ -1,5 +1,5 @@
-local test = require "ammtest/index"
-local pickle = require "amm/lib/pickle"
+local test = require "ammtest.index"
+local pickle = require "amm.lib.pickle"
 
 local suite = test.suite("pickle")
 

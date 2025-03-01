@@ -4,7 +4,7 @@ local ns = {}
 --- @type table<string, { loaded: boolean, value: any }>
 local _modules = {}
 do
-    _modules["ammcore/bootloader"] = { loaded = true, value = ns }
+    _modules["ammcore.bootloader"] = { loaded = true, value = ns }
 end
 
 --- @type table<string, string>
@@ -13,7 +13,7 @@ do
     _paths["EEPROM"] = "EEPROM"
     local path = debug.getinfo(1).source:match("^@(.-)$")
     if path then
-        _paths[path] = "ammcore/bootloader"
+        _paths[path] = "ammcore.bootloader"
     end
 end
 
@@ -44,40 +44,46 @@ function _loaders.drive(config)
         filesystem.path(config.srvRoot, "packages/%s"),
     }
 
-    --- @type fun(path: string): string?, string?
-    return function(path)
-        -- Locate package.
-        local pkg = path:match("^(.-)/")
-        if not pkg or pkg:len() == 0 then
-            return nil
-        end
-        local realPath = nil
-        for _, template in ipairs(pathTemplates) do
-            if filesystem.exists(string.format(template, pkg)) then
-                realPath = string.format(template, path) .. ".lua"
-                break
+    --- @type fun(pathCandidates: string[]): string?, string?
+    return function(pathCandidates)
+        for _, path in ipairs(pathCandidates) do
+            path = filesystem.path(2, path)
+
+            -- Locate package.
+            local pkg = path:match("^([^/]*)")
+            if not pkg or pkg:len() == 0 then
+                goto continue
             end
-        end
-
-        -- Locate file.
-        if not realPath or not (filesystem.exists(realPath) and filesystem.isFile(realPath)) then
-            return nil
-        end
-
-        local code = ""
-
-        local fd = filesystem.open(realPath, "r")
-        local _ <close> = setmetatable({}, { __close = function() fd:close() end })
-
-        while true do
-            local chunk = fd:read(1024)
-            if not chunk or chunk:len() == 0 then
-                break
+            local realPath = nil
+            for _, template in ipairs(pathTemplates) do
+                if filesystem.exists(string.format(template, pkg)) then
+                    realPath = string.format(template, path)
+                    break
+                end
             end
-            code = code .. chunk
+
+            -- Locate file.
+            if not realPath or not (filesystem.exists(realPath) and filesystem.isFile(realPath)) then
+                goto continue
+            end
+
+            local code = ""
+
+            local fd = filesystem.open(realPath, "r")
+            local _ <close> = setmetatable({}, { __close = function() fd:close() end })
+
+            while true do
+                local chunk = fd:read(1024)
+                if not chunk or chunk:len() == 0 then
+                    return code, realPath
+                end
+                code = code .. chunk
+            end
+
+            ::continue::
         end
 
-        return code, realPath
+        return nil, nil
     end
 end
 
@@ -92,8 +98,16 @@ function _loaders.net(config)
     event.listen(networkCard)
     networkCard:open(0x1CD)
 
+    -- Check config.
+    if type(config.netCodeServerAddr) ~= "string" then
+        error(string.format("config.netCodeServerAddr has invalid value %s", config.netCodeServerAddr))
+    end
+    if type(config.netCodeServerPort) ~= "number" then
+        error(string.format("config.netCodeServerPort has invalid value %s", config.netCodeServerPort))
+    end
+
     event.registerListener(
-        event.filter { sender = networkCard, event = "NetworkMessage", values = { port = 0x1CD } },
+        event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.netCodeServerPort } },
         function(event, _, sender, port, message)
             if message == "reset" then
                 local shouldCancelReset = false
@@ -109,30 +123,32 @@ function _loaders.net(config)
         end
     )
 
-    -- Check config.
-    if type(config.netCodeServerAddr) ~= "string" then
-        error(string.format("config.netCodeServerAddr has invalid value %s", config.netCodeServerAddr))
-    end
+    --- @type fun(pathCandidates: string[]): string?, string?
+    return function(pathCandidates)
+        local pathCandidatesStr = table.concat(pathCandidates, ":")
 
-    --- @type fun(path: string): string?, string?
-    return function(path)
-        networkCard:send(config.netCodeServerAddr, 0x1CD, "get", path)
+        networkCard:send(
+            config.netCodeServerAddr,
+            config.netCodeServerPort,
+            "getCode",
+            pathCandidatesStr
+        )
 
         -- Wait for response.
         local deadline = computer.millis() + 500
-        local event, sender, port, message, filename, code, realPath
+        local event, sender, port, msg, responseCandidates, code, realPath
         while true do
             local now = computer.millis()
             if now > deadline then
                 error("timeout while waiting for response from a code server")
             end
-            event, _, sender, port, message, filename, code, realPath = event.pull(now - deadline)
+            event, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
             if (
                     event == "NetworkMessage"
                     and sender == config.netCodeServerAddr
-                    and port == 0x1CD
-                    and message == "rcv"
-                    and filename == path
+                    and port == config.netCodeServerPort
+                    and msg == "rcvCode"
+                    and responseCandidates == pathCandidatesStr
                 ) then
                 break
             end
@@ -146,27 +162,50 @@ if require then
     computer.log(2, "BootloaderWarning: 'require' function is already present")
 end
 
+--- @param mod string
+--- @return string? canonical module name
+--- @return string[] candidates for file search
+local function canonizeModName(mod)
+    if type(mod) ~= "string" then
+        error(string.format("expected a string, got %s", type(mod)), 2)
+    end
+    if mod:match("/") then
+        return nil, { filesystem.path(2, mod) }
+    else
+        mod = mod:gsub("%.+", "."):gsub("%.+$", "")
+        if mod:match("^%.") then
+            error("relative imports are not supported", 3)
+        elseif mod:len() == 0 then
+            error("got an empty module path", 3)
+        end
+        local shortAmmMod = mod:match("^taminomara%-amm%-(.*)$")
+        if shortAmmMod then
+            mod = shortAmmMod
+        end
+        local path = mod:gsub("%.", "/")
+        return mod, { path .. ".lua", path .. "/_index.lua" }
+    end
+end
+
 --- Find and load a lua module.
 ---
---- @param path string
-function require(path)
+--- @param required string
+function require(required)
     if not loader then
         error("'require' called before 'init'", 2)
     end
 
-    if type(path) ~= "string" then
-        error(string.format("expected a string, got %s", type(path)), 2)
-    end
-    path = filesystem.path(2, path)
-    local shortAmmMod = path:match("^taminomara%-amm%-(.*)$")
-    if shortAmmMod then
-        path = shortAmmMod
+    local mod, pathCandidates = canonizeModName(required)
+
+    if not mod then
+        error(string.format("can't require a module by its full path name %s", required))
     end
 
-    if not _modules[path] then
-        local code, realPath = loader(path)
+    if not _modules[mod] then
+        local code, realPath
+        code, realPath = loader(pathCandidates)
         if not code then
-            error(string.format("no module named %s", path), 2)
+            error(string.format("no module named %s", mod), 2)
         end
 
         if _paths[realPath] then
@@ -174,26 +213,26 @@ function require(path)
                 2,
                 string.format(
                     "The same lua file is required with different names: %s and %s",
-                    path,
+                    mod,
                     _paths[realPath]
                 )
             )
         end
 
-        _modules[path] = { loaded = false }
-        _paths[realPath] = path
+        _modules[mod] = { loaded = false }
+        _paths[realPath] = mod
 
         local codeFn, err = load(code, "@" .. realPath, "t", _ENV)
         if not codeFn then
             error(string.format("syntax error in %s: %s", realPath, err), 2)
         end
 
-        _modules[path] = { loaded = true, value = codeFn() }
-    elseif not _modules[path].loaded then
-        error(string.format("circular import in %s", path), 2)
+        _modules[mod] = { loaded = true, value = codeFn() }
+    elseif not _modules[mod].loaded then
+        error(string.format("circular import in %s", mod), 2)
     end
 
-    return _modules[path].value
+    return _modules[mod].value
 end
 
 --- Initializes and installs the global `require` function.
@@ -223,18 +262,17 @@ function ns.init(config)
     bootloaderConfig = config
 end
 
---- Find and return the module code.
+--- Find and return a file by its path.
 ---
 --- Note: code is not cached. If target loader is 'net', this call will issue
 --- a request to a code server. If target loader is 'drive' and the code has changed
 --- since it was last loaded, this function will return the new version of the code.
 ---
---- @param path string module path
+--- @param pathCandidates string[] module path
 --- @return string? module code
 --- @string string? realPath actual path to the `.lua` file that contains the code
-function ns.findModuleCode(path)
-    assert(loader, "'getLoaderKind' called before 'init'", 2)
-    return loader(path)
+function ns.findModuleCode(pathCandidates)
+    return loader(pathCandidates)
 end
 
 --- Get loader that was used to load the code.

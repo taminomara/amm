@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local array = require "ammcore/util/array"
+local class = require "ammcore.util.class"
+local array = require "ammcore.util.array"
 
 --- Helpers for passing recipes around the network.
 local recipeHelpers = {}

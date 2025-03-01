@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local debugHelpers = require "ammcore/util/debugHelpers"
+local class = require "ammcore.util.class"
+local debugHelpers = require "ammcore.util.debugHelpers"
 
 --- Error reporting facilities.
 local ns = {}
@@ -43,6 +43,18 @@ ns.Level = {
     Critical = 500,
 }
 
+--- Mapping from logger name to its level.
+---
+--- @enum ammcore.util.log.LevelName
+ns.LevelName = {
+    [ns.Level.Trace] = "Trace",
+    [ns.Level.Debug] = "Debug",
+    [ns.Level.Info] = "Info",
+    [ns.Level.Warning] = "Warning",
+    [ns.Level.Error] = "Error",
+    [ns.Level.Critical] = "Critical",
+}
+
 --- @private
 --- @type table<string, ammcore.util.log.Logger>
 ns._loggers = {}
@@ -69,11 +81,11 @@ function ns.Logger:New(name)
 
     --- @protected
     --- @type string
-    self._prefix = string.format("[%s] ", name)
+    self._prefix = name:len() > 0 and name or "<root>"
 
     --- @protected
     --- @type ammcore.util.log.Logger?
-    self._parent = name:len() > 0 and ns.Logger:New(name:match("(.*)/[^/]*$") or "") or nil
+    self._parent = name:len() > 0 and ns.Logger:New(name:match("(.*)%.[^.]*$") or "") or nil
 
     ns._loggers[name] = self
 
@@ -86,13 +98,16 @@ end
 
 --- @private
 --- @param levelInt integer
---- @param prefix string
 --- @param msg string
 --- @param ... any
-function ns.Logger:_log(levelInt, prefix, msg, ...)
+function ns.Logger:_log(levelInt, msg, ...)
     if levelInt >= self:getEffectiveLevel() then
-        levelInt = math.min(math.max(0, math.tointeger(levelInt / 100) - 1), 4)
-        computer.log(levelInt, prefix .. string.format(msg, ...))
+        local levelName = ns.LevelName[levelInt] or tostring(levelInt)
+        local level = math.min(math.max(0, math.tointeger(levelInt / 100) - 1), 4)
+        computer.log(
+            level,
+            string.format("[%s] %s: %s", self._prefix, levelName, string.format(msg, ...))
+        )
     end
 end
 
@@ -133,7 +148,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:trace(msg, ...)
-    self:_log(ns.Level.Trace, self._prefix, msg, ...)
+    self:_log(ns.Level.Trace, msg, ...)
 end
 
 --- Log a debug message.
@@ -142,7 +157,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:debug(msg, ...)
-    self:_log(ns.Level.Debug, self._prefix, msg, ...)
+    self:_log(ns.Level.Debug, msg, ...)
 end
 
 --- Log an info message.
@@ -151,7 +166,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:info(msg, ...)
-    self:_log(ns.Level.Info, self._prefix, msg, ...)
+    self:_log(ns.Level.Info, msg, ...)
 end
 
 --- Log a warning message.
@@ -160,7 +175,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:warning(msg, ...)
-    self:_log(ns.Level.Warning, self._prefix, msg, ...)
+    self:_log(ns.Level.Warning, msg, ...)
 end
 
 --- Log an error message.
@@ -169,7 +184,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:error(msg, ...)
-    self:_log(ns.Level.Error, self._prefix, msg, ...)
+    self:_log(ns.Level.Error, msg, ...)
 end
 
 --- Log a critical message.
@@ -177,7 +192,7 @@ end
 --- @param msg string
 --- @param ... any
 function ns.Logger:critical(msg, ...)
-    self:_log(ns.Level.Critical, self._prefix, msg, ...)
+    self:_log(ns.Level.Critical, msg, ...)
 end
 
 return ns

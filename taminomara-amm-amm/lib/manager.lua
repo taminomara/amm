@@ -1,13 +1,13 @@
 ---@diagnostic disable: invisible
-local severity          = require "amm/lib/severity"
-local class             = require "ammcore/util/class"
-local pickle            = require "amm/lib/pickle"
-local indicatorManager  = require "amm/lib/indicatorManager"
-local nick              = require "ammcore/util/nick"
-local array             = require "ammcore/util/array"
-local log               = require "ammcore/util/log"
-local filesystemHelpers = require "ammcore/util/filesystemHelpers"
-local fin               = require "ammcore/util/fin"
+local severity          = require "amm.lib.severity"
+local class             = require "ammcore.util.class"
+local pickle            = require "amm.lib.pickle"
+local indicatorManager  = require "amm.lib.indicatorManager"
+local nick              = require "ammcore.util.nick"
+local array             = require "ammcore.util.array"
+local log               = require "ammcore.util.log"
+local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local fin               = require "ammcore.util.fin"
 
 --- Facilities for actually running controllers.
 local manager           = {}

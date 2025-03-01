@@ -1,6 +1,6 @@
-local class = require "ammcore/util/class"
-local errorReporter = require "amm/lib/errorReporter"
-local log = require "ammcore/util/log"
+local class = require "ammcore.util.class"
+local errorReporter = require "amm.lib.errorReporter"
+local log = require "ammcore.util.log"
 
 local logger = log.Logger:New()
 

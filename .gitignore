@@ -46,8 +46,7 @@ luac.out
 /.luarocks
 
 # AMM-specific files
-.amm_packages/
-.amm_state/
+.amm/
 build/
 
 # FIN-specific files

@@ -1,4 +1,4 @@
-local fin = require "ammcore/util/fin"
+local fin = require "ammcore.util.fin"
 
 --- Helpers for working with file system.
 local ns = {}

@@ -1,6 +1,6 @@
-local class = require "ammcore/util/class"
-local severity = require "amm/lib/severity"
-local array = require "ammcore/util/array"
+local class = require "ammcore.util.class"
+local severity = require "amm.lib.severity"
+local array = require "ammcore.util.array"
 
 local errorReporter = {}
 

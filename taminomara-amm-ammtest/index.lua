@@ -1,7 +1,7 @@
-local fin          = require "ammcore/util/fin"
-local debugHelpers = require "ammcore/util/debugHelpers"
-local bootloader   = require "ammcore/bootloader"
-local provider     = require "ammcore/pkg/providers/local"
+local fin          = require "ammcore.util.fin"
+local debugHelpers = require "ammcore.util.debugHelpers"
+local bootloader   = require "ammcore.bootloader"
+local provider     = require "ammcore.pkg.providers.local"
 
 --- AMM test library.
 local test         = {}
@@ -833,7 +833,7 @@ local function loadTests(root, devRoot)
         local devPath = filesystem.path(devRoot, filename)
         local modpath = filesystem.path(devRoot, filename):match("^(.*)%.lua$")
         if modpath then
-            require(modpath)
+            require(modpath:gsub("/", "."))
         elseif filesystem.isDir(path) then
             loadTests(path, devPath)
         end

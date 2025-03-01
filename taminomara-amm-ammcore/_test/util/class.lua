@@ -1,5 +1,5 @@
-local test = require "ammtest/index"
-local class = require "ammcore/util/class"
+local test = require "ammtest.index"
+local class = require "ammcore.util.class"
 
 local suite = test.suite("class")
 
@@ -12,10 +12,10 @@ suite:case("Base", function ()
     test.assertEq(class.Base:New().__class, class.Base)
     test.assertNil(class.Base.__base)
     test.assertNil(class.Base:New().__base)
-    test.assertEq(class.Base.__module, "ammcore/util/class")
-    test.assertEq(class.Base:New().__module, "ammcore/util/class")
-    test.assertEq(class.Base.__fullname, "ammcore/util/class:Base")
-    test.assertEq(class.Base:New().__fullname, "ammcore/util/class:Base")
+    test.assertEq(class.Base.__module, "ammcore.util.class")
+    test.assertEq(class.Base:New().__module, "ammcore.util.class")
+    test.assertEq(class.Base.__fullname, "ammcore.util.class.Base")
+    test.assertEq(class.Base:New().__fullname, "ammcore.util.class.Base")
     test.assertTrue(class.isChildOf(class.Base, class.Base))
     test.assertTrue(class.isChildOf(class.Base:New(), class.Base))
     test.assertTrue(class.isChildOf(class.Base:New(), class.Base:New()))
@@ -32,10 +32,10 @@ suite:case("create", function()
     test.assertEq(C:New().__class, C)
     test.assertEq(C.__base, class.Base)
     test.assertEq(C:New().__base, class.Base)
-    test.assertEq(C.__module, "ammcore/_test/util/class")
-    test.assertEq(C:New().__module, "ammcore/_test/util/class")
-    test.assertEq(C.__fullname, "ammcore/_test/util/class:C")
-    test.assertEq(C:New().__fullname, "ammcore/_test/util/class:C")
+    test.assertEq(C.__module, "ammcore._test.util.class")
+    test.assertEq(C:New().__module, "ammcore._test.util.class")
+    test.assertEq(C.__fullname, "ammcore._test.util.class.C")
+    test.assertEq(C:New().__fullname, "ammcore._test.util.class.C")
 end)
 
 suite:case("New", function()

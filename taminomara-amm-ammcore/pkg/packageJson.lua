@@ -1,6 +1,6 @@
-local filesystemHelpers = require "ammcore/util/filesystemHelpers"
-local json              = require "ammcore/contrib/json"
-local version           = require "ammcore/pkg/version"
+local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local json              = require "ammcore.contrib.json"
+local version           = require "ammcore.pkg.version"
 
 --- Parser for `.ammpackage.json`.
 local ns                = {}

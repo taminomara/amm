@@ -1,12 +1,12 @@
-local log               = require "ammcore/util/log"
-local resolver          = require "ammcore/pkg/resolver"
-local packageName       = require "ammcore/pkg/packageName"
-local version           = require "ammcore/pkg/version"
-local localProvider     = require "ammcore/pkg/providers/local"
-local githubProvider    = require "ammcore/pkg/providers/github"
-local aggregateProvider = require "ammcore/pkg/providers/aggregate"
-local fin               = require "ammcore/util/fin"
-local bootloader        = require "ammcore/bootloader"
+local log               = require "ammcore.util.log"
+local resolver          = require "ammcore.pkg.resolver"
+local packageName       = require "ammcore.pkg.packageName"
+local version           = require "ammcore.pkg.version"
+local localProvider     = require "ammcore.pkg.providers.local"
+local githubProvider    = require "ammcore.pkg.providers.github"
+local aggregateProvider = require "ammcore.pkg.providers.aggregate"
+local fin               = require "ammcore.util.fin"
+local bootloader        = require "ammcore.bootloader"
 
 local ns                = {}
 
@@ -26,31 +26,42 @@ function ns.getDevPackages()
     return localProvider.LocalProvider:Dev()
 end
 
---- Scan `AMM_PACKAGES` and dev packages to get root requirements.
+--- Get package provider with all installed packages, either dev or not.
+---
+--- @return ammcore.pkg.provider.Provider
+function ns.getLocalPackages()
+    return aggregateProvider.AggregateProvider:New({
+        ns.getDevPackages(),
+        ns.getInstalledPackages(),
+    })
+end
+
+--- Scan `config.packages` and dev packages to get root requirements.
 ---
 --- @param devPackages ammcore.pkg.providers.local.LocalProvider
 --- @return table<string, ammcore.pkg.version.VersionSpec>
 function ns.gatherRootRequirements(devPackages)
     local rootRequirements = devPackages:getRootRequirements()
-    if AMM_PACKAGES then
-        if type(AMM_PACKAGES) ~= "table" then
-            error("AMM_PACKAGES is not a table")
+    local config = bootloader.getBootloaderConfig()
+    if config.packages then
+        if type(config.packages) ~= "table" then
+            error("config.packages is not a table")
         end
-        for _, req in ipairs(AMM_PACKAGES) do
+        for _, req in ipairs(config.packages) do
             if type(req) ~= "string" then
-                error(string.format("invalid package requirement in AMM_PACKAGES: %s", req))
+                error(string.format("invalid package requirement in config.packages: %s", req))
             end
 
             local name, spec = req:match("^([%w_-]*)(.*)$")
 
             if not packageName.parseFullPackageName(name) then
-                error(string.format("invalid package name in AMM_PACKAGES: %s", name))
+                error(string.format("invalid package name in config.packages: %s", name))
             end
 
             local parsedSpec
             local ok, err = pcall(function() parsedSpec = version.parseSpec(spec) end)
             if not ok then
-                error(string.format("invalid package requirement in AMM_PACKAGES: %s: %s", name, err))
+                error(string.format("invalid package requirement in config.packages: %s: %s", name, err))
             end
 
             if rootRequirements[name] then
@@ -201,6 +212,7 @@ function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
             pkg:install(pkgStagingPath)
 
             if filesystem.exists(destinationPath) then
+                logger:debug("Removing %s", destinationPath)
                 filesystem.remove(destinationPath, true)
             end
 
@@ -213,6 +225,7 @@ function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
         if not installed[name] then
             logger:info("Uninstalling package %s", name)
             local destinationPath = filesystem.path(srvRoot, "packages", name)
+            logger:debug("Removing %s", destinationPath)
             filesystem.remove(destinationPath, true)
             nUninstalled = nUninstalled + 1
         end

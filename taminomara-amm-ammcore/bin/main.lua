@@ -11,8 +11,8 @@ if not AMM_BOOT_CONFIG.prog or AMM_BOOT_CONFIG.prog:len() == 0 then
     error("AMM_BOOT_CONFIG.prog is not defined")
 end
 
-local nick = require "ammcore/util/nick"
-local log = require "ammcore/util/log"
+local nick = require "ammcore.util.nick"
+local log = require "ammcore.util.log"
 
 do
     local parsedNick = nick.parse(computer.getInstance().nick)

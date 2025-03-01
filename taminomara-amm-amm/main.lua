@@ -1,8 +1,8 @@
-local manager = require "amm/lib/manager"
-local nick = require "ammcore/util/nick"
-local fin = require "ammcore/util/fin"
-local class = require "ammcore/util/class"
-local controller = require "amm/lib/controller"
+local manager = require "amm.lib.manager"
+local nick = require "ammcore.util.nick"
+local fin = require "ammcore.util.fin"
+local class = require "ammcore.util.class"
+local controller = require "amm.lib.controller"
 
 local parsedNick = nick.parse(computer.getInstance().nick)
 local ctlPaths = parsedNick:getAll("ctl", tostring)

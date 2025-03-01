@@ -1,5 +1,5 @@
-local test = require "ammtest/index"
-local nick = require "ammcore/util/nick"
+local test = require "ammtest.index"
+local nick = require "ammcore.util.nick"
 
 local suite = test.suite("nick")
 

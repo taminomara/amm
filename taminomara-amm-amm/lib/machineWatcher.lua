@@ -1,4 +1,4 @@
-local class = require "ammcore/util/class"
+local class = require "ammcore.util.class"
 
 --- Helpers for keeping track of machines.
 local machineWatcher = {}

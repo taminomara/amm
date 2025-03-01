@@ -34,4 +34,4 @@ local bootloaderApi = fn()
 bootloaderApi.init(config)
 
 -- Run the program.
-require("ammcore/bin/installServer")
+require("ammcore.bin.installServer")

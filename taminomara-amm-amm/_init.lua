@@ -18,7 +18,7 @@ end
 --- Current version of the AMM package.
 ---
 --- @type string
-AMM_VERSION   = (require "amm/_version").version
+AMM_VERSION   = (require "amm._version").version
 
 --- Special address for broadcasting messages.
 ---

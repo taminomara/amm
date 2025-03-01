@@ -1,10 +1,10 @@
-local class            = require "ammcore/util/class"
-local provider         = require "ammcore/pkg/provider"
-local ammPackageJson   = require "ammcore/pkg/packageJson"
-local version          = require "ammcore/pkg/version"
-local packageName      = require "ammcore/pkg/packageName"
-local package          = require "ammcore/pkg/packageVersion"
-local bootloader       = require "ammcore/bootloader"
+local class            = require "ammcore.util.class"
+local provider         = require "ammcore.pkg.provider"
+local ammPackageJson   = require "ammcore.pkg.packageJson"
+local version          = require "ammcore.pkg.version"
+local packageName      = require "ammcore.pkg.packageName"
+local package          = require "ammcore.pkg.packageVersion"
+local bootloader       = require "ammcore.bootloader"
 
 --- Local package provider.
 local ns               = {}

@@ -4,18 +4,18 @@ local log               = require "ammcore.util.log"
 
 local logger = log.Logger:New()
 
---- Template files for server root directory.
+--- Template files for package root directory.
 local ns                = {}
 
---- Write files that should be in the server's root directory.
+--- Write files that should be in the package's root directory.
 ---
 --- These files are meant to help users with setting up a development environment.
---- I.e. you install the AMM server, open its hard drive in your IDE,
+--- I.e. you install the AMM package, open its hard drive in your IDE,
 --- and you're all set up!
-function ns.writeServerTemplate()
-    local index = require("ammcore.templates.serverIndex")
+function ns.writePackageTemplate()
+    local index = require("ammcore.templates.packageIndex")
     for _, path in ipairs(index) do
-        local codePath = filesystem.path("taminomara-amm-ammcore/_templates/server", path)
+        local codePath = filesystem.path("taminomara-amm-ammcore/_templates/package", path)
         local realPath = filesystem.path(assert(bootloader.getDevRoot()), path)
         local realDir = realPath:match("^(.*)/[^/]*$")
         if realDir and not filesystem.exists(realDir) then

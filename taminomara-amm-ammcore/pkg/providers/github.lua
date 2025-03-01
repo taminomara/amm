@@ -1,13 +1,13 @@
-local class             = require "ammcore/util/class"
-local provider          = require "ammcore/pkg/provider"
-local version           = require "ammcore/pkg/version"
-local filesystemHelpers = require "ammcore/util/filesystemHelpers"
-local json              = require "ammcore/contrib/json"
-local log               = require "ammcore/util/log"
-local packageName       = require "ammcore/pkg/packageName"
-local package           = require "ammcore/pkg/packageVersion"
-local ammPackageJson    = require "ammcore/pkg/packageJson"
-local bootloader        = require "ammcore/bootloader"
+local class             = require "ammcore.util.class"
+local provider          = require "ammcore.pkg.provider"
+local version           = require "ammcore.pkg.version"
+local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local json              = require "ammcore.contrib.json"
+local log               = require "ammcore.util.log"
+local packageName       = require "ammcore.pkg.packageName"
+local package           = require "ammcore.pkg.packageVersion"
+local ammPackageJson    = require "ammcore.pkg.packageJson"
+local bootloader        = require "ammcore.bootloader"
 
 --- Github package provider.
 local ns                = {}

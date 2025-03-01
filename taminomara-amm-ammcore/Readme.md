@@ -28,7 +28,7 @@ It can be thought of as consisting of several components:
    the `require` function can fetch files from a hard drive, over a network,
    or from a bundled package that was included in the bootstrap script.
 
-4. _Entrypoint_ is located in `ammcore/bin/main.lua`. It is a script that locates
+4. _Entrypoint_ is located in `ammcore.bin.main`. It is a script that locates
    and runs the main file.
 
 5. _Code server_ is a component that serves packages and `lua` files
@@ -38,7 +38,7 @@ It can be thought of as consisting of several components:
 
 6. _Packaging system_ is what downloads and installs AMM packages.
    Users interact with it primarily through the _code server_ API or
-   through `ammcore/bin/installPackages.lua`.
+   through `ammcore.bin.installPackages`.
 
 7. _AMM package_ is, well, a package, that can be downloaded from github
   and installed using the _packaging system_.

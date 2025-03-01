@@ -1,9 +1,9 @@
-local resolver      = require "ammcore/pkg/resolver"
-local test          = require "ammtest/index"
-local provider      = require "ammcore/pkg/provider"
-local class         = require "ammcore/util/class"
-local localProvider = require "ammcore/pkg/providers/local"
-local version       = require "ammcore/pkg/version"
+local resolver      = require "ammcore.pkg.resolver"
+local test          = require "ammtest.index"
+local provider      = require "ammcore.pkg.provider"
+local class         = require "ammcore.util.class"
+local localProvider = require "ammcore.pkg.providers.local"
+local version       = require "ammcore.pkg.version"
 
 local suite         = test.suite()
 

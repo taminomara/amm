@@ -6,6 +6,8 @@ local config = {
     prog = [[{ prog }]],
     -- prog = "ammcore/bin/installPackages", -- to check and install new packages
     -- prog = "ammcore/bin/updatePackages", -- to update all packages to the latest version
+    -- prog = "ammcore/bin/createPackage", -- to create an example package
+    -- prog = "ammtest/bin/main", -- to run tests
 
     --- Where to find the program: either `drive` or `net`.
     target = [[{ target }]],
@@ -66,7 +68,7 @@ function loaders.drive(path)
     local realPath = nil
     for _, template in ipairs(pathTemplates) do
         if filesystem.exists(string.format(template, pkg)) then
-            realPath = string.format(template, path) .. ".lua"
+            realPath = string.format(template, path)
             break
         end
     end
@@ -111,7 +113,7 @@ function loaders.net(path)
 
     -- Send request for loader code.
     if not config.netCodeServerAddr then
-        networkCard:broadcast(config.netCodeServerPort, "get", path)
+        networkCard:broadcast(config.netCodeServerPort, "getCode", path)
     elseif type(config.netCodeServerAddr) ~= "string" then
         error(string.format("config.netCodeServerAddr has invalid value %s",
             config.netCodeServerAddr))
@@ -121,19 +123,19 @@ function loaders.net(path)
 
     -- Wait for response.
     local deadline = computer.millis() + 500
-    local event, sender, port, message, filename, code, realPath
+    local event, sender, port, msg, responseCandidates, code, realPath
     while true do
         local now = computer.millis()
         if now > deadline then
             error("timeout while waiting for response from a code server")
         end
-        event, _, sender, port, message, filename, code, realPath = event.pull(now - deadline)
+        event, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
         if (
                 event == "NetworkMessage"
                 and (not config.netCodeServerAddr or sender == config.netCodeServerAddr)
                 and port == config.netCodeServerPort
-                and message == "rcv"
-                and filename == path
+                and msg == "rcvCode"
+                and responseCandidates == path
             ) then
             if code then
                 break
@@ -157,7 +159,7 @@ elseif not config.target then
 elseif not loaders[config.target] then
     error(string.format("config.target has invalid value %s", config.target))
 else
-    local path = "ammcore/bootloader"
+    local path = "ammcore/bootloader.lua"
     local code, realPath = loaders[config.target](path)
 
     if not code then
@@ -175,5 +177,5 @@ else
     bootloaderApi.init(config)
 
     -- Run the program.
-    require("ammcore/bin/main")
+    require("ammcore.bin.main")
 end

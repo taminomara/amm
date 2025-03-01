@@ -1,4 +1,4 @@
-local debugHelpers = require "ammcore/util/debugHelpers"
+local debugHelpers = require "ammcore.util.debugHelpers"
 
 --- Support library for OOP in lua.
 ---

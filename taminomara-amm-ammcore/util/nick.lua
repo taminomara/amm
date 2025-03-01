@@ -1,5 +1,5 @@
-local class = require "ammcore/util/class"
-local log   = require "ammcore/util/log"
+local class = require "ammcore.util.class"
+local log   = require "ammcore.util.log"
 
 --- Utilities for parsing component nicks.
 local ns = {}

@@ -1,5 +1,5 @@
-local test = require "ammtest/index"
-local fin = require "ammcore/util/fin"
+local test = require "ammtest.index"
+local fin = require "ammcore.util.fin"
 
 local suite = test.suite("fin")
 
