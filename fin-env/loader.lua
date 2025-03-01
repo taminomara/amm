@@ -4,8 +4,8 @@ local _http_request = require "http.request"
 local _print = print
 local _xpcall = xpcall
 local _debug = debug
-local _io = io
-local _os = os
+local _io = io --- @diagnostic disable-line: undefined-global
+local _os = os --- @diagnostic disable-line: undefined-global
 
 local _ENV = {
     _VERSION = _VERSION,

@@ -38,13 +38,13 @@ function api.init(config)
     config.target = loader
 
     -- Find a drive to install AMM.
-    filesystem.initFileSystem("/dev")
+    assert(filesystem.initFileSystem("/dev"))
     local devices = filesystem.children("/dev")
     if #devices == 0 then
         error("no hard drive detected")
     end
     config.driveId = config.driveId or devices[1]
-    filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint)
+    assert(filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint))
 
     local path = "ammcore/bootloader.lua"
 

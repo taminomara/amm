@@ -5,7 +5,7 @@
   "Lua.type.castNumberToInteger": false,
   "Lua.type.checkTableShape": true,
   "Lua.type.inferParamType": true,
-  "Lua.workspace.library": ["${workspaceFolder}/.amm/lib"],
+  "Lua.workspace.library": ["${workspaceFolder}/.amm/packages"],
   "cSpell.words": ["ammcore", "ammtest", "ammlib"],
   "Lua.completion.requireSeparator": ".",
   "Lua.workspace.preloadFileSize": 1024,

@@ -19,7 +19,7 @@ function ns.writePackageTemplate()
         local realPath = filesystem.path(assert(bootloader.getDevRoot()), path)
         local realDir = realPath:match("^(.*)/[^/]*$")
         if realDir and not filesystem.exists(realDir) then
-            filesystem.createDir(realDir, true)
+            assert(filesystem.createDir(realDir, true))
         end
         if not filesystem.exists(realPath) then
             local code = bootloader.findModuleCode({ codePath })

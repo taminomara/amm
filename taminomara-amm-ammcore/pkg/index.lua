@@ -180,9 +180,16 @@ function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
 
     local stagingPath = filesystem.path(srvRoot, "staging")
     if filesystem.exists(stagingPath) then
-        filesystem.remove(stagingPath, true)
+        assert(filesystem.remove(stagingPath, true))
     end
-    filesystem.createDir(stagingPath, true)
+    assert(filesystem.createDir(stagingPath, true))
+
+    local packagesPath = filesystem.path(srvRoot, "packages")
+    if not filesystem.exists(packagesPath) then
+        assert(filesystem.createDir(packagesPath, true))
+    elseif not filesystem.isDir(packagesPath) then
+        error(string.format("not a directory: %s", packagesPath))
+    end
 
     local installed = {}
 
@@ -206,18 +213,18 @@ function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
             end
 
             local pkgStagingPath = filesystem.path(stagingPath, pkg.name)
-            local destinationPath = filesystem.path(srvRoot, "packages", pkg.name)
+            local pkgDestinationPath = filesystem.path(srvRoot, "packages", pkg.name)
 
             logger:info("Installing package %s == %s%s", pkg.name, pkg.version, opetaion)
             pkg:install(pkgStagingPath)
 
-            if filesystem.exists(destinationPath) then
-                logger:debug("Removing %s", destinationPath)
-                filesystem.remove(destinationPath, true)
+            if filesystem.exists(pkgDestinationPath) then
+                logger:debug("Removing %s", pkgDestinationPath)
+                assert(filesystem.remove(pkgDestinationPath, true))
             end
 
-            logger:debug("Moving %s -> %s", pkgStagingPath, destinationPath)
-            filesystem.move(pkgStagingPath, destinationPath)
+            logger:debug("Moving %s -> %s", pkgStagingPath, pkgDestinationPath)
+            assert(filesystem.move(pkgStagingPath, pkgDestinationPath))
         end
     end
 
@@ -226,12 +233,12 @@ function ns.install(rootRequirements, devPackages, installedPackages, updateAll)
             logger:info("Uninstalling package %s", name)
             local destinationPath = filesystem.path(srvRoot, "packages", name)
             logger:debug("Removing %s", destinationPath)
-            filesystem.remove(destinationPath, true)
+            assert(filesystem.remove(destinationPath, true))
             nUninstalled = nUninstalled + 1
         end
     end
 
-    filesystem.remove(stagingPath, true)
+    assert(filesystem.remove(stagingPath, true))
 
     return nUpgraded, nDowngraded, nInstalled, nUninstalled
 end

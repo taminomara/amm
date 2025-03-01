@@ -72,7 +72,7 @@ local buildData = metaData.build or {}
 local metaDataJson = json.encode(metaData)
 
 if not filesystem.exists(buildDir) then
-    filesystem.createDir(buildDir, true)
+    assert(filesystem.createDir(buildDir, true), "failed creating build directory")
 elseif not filesystem.isDir(buildDir) then
     error(string.format("not a directory: %s", buildDir), 0)
 end

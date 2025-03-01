@@ -20,7 +20,8 @@ local loaders = {}
 --- @type fun(path: string): string?, string?
 function loaders.drive(path)
     -- Locate a hard drive.
-    filesystem.initFileSystem("/dev")
+    assert(filesystem.initFileSystem("/dev"))
+
     if not config.driveId then
         local devices = filesystem.children("/dev")
         if #devices == 0 then
@@ -49,9 +50,9 @@ function loaders.drive(path)
     end
 
     -- Mount a hard drive and create roots.
-    filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint)
-    filesystem.createDir(config.devRoot, true)
-    filesystem.createDir(config.srvRoot, true)
+    assert(filesystem.mount(filesystem.path("/dev", config.driveId), config.driveMountPoint))
+    local _ = filesystem.createDir(config.devRoot, true)
+    local _ = filesystem.createDir(config.srvRoot, true)
 
     local pathTemplates = {
         filesystem.path(config.devRoot, "taminomara-amm-%s"),
