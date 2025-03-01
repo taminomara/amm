@@ -17,7 +17,7 @@ function ns.formatServerEeprom(prog)
 
     local vars = {
         prog = prog,
-        target = config.target,
+        target = config.target == "bootstrap" and "drive" or config.target,
         defaultDriveMountPoint = "/",
         defaultDevRoot = "/",
         defaultSrvRoot = "/.amm",
