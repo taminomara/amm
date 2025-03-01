@@ -129,6 +129,8 @@ function ns.GithubPackageVersion:install(packageRoot)
     end
     table.sort(filenames)
     for _, filename in ipairs(filenames) do
+        local content = files[filename]
+
         if type(filename) ~= "string" or type(content) ~= "string" then
             error("failed parsing package contents", 0)
         end
@@ -140,7 +142,7 @@ function ns.GithubPackageVersion:install(packageRoot)
             filesystem.createDir(fileDir, true)
         end
         logger:trace("Writing %s", filePath)
-        filesystemHelpers.writeFile(filePath, files[filename])
+        filesystemHelpers.writeFile(filePath, content)
     end
 
     -- Verify installation.
