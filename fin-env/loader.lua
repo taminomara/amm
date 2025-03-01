@@ -378,7 +378,7 @@ function devFs:rename(path, name)
 end
 
 function devFs:exists(path)
-    return drives[path:gsub("%./", "")] and true or false
+    return self.drives[path:gsub("%./", "")] and true or false
 end
 
 function devFs:children(path)
@@ -386,7 +386,7 @@ function devFs:children(path)
         error("This operation is not supported for /dev file system")
     end
     local children = {}
-    for drive, _ in pairs(drives) do
+    for drive, _ in pairs(self.drives) do
         table.insert(children, drive)
     end
     table.sort(children)
