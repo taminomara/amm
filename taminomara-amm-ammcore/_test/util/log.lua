@@ -23,10 +23,10 @@ suite:case("Default log setup", function()
     l:trace("trace!")
     test.assertEq(
     test.getLogStr(),
-        "[foo] critical!\n"
-        .. "[foo] error!\n"
-        .. "[foo] warning!\n"
-        .. "[foo] info!\n"
+        "[foo] Critical: critical!\n"
+        .. "[foo] Error: error!\n"
+        .. "[foo] Warning: warning!\n"
+        .. "[foo] Info: info!\n"
     )
 end)
 
@@ -47,9 +47,9 @@ suite:case("Global log setup", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo] critical!\n"
-        .. "[foo] error!\n"
-        .. "[foo] warning!\n"
+        "[foo] Critical: critical!\n"
+        .. "[foo] Error: error!\n"
+        .. "[foo] Warning: warning!\n"
     )
 end)
 
@@ -71,9 +71,9 @@ suite:case("Local log setup", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo] critical!\n"
-        .. "[foo] error!\n"
-        .. "[foo] warning!\n"
+        "[foo] Critical: critical!\n"
+        .. "[foo] Error: error!\n"
+        .. "[foo] Warning: warning!\n"
     )
 end)
 
@@ -90,20 +90,20 @@ suite:case("Log all levels", function()
     l:trace("trace!")
     test.assertEq(
     test.getLogStr(),
-        "[foo] critical!\n"
-        .. "[foo] error!\n"
-        .. "[foo] warning!\n"
-        .. "[foo] info!\n"
-        .. "[foo] debug!\n"
-        .. "[foo] trace!\n"
+        "[foo] Critical: critical!\n"
+        .. "[foo] Error: error!\n"
+        .. "[foo] Warning: warning!\n"
+        .. "[foo] Info: info!\n"
+        .. "[foo] Debug: debug!\n"
+        .. "[foo] Trace: trace!\n"
     )
 end)
 
 suite:case("Parent logger", function()
     log.Logger:New("foo"):setLevel(log.Level.Warning)
 
-    local l = log.Logger:New("foo/bar")
-    test.assertEq(l.name, "foo/bar")
+    local l = log.Logger:New("foo.bar")
+    test.assertEq(l.name, "foo.bar")
     test.assertNil(l:getLevel())
     test.assertEq(l:getEffectiveLevel(), log.Level.Warning)
 
@@ -116,18 +116,18 @@ suite:case("Parent logger", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo/bar] critical!\n"
-        .. "[foo/bar] error!\n"
-        .. "[foo/bar] warning!\n"
+        "[foo.bar] Critical: critical!\n"
+        .. "[foo.bar] Error: error!\n"
+        .. "[foo.bar] Warning: warning!\n"
     )
 end)
 
 suite:case("Parent logger override", function()
     log.Logger:New("foo"):setLevel(log.Level.Warning)
 
-    local l = log.Logger:New("foo/bar")
+    local l = log.Logger:New("foo.bar")
     l:setLevel(log.Level.Info)
-    test.assertEq(l.name, "foo/bar")
+    test.assertEq(l.name, "foo.bar")
     test.assertEq(l:getLevel(), log.Level.Info)
     test.assertEq(l:getEffectiveLevel(), log.Level.Info)
 
@@ -140,9 +140,9 @@ suite:case("Parent logger override", function()
     l:trace("trace!")
     test.assertEq(
         test.getLogStr(),
-        "[foo/bar] critical!\n"
-        .. "[foo/bar] error!\n"
-        .. "[foo/bar] warning!\n"
-        .. "[foo/bar] info!\n"
+        "[foo.bar] Critical: critical!\n"
+        .. "[foo.bar] Error: error!\n"
+        .. "[foo.bar] Warning: warning!\n"
+        .. "[foo.bar] Info: info!\n"
     )
 end)

@@ -6,7 +6,12 @@ local provider     = require "ammcore.pkg.providers.local"
 --- AMM test library.
 local test         = {}
 
-local file         = debugHelpers.getFile()
+local fileRe       = debugHelpers.getFile():match("^.-/taminomara%-amm%-ammtest/")
+if fileRe then
+    fileRe = fileRe:gsub("[^%w]", "%%%1") .. "[^:]*"
+else
+    fileRe = "[-]"
+end
 
 --- Pretty print implementation.
 ---
@@ -738,19 +743,19 @@ end
 local function cleanTraceback(tb)
     return tb
         -- Remote tabs.
+        :gsub("^\t+", "")
         :gsub("\n\t", "\n")
+        :gsub("\t", "  ")
         -- Remove header.
         :gsub("^stack traceback:\n", "")
         :gsub("^%[C%]: in %?\n", "")
         :gsub("^%[C%]: in global 'error'\n", "")
         -- Remove xpcall calls from testlib.
-        :gsub("%[C%]: in global 'xpcall'\n%[string \"" .. file .. "\"%]:.-\n", "\t")
+        :gsub("%[C%]: in global 'xpcall'\n" .. fileRe .. ":.-\n", "\t")
         -- Remove testlib lines.
-        :gsub("%[string \"" .. file .. "\"%]:.-\n", "\t")
+        :gsub("" .. fileRe .. ":.-\n", "\t")
         -- Collapse removed lines and insert dots.
-        :gsub("\t+", "...\n")
-        -- Beautify locations.
-        :gsub("%[string \"(.-%.lua)\"%]:(%d+)", "%1:%2")
+        :gsub("\t+", "(...testlib calls...)\n")
 end
 
 --- Run a function and report its status and status message.

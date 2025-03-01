@@ -3,9 +3,6 @@ local bootloader = require "ammcore.bootloader"
 --- Simple utilities on top of the `debug` module.
 local ns = {}
 
-function ns.getPackage(n)
-end
-
 --- Get module name at stack frame `n`.
 ---
 --- @param n integer?

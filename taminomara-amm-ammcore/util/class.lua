@@ -143,7 +143,7 @@ ns.Base.__module = debugHelpers.getMod()
 --- Full name of the class.
 ---
 --- @type string
-ns.Base.__fullname = ns.Base.__module .. ":" .. ns.Base.__name
+ns.Base.__fullname = ns.Base.__module .. "." .. ns.Base.__name
 
 --- Function for converting class instances to strings.
 ---
@@ -218,7 +218,7 @@ function ns.create(name, base, ...)
     -- Set meta attributes.
     cls.__name = name
     cls.__module = debugHelpers.getMod(2)
-    cls.__fullname = cls.__module .. ":" .. cls.__name
+    cls.__fullname = cls.__module .. "." .. cls.__name
     cls.__class = cls
     cls.__base = base
 
