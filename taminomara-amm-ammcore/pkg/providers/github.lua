@@ -138,7 +138,7 @@ function ns.GithubPackageVersion:install(packageRoot)
         local filePath = filesystem.path(packageRoot, filesystem.path(2, filename))
         local fileDir = filePath:match("^(.*)/[^/]*$")
         if not filesystem.exists(fileDir) then
-            logger:trace("Creating %s", fileDir)
+            logger:trace("Creating %q", fileDir)
             filesystem.createDir(fileDir, true)
         end
         logger:trace("Writing %s", filePath)
