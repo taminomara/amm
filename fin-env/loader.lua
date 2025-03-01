@@ -420,7 +420,7 @@ function localFs:createDir(path, recursive)
         local p = ""
         for component in path:gmatch("([^/]+)") do
             p = p .. component .. "/"
-            if not self:exists(p) then
+            if not _lfs.attributes(p, "mode") then
                 local ok, err, code = _lfs.mkdir(p)
                 if not ok then
                     return ok, err, code
@@ -552,7 +552,6 @@ function filesystem.mount(device, mountPoint)
     local fs, drive = findFs(device)
     drive = drive:gsub("^%./", "")
     if not fs.drives or not fs.drives[drive] then
-        print(fs, fs.drives, drive)
         error(string.format("%s is not a device", device))
     end
     mountPoints[normpath(mountPoint)] = setmetatable({ root = fs.drives[drive] }, localFs)
@@ -709,9 +708,17 @@ local function main(...)
 
     devFs.drives["devRoot"] = irlDevRoot
     devFs.drives["srvRoot"] = irlSrvRoot
+
     filesystem.initFileSystem("/dev")
+
     filesystem.mount("/dev/devRoot", config.devRoot)
+    if not filesystem.exists(config.devRoot) then
+        filesystem.createDir(config.devRoot, true)
+    end
     filesystem.mount("/dev/srvRoot", config.srvRoot)
+    if not filesystem.exists(config.srvRoot) then
+        filesystem.createDir(config.srvRoot, true)
+    end
 
     if remoteLoad then
         -- Download bootstrap code.
