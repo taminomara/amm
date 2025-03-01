@@ -24,7 +24,7 @@ function ns.writeServerTemplate()
         if not filesystem.exists(realPath) then
             local code = bootloader.findModuleCode({ codePath })
             logger:trace("Writing %s", realPath)
-            filesystemHelpers.writeFile(realPath, assert(code))
+            filesystemHelpers.writeFile(realPath, assert(code, codePath))
         else
             logger:trace("Skipping %s: already exists", realPath)
         end

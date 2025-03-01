@@ -16,8 +16,8 @@ local function loader(pathCandidates)
         local realPath
         if pathCandidate:match("^ammcore/") then
             realPath = pathCandidate:gsub("^ammcore/", "")
-        elseif pathCandidate:match("^taminomara-amm-ammcore/") then
-            realPath = pathCandidate:gsub("^taminomara-amm-ammcore/", "")
+        elseif pathCandidate:match("^taminomara%-amm%-ammcore/") then
+            realPath = pathCandidate:gsub("^taminomara%-amm%-ammcore/", "")
         else
             return nil
         end

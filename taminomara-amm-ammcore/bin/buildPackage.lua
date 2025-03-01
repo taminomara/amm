@@ -26,7 +26,7 @@ do
     local tagArg = parsed:getOne("tag", tostring)
     if not tagArg then error("no installation tag specified", 0) end
     tag = tagArg:match("^refs/tags/(.*)$")
-    if not tag then error(string.format("invalid release tag %s", tag), 0) end
+    if not tag then error(string.format("invalid release tag %s", tagArg), 0) end
 end
 
 local name, ver
