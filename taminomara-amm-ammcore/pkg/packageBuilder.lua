@@ -162,8 +162,13 @@ end
 --- @return string
 function ns.PackageBuilder:build()
     local code = {}
-    for filename, content in pairs(self._outputFiles) do
-        table.insert(code, string.format("[%q]=%q", filename, content:gsub("\r\n", "\n")))
+    local filenames = {}
+    for path in pairs(self._outputFiles) do
+        table.insert(filenames, path)
+    end
+    table.sort(filenames)
+    for _, filename in ipairs(filenames) do
+        table.insert(code, string.format("[%q]=%q", filename, self._outputFiles[filename]:gsub("\r\n", "\n")))
     end
     return string.format("{%s}", table.concat(code, ","))
 end

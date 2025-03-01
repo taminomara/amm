@@ -31,7 +31,8 @@ end
 
 -- Init loader.
 local bootloaderApi = fn()
+config.prog = "ammcore.bin.installServer"
 bootloaderApi.init(config)
 
 -- Run the program.
-require("ammcore.bin.installServer")
+require("ammcore.bin.main")

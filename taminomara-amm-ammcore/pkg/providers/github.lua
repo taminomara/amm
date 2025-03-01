@@ -123,16 +123,24 @@ function ns.GithubPackageVersion:install(packageRoot)
     if type(files) ~= "table" then
         error("failed parsing package contents", 0)
     end
-    for path, content in pairs(files) do
-        if type(path) ~= "string" or type(content) ~= "string" then
+    local filenames = {}
+    for path in pairs(files) do
+        table.insert(filenames, path)
+    end
+    table.sort(filenames)
+    for _, filename in ipairs(filenames) do
+        if type(filename) ~= "string" or type(content) ~= "string" then
             error("failed parsing package contents", 0)
         end
 
-        local filePath = filesystem.path(packageRoot, filesystem.path(2, path))
+        local filePath = filesystem.path(packageRoot, filesystem.path(2, filename))
         local fileDir = filePath:match("^(.*)/[^/]*$")
+        if not filesystem.exists(fileDir) then
+            logger:trace("Creating %s", fileDir)
+            filesystem.createDir(fileDir, true)
+        end
         logger:trace("Writing %s", filePath)
-        filesystem.createDir(fileDir, true)
-        filesystemHelpers.writeFile(filePath, content)
+        filesystemHelpers.writeFile(filePath, files[filename])
     end
 
     -- Verify installation.
