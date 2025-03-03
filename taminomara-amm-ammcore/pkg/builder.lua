@@ -2,7 +2,6 @@ local filesystemHelpers = require "ammcore.util.filesystemHelpers"
 local class             = require "ammcore.util.class"
 local log               = require "ammcore.util.log"
 local packageJson       = require "ammcore.pkg.packageJson"
-local json              = require "ammcore.contrib.json"
 
 --- Build script API.
 local ns                = {}
@@ -11,13 +10,13 @@ local logger            = log.Logger:New()
 
 --- Creates and unpacks package archives.
 ---
---- @class ammcore.pkg.packageBuilder.PackageArchiver: class.Base
+--- @class ammcore.pkg.builder.PackageArchiver: class.Base
 ns.PackageArchiver      = class.create("PackageArchiver")
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
 ---
---- @generic T: ammcore.pkg.packageBuilder.PackageArchiver
+--- @generic T: ammcore.pkg.builder.PackageArchiver
 --- @param self T
 --- @return T
 function ns.PackageArchiver:New(name, version)
@@ -162,7 +161,7 @@ end
 
 --- Manages files that will end up in the final package distribution.
 ---
---- @class ammcore.pkg.packageBuilder.PackageBuilder: ammcore.pkg.packageBuilder.PackageArchiver
+--- @class ammcore.pkg.builder.PackageBuilder: ammcore.pkg.builder.PackageArchiver
 ns.PackageBuilder = class.create("PackageBuilder", ns.PackageArchiver)
 
 --- @param name string
@@ -170,7 +169,7 @@ ns.PackageBuilder = class.create("PackageBuilder", ns.PackageArchiver)
 --- @param devRoot string
 --- @param pkgRoot string
 ---
---- @generic T: ammcore.pkg.packageBuilder.PackageBuilder
+--- @generic T: ammcore.pkg.builder.PackageBuilder
 --- @param self T
 --- @return T
 function ns.PackageBuilder:New(name, version, devRoot, pkgRoot)

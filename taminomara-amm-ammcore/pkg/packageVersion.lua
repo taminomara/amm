@@ -1,13 +1,13 @@
-local class       = require "ammcore.util.class"
-local packageBuilder = require "ammcore.pkg.packageBuilder"
+local class          = require "ammcore.util.class"
+local builder = require "ammcore.pkg.builder"
 local array          = require "ammcore.util.array"
 
-local ns          = {}
+local ns             = {}
 
 --- Represents a single package version.
 ---
 --- @class ammcore.pkg.package.PackageVersion: class.Base
-ns.PackageVersion = class.create("PackageVersion")
+ns.PackageVersion    = class.create("PackageVersion")
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
@@ -87,7 +87,7 @@ end
 --- @param packageRoot string
 function ns.PackageVersion:install(packageRoot)
     local archive = self:build()
-    local builder = packageBuilder.PackageArchiver:FromArchive(self.name, self.version, archive)
+    local builder = builder.PackageArchiver:FromArchive(self.name, self.version, archive)
     builder:unpack(packageRoot)
 end
 
@@ -99,12 +99,12 @@ function ns.PackageVersion:getAllRequirements()
     if not self._allRequirements then
         self._allRequirements = {}
 
-        array.insertTable(self._allRequirements, self:getRequirements(), function (l, r)
+        array.insertTable(self._allRequirements, self:getRequirements(), function(l, r)
             return l .. r
         end)
 
         if self.isDevMode then
-            array.insertTable(self._allRequirements, self:getDevRequirements(), function (l, r)
+            array.insertTable(self._allRequirements, self:getDevRequirements(), function(l, r)
                 return l .. r
             end)
         end

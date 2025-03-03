@@ -1,13 +1,10 @@
 local class            = require "ammcore.util.class"
 local provider         = require "ammcore.pkg.provider"
 local ammPackageJson   = require "ammcore.pkg.packageJson"
-local version          = require "ammcore.pkg.version"
 local packageName      = require "ammcore.pkg.packageName"
 local package          = require "ammcore.pkg.packageVersion"
-local bootloader       = require "ammcore.bootloader"
-local packageBuilder   = require "ammcore.pkg.packageBuilder"
+local builder   = require "ammcore.pkg.builder"
 local json             = require "ammcore.contrib.json"
-local array            = require "ammcore.util.array"
 
 --- Local package provider.
 local ns               = {}
@@ -77,7 +74,7 @@ function ns.LocalPackageVersion:getDevRequirements()
 end
 
 function ns.LocalPackageVersion:build()
-    local builder = packageBuilder.PackageBuilder:New(
+    local builder = builder.PackageBuilder:New(
         self.name, self.version, self.installationRoot, self.packageRoot
     )
 
