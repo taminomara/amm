@@ -1,7 +1,6 @@
 local pkg               = require "ammcore.pkg.index"
 local eepromTemplate    = require "ammcore.templates.eeprom"
 local bootloader        = require "ammcore.bootloader"
-local aggregateProvider = require "ammcore.pkg.providers.aggregate"
 
 pkg.checkAndUpdate(false)
 
@@ -19,11 +18,8 @@ do
         end
     end
     if not foundAmmReq then
-        local provider = aggregateProvider.AggregateProvider:New({
-            pkg.getDevPackages(),
-            pkg.getInstalledPackages(),
-        })
-        local ammPkgs, found = provider:findPackageVersions("taminomara-amm-ammcore")
+        local provider = pkg.getPackageProvider()
+        local ammPkgs, found = provider:findPackageVersions("taminomara-amm-ammcore", false)
         if found and #ammPkgs == 1 then
             table.insert(
                 config.packages,
