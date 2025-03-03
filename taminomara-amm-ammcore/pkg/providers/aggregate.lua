@@ -1,6 +1,6 @@
 local class = require "ammcore.util.class"
 local provider = require "ammcore.pkg.provider"
-local array    = require "ammcore.util.array"
+local array = require "ammcore.util.array"
 
 local ns = {}
 
@@ -46,7 +46,7 @@ function ns.AggregateProvider:findPackageVersions(name, includeRemotePackages)
         for _, pVersion in ipairs(pVersions) do
             if pVersion.isDevMode then
                 -- Dev mode always overrides other package versions.
-                return {pVersion}, true
+                return { pVersion }, true
             end
             table.insert(versions, pVersion)
         end

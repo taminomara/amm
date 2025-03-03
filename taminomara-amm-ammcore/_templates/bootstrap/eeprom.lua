@@ -9,8 +9,8 @@ local config = {
     -- prog = "ammtest.bin.main", -- to run tests
 
     --- Where to find the program: either `drive` or `net`.
-    target = [[{ target }]],
---[[{ configExtras }]]}
+    target = [[{ target }]]
+    --[[{ configExtras }]] }
 
 -- Implementation
 
@@ -130,13 +130,13 @@ function loaders.net(path)
             error("timeout while waiting for response from a code server")
         end
         e, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
-        if (
-                e == "NetworkMessage"
-                and (not config.netCodeServerAddr or sender == config.netCodeServerAddr)
-                and port == config.netCodeServerPort
-                and msg == "rcvCode"
-                and responseCandidates == path
-            ) then
+        if
+            e == "NetworkMessage"
+            and (not config.netCodeServerAddr or sender == config.netCodeServerAddr)
+            and port == config.netCodeServerPort
+            and msg == "rcvCode"
+            and responseCandidates == path
+        then
             if code then
                 break
             else

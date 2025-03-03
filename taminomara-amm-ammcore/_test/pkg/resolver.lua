@@ -1,14 +1,14 @@
-local resolver      = require "ammcore.pkg.resolver"
-local test          = require "ammtest"
-local provider      = require "ammcore.pkg.provider"
-local class         = require "ammcore.util.class"
+local resolver = require "ammcore.pkg.resolver"
+local test = require "ammtest"
+local provider = require "ammcore.pkg.provider"
+local class = require "ammcore.util.class"
 local localProvider = require "ammcore.pkg.providers.local"
-local version       = require "ammcore.pkg.version"
+local version = require "ammcore.pkg.version"
 
-local suite         = test.suite()
+local suite = test.suite()
 
 --- @class ammcore._test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
-local TestProvider  = class.create("TestProvider", provider.Provider)
+local TestProvider = class.create("TestProvider", provider.Provider)
 
 --- @param packages table<string, table<string, {[string]: string, _local?: boolean, _broken?: boolean}>>
 ---
@@ -29,7 +29,7 @@ function TestProvider:New(packages)
             )
             pkg.isInstalled = requirements._local and true or false
             if requirements._broken then
-                pkg.getRequirements = function () error("broken", 0) end
+                pkg.getRequirements = function() error("broken", 0) end
             end
             for reqName, spec in pairs(requirements) do
                 if reqName:sub(1, 1) ~= "_" then

@@ -1,17 +1,17 @@
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local class             = require "ammcore.util.class"
-local log               = require "ammcore.util.log"
-local packageJson       = require "ammcore.pkg.packageJson"
+local class = require "ammcore.util.class"
+local log = require "ammcore.util.log"
+local packageJson = require "ammcore.pkg.packageJson"
 
 --- Build script API.
-local ns                = {}
+local ns = {}
 
-local logger            = log.Logger:New()
+local logger = log.Logger:New()
 
 --- Creates and unpacks package archives.
 ---
 --- @class ammcore.pkg.builder.PackageArchiver: class.Base
-ns.PackageArchiver      = class.create("PackageArchiver")
+ns.PackageArchiver = class.create("PackageArchiver")
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
@@ -83,7 +83,8 @@ end
 --- @protected
 function ns.PackageArchiver:_verify()
     if type(self._outputFiles) ~= "table" then
-        error(string.format("failed unpacking %s == %s: invalid archive data %s", self.name, self.version, self._outputFiles))
+        error(string.format("failed unpacking %s == %s: invalid archive data %s", self.name, self.version,
+            self._outputFiles))
     end
 
     for filename, contents in pairs(self._outputFiles) do
@@ -135,7 +136,7 @@ function ns.PackageArchiver:getCode()
         {
             __index = self._outputFiles,
             __newindex = function() error("this table is read-only") end,
-            __pairs = function(self) return pairs(getmetatable(self).__index) end
+            __pairs = function(self) return pairs(getmetatable(self).__index) end,
         }
     )
 end

@@ -1,13 +1,13 @@
-local class            = require "ammcore.util.class"
-local provider         = require "ammcore.pkg.provider"
-local ammPackageJson   = require "ammcore.pkg.packageJson"
-local packageName      = require "ammcore.pkg.packageName"
-local package          = require "ammcore.pkg.packageVersion"
-local builder   = require "ammcore.pkg.builder"
-local json             = require "ammcore.contrib.json"
+local class = require "ammcore.util.class"
+local provider = require "ammcore.pkg.provider"
+local ammPackageJson = require "ammcore.pkg.packageJson"
+local packageName = require "ammcore.pkg.packageName"
+local package = require "ammcore.pkg.packageVersion"
+local builder = require "ammcore.pkg.builder"
+local json = require "ammcore.contrib.json"
 
 --- Local package provider.
-local ns               = {}
+local ns = {}
 
 --- Package version that was found on the hard drive.
 ---

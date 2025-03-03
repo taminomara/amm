@@ -148,12 +148,12 @@ local function create_set(...)
   return res
 end
 
-local space_chars  = create_set(" ", "\t", "\r", "\n")
-local delim_chars  = create_set(" ", "\t", "\r", "\n", "]", "}", ",")
+local space_chars = create_set(" ", "\t", "\r", "\n")
+local delim_chars = create_set(" ", "\t", "\r", "\n", "]", "}", ",")
 local escape_chars = create_set("\\", "/", '"', "b", "f", "n", "r", "t", "u")
-local literals     = create_set("true", "false", "null")
+local literals = create_set("true", "false", "null")
 
-local literal_map  = {
+local literal_map = {
   ["true"] = true,
   ["false"] = false,
   ["null"] = nil,

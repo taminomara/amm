@@ -140,7 +140,7 @@ suite:caseParams(
         test.param("0", "0"),
         test.param("0.0.0.0.1.0", "0.0.0.0.1"),
     },
-    function (ver, expected)
+    function(ver, expected)
         test.assertEq(version.parse(ver):canonicalString(), expected)
     end
 )
@@ -280,7 +280,7 @@ suite:caseParams(
         test.param("<=1, !=1", "0", true),
         test.param("<=1, !=1", "1", false),
     },
-    function (specs, ver, expected)
+    function(specs, ver, expected)
         print(specs, ver, expected)
         local spec = version.parseSpec(specs)
         test.assertEq(spec:matches(version.parse(ver)), expected)

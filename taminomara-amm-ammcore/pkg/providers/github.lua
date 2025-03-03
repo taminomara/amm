@@ -1,18 +1,18 @@
-local class             = require "ammcore.util.class"
-local provider          = require "ammcore.pkg.provider"
-local version           = require "ammcore.pkg.version"
+local class = require "ammcore.util.class"
+local provider = require "ammcore.pkg.provider"
+local version = require "ammcore.pkg.version"
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json              = require "ammcore.contrib.json"
-local log               = require "ammcore.util.log"
-local packageName       = require "ammcore.pkg.packageName"
-local package           = require "ammcore.pkg.packageVersion"
-local ammPackageJson    = require "ammcore.pkg.packageJson"
-local bootloader        = require "ammcore.bootloader"
+local json = require "ammcore.contrib.json"
+local log = require "ammcore.util.log"
+local packageName = require "ammcore.pkg.packageName"
+local package = require "ammcore.pkg.packageVersion"
+local ammPackageJson = require "ammcore.pkg.packageJson"
+local bootloader = require "ammcore.bootloader"
 
 --- Github package provider.
-local ns                = {}
+local ns = {}
 
-local logger            = log.Logger:New()
+local logger = log.Logger:New()
 
 --- Package version that was loaded from github.
 ---
@@ -149,8 +149,7 @@ end
 --- @private
 --- @param user string
 --- @param repo string
---- @param name string
-function ns.GithubProvider:_loadData(user, repo, name)
+function ns.GithubProvider:_loadData(user, repo)
     local ghName = string.format("%s/%s", user, repo)
 
     if self._freshPackages[ghName] then
@@ -275,7 +274,7 @@ function ns.GithubProvider:findPackageVersions(name, includeRemotePackages)
         return {}, false
     end
 
-    self:_loadData(user, repo, name)
+    self:_loadData(user, repo)
 
     local ghName = string.format("%s/%s", user, repo)
 

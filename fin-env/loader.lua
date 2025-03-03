@@ -354,7 +354,7 @@ local function findFs(...)
 end
 
 local devFs = {
-    drives = {}
+    drives = {},
 }
 
 function devFs:open(path, mode)

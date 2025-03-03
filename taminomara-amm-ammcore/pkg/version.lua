@@ -468,7 +468,7 @@ function VersionSpecCompiler:compile()
 
     local pa = {}
     local cmp = {}
-    local env = { ipairs=ipairs }
+    local env = { ipairs = ipairs }
     if self._exactLimit then
         env.exactLimit = self._exactLimit
         table.insert(pa, "local exactLimit = exactLimit")

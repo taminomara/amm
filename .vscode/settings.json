@@ -20,5 +20,8 @@
     "jit.profile": "disable",
     "jit.util": "disable",
     "package": "disable"
-  }
+  },
+  "Lua.doc.privateName": [
+    "_*"
+  ]
 }

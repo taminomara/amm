@@ -1,7 +1,7 @@
 local bootloader = require "ammcore.bootloader"
-local json       = require "ammcore.contrib.json"
+local json = require "ammcore.contrib.json"
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local log               = require "ammcore.util.log"
+local log = require "ammcore.util.log"
 
 --- Write server template.
 local ns = {}

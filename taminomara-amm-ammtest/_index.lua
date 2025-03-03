@@ -1,12 +1,12 @@
-local fin          = require "ammcore.util.fin"
+local fin = require "ammcore.util.fin"
 local debugHelpers = require "ammcore.util.debugHelpers"
-local bootloader   = require "ammcore.bootloader"
-local provider     = require "ammcore.pkg.providers.local"
+local bootloader = require "ammcore.bootloader"
+local provider = require "ammcore.pkg.providers.local"
 
 --- AMM test library.
-local test         = {}
+local test = {}
 
-local fileRe       = debugHelpers.getFile():match("^.-/taminomara%-amm%-ammtest/")
+local fileRe = debugHelpers.getFile():match("^.-/taminomara%-amm%-ammtest/")
 if fileRe then
     fileRe = fileRe:gsub("[^%w]", "%%%1") .. "[^:]*"
 else
@@ -299,7 +299,7 @@ local function deepEq(a, b)
         for k, v in pairs(a) do
             if not deepEq(v, b[k]) then return false end
         end
-        for k, v in pairs(b) do
+        for k in pairs(b) do
             if not a[k] then return false end
         end
         return true
@@ -663,7 +663,7 @@ local function pushPatchContext()
                 local patch = patches[i]
                 patch.env[patch.name] = patch.value
             end
-        end
+        end,
     })
 end
 
@@ -787,9 +787,9 @@ local function run(what, fn, ...)
         if err.message.vars then
             local vars = {
                 { "ret", "Returned value" },
-                { "e",   "Exp" },
-                { "g",   "Got" },
-                { "tb",  "Original trace", true }
+                { "e", "Exp" },
+                { "g", "Got" },
+                { "tb", "Original trace", true },
             }
             for _, var in ipairs(vars) do
                 local k, name, isTb = table.unpack(var)

@@ -1,11 +1,11 @@
-local class     = require "ammcore.util.class"
-local log       = require "ammcore.util.log"
-local version   = require "ammcore.pkg.version"
+local class = require "ammcore.util.class"
+local log = require "ammcore.util.log"
+local version = require "ammcore.pkg.version"
 
 --- Resolves dependencies.
-local ns        = {}
+local ns = {}
 
-local logger    = log.Logger:New()
+local logger = log.Logger:New()
 
 --- A package candidate.
 ---
@@ -181,11 +181,11 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
                 local requirements = ver:getAllRequirements()
                 for _, pinnedVersion in ipairs(bestAttempt) do
                     local candidate = pinnedVersion.candidate.versions[pinnedVersion.versionIndex]
-                    if (
-                            candidate
-                            and requirements[candidate.name]
-                            and not requirements[candidate.name]:matches(ver.version)
-                        ) then
+                    if
+                        candidate
+                        and requirements[candidate.name]
+                        and not requirements[candidate.name]:matches(ver.version)
+                    then
                         res = res .. sep .. string.format("%s %s", candidate.name, requirements[candidate.name])
                         sep = ","
                     end
@@ -266,10 +266,10 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
             end
 
             -- Check if root requirements allow using this version.
-            if (
-                    rootRequirements[pinnedVersion.name]
-                    and not rootRequirements[pinnedVersion.name]:matches(pinnedVersion.version)
-                ) then
+            if
+                rootRequirements[pinnedVersion.name]
+                and not rootRequirements[pinnedVersion.name]:matches(pinnedVersion.version)
+            then
                 pinnedCandidate.candidate.conflicts = pinnedCandidate.candidate.conflicts + 1
                 goto continue
             end
@@ -278,10 +278,10 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
             -- allow using this version.
             for name, prevPinnedVersion in pairs(pinnedByName) do
                 local prevRequirements = prevPinnedVersion:getAllRequirements()
-                if (
-                        prevRequirements[pinnedVersion.name]
-                        and not prevRequirements[pinnedVersion.name]:matches(pinnedVersion.version)
-                    ) then
+                if
+                    prevRequirements[pinnedVersion.name]
+                    and not prevRequirements[pinnedVersion.name]:matches(pinnedVersion.version)
+                then
                     pinnedCandidate.candidate.conflicts = pinnedCandidate.candidate.conflicts + 1
                     candidates[name].conflicts = candidates[name].conflicts + 1
                     isViable = false
@@ -331,7 +331,8 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
             for name, spec in pairs(pinnedVersion:getAllRequirements()) do
                 if not candidates[name] then
                     -- Haven't seen this package before.
-                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages), updateAll)
+                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages),
+                        updateAll)
                 end
 
                 candidates[name].requested = candidates[name].requested + 1

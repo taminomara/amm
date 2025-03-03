@@ -1,17 +1,17 @@
-local log               = require "ammcore.util.log"
-local resolver          = require "ammcore.pkg.resolver"
-local packageName       = require "ammcore.pkg.packageName"
-local version           = require "ammcore.pkg.version"
-local localProvider     = require "ammcore.pkg.providers.local"
-local githubProvider    = require "ammcore.pkg.providers.github"
+local log = require "ammcore.util.log"
+local resolver = require "ammcore.pkg.resolver"
+local packageName = require "ammcore.pkg.packageName"
+local version = require "ammcore.pkg.version"
+local localProvider = require "ammcore.pkg.providers.local"
+local githubProvider = require "ammcore.pkg.providers.github"
 local aggregateProvider = require "ammcore.pkg.providers.aggregate"
-local bootloader        = require "ammcore.bootloader"
-local array             = require "ammcore.util.array"
+local bootloader = require "ammcore.bootloader"
+local array = require "ammcore.util.array"
 
 --- API for AMM package manager.
-local ns                = {}
+local ns = {}
 
-local logger            = log.Logger:New()
+local logger = log.Logger:New()
 
 --- Get package provider with locally installed packages.
 ---
@@ -137,7 +137,7 @@ function ns.verify(rootRequirements, provider)
             allPkgs[name] = pkg
 
             do
-                array.insertTable(allRequirements, pkg:getAllRequirements(), function (l, r)
+                array.insertTable(allRequirements, pkg:getAllRequirements(), function(l, r)
                     return l .. r
                 end)
             end
@@ -247,8 +247,13 @@ function ns.checkAndUpdate(updateAll)
 
     if updateAll or not ns.verify(rootRequirements, provider) then
         logger:info("Updating installed packages")
-        local nUpgraded, nDowngraded, nInstalled, nUninstalled, nRebuilt = ns.install(rootRequirements, provider, updateAll, true)
-        logger:info("Updating complete: %s upgraded, %s downgraded, %s installed, %s uninstalled, %s rebuilt", nUpgraded, nDowngraded, nInstalled, nUninstalled, nRebuilt)
+        local nUpgraded, nDowngraded, nInstalled, nUninstalled, nRebuilt = ns.install(
+            rootRequirements, provider, updateAll, true
+        )
+        logger:info(
+            "Updating complete: %s upgraded, %s downgraded, %s installed, %s uninstalled, %s rebuilt",
+            nUpgraded, nDowngraded, nInstalled, nUninstalled, nRebuilt
+        )
         return true
     else
         logger:info("Packages are up-to-date")

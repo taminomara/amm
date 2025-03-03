@@ -1,15 +1,15 @@
-local nick              = require "ammcore.util.nick"
-local packageName       = require "ammcore.pkg.packageName"
-local localProvider     = require "ammcore.pkg.providers.local"
+local nick = require "ammcore.util.nick"
+local packageName = require "ammcore.pkg.packageName"
+local localProvider = require "ammcore.pkg.providers.local"
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json              = require "ammcore.contrib.json"
-local version           = require "ammcore.pkg.version"
-local log               = require "ammcore.util.log"
-local bootloader        = require "ammcore.bootloader"
+local json = require "ammcore.contrib.json"
+local version = require "ammcore.pkg.version"
+local log = require "ammcore.util.log"
+local bootloader = require "ammcore.bootloader"
 
-local logger            = log.Logger:New()
+local logger = log.Logger:New()
 
-local parsed            = nick.parse(computer.getInstance().nick)
+local parsed = nick.parse(computer.getInstance().nick)
 
 local user, repo
 do

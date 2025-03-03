@@ -1,9 +1,9 @@
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json              = require "ammcore.contrib.json"
-local version           = require "ammcore.pkg.version"
+local json = require "ammcore.contrib.json"
+local version = require "ammcore.pkg.version"
 
 --- Parser for `.ammpackage.json`.
-local ns                = {}
+local ns = {}
 
 --- @class ammcore.pkg.ammPackageJson.AmmPackageJson
 --- @field name string
@@ -134,7 +134,9 @@ function ns.parse(metadata, path)
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
                 if not ok then
-                    error(string.format("unable to parse %s: requirement %s has invalid version %s: %s", path, k, v, err), 0)
+                    error(
+                        string.format("unable to parse %s: requirement %s has invalid version %s: %s", path, k, v, err),
+                        0)
                 end
             end
             requirements[k] = spec
@@ -148,7 +150,10 @@ function ns.parse(metadata, path)
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
                 if not ok then
-                    error(string.format("unable to parse %s: dev requirement %s has invalid version %s: %s", path, k, v, err), 0)
+                    error(
+                        string.format("unable to parse %s: dev requirement %s has invalid version %s: %s", path, k, v,
+                            err),
+                        0)
                 end
             end
             devRequirements[k] = spec

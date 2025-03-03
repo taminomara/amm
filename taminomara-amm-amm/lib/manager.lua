@@ -1,18 +1,18 @@
 ---@diagnostic disable: invisible
-local severity          = require "amm.lib.severity"
-local class             = require "ammcore.util.class"
-local pickle            = require "amm.lib.pickle"
-local indicatorManager  = require "amm.lib.indicatorManager"
-local nick              = require "ammcore.util.nick"
-local array             = require "ammcore.util.array"
-local log               = require "ammcore.util.log"
+local severity = require "amm.lib.severity"
+local class = require "ammcore.util.class"
+local pickle = require "amm.lib.pickle"
+local indicatorManager = require "amm.lib.indicatorManager"
+local nick = require "ammcore.util.nick"
+local array = require "ammcore.util.array"
+local log = require "ammcore.util.log"
 local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local fin               = require "ammcore.util.fin"
+local fin = require "ammcore.util.fin"
 
 --- Facilities for actually running controllers.
-local manager           = {}
+local manager = {}
 
-local logger            = log.Logger:New()
+local logger = log.Logger:New()
 
 local function suppressErrors(callback, ...)
     local success, err = fin.xpcall(callback, ...)
@@ -290,12 +290,12 @@ function manager.Manager:_loop()
             if controller._lastCheckTime + controller._checkInterval < now then
                 checkNow = true
             elseif controller._needsCheck then
-                if (
+                if
                     -- we had no events for at least .3s
-                        #e == 0
-                        -- or the controller has been waiting for its check for >=1s
-                        or now >= controller._checkDeadline
-                    ) then
+                    #e == 0
+                    -- or the controller has been waiting for its check for >=1s
+                    or now >= controller._checkDeadline
+                then
                     -- check the controller now
                     checkNow = true
                 else
@@ -321,7 +321,7 @@ function manager.Manager:_loop()
         if checkSoon then
             logger:trace("Will run checks soon")
             checkDeadline = now + 300
-            -- We're running checks as usual.
+        -- We're running checks as usual.
         else
             checkDeadline = now + 300000
             for _, controller in ipairs(self._controllers) do
@@ -528,7 +528,7 @@ function manager.Manager:loadState(code)
         local content = filesystemHelpers.readFile(stateFile)
 
         local result
-        local success = pcall(function() result = pickle.unpickle(content) end)
+        local success = pcall(function () result = pickle.unpickle(content) end)
 
         if success then
             return table.unpack(result)
@@ -568,7 +568,7 @@ function manager.Manager:_getState(code)
         pingsEnabled = self._pingsEnabled,
         alarmEnabled = self._alarmEnabled,
         alarmSounding = sv >= severity.Severity.ERR and self._alarmEnabled and not self._muted,
-        controllers = {}
+        controllers = {},
     }
     for _, controller in ipairs(self._controllers) do
         if not code or controller.CODE == code then
@@ -576,7 +576,7 @@ function manager.Manager:_getState(code)
             local state = controller:getState()
             local messages = controller.errRep:getMessages()
             observedState.controllers[controller.CODE] = {
-                sv = sv, color = color, state = state, messages = messages
+                sv = sv, color = color, state = state, messages = messages,
             }
         end
     end

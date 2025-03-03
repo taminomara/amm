@@ -1,10 +1,10 @@
 local bootloader = require "ammcore.bootloader"
-local log        = require "ammcore.util.log"
+local log = require "ammcore.util.log"
 
-local logger     = log.Logger:New()
+local logger = log.Logger:New()
 
 --- Allows setting up server EEPROM.
-local ns         = {}
+local ns = {}
 
 --- Generate standard EEPROM for an AMM computer.
 ---
@@ -87,7 +87,7 @@ function ns.formatServerEeprom(prog)
 
     return eepromTemplate
         :gsub("%-%-%[%[{%s*configExtras%s*}%]%]", configExtras)
-        :gsub("%[%[{%s*([%w]*)%s*}%]%]", function (key) return string.format("%q", vars[key]) end)
+        :gsub("%[%[{%s*([%w]*)%s*}%]%]", function(key) return string.format("%q", vars[key]) end)
 end
 
 return ns

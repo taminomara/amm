@@ -134,11 +134,11 @@ function indicatorManager.IndicatorManager:setLocalColor(location, sv, color, ma
     end
 
     for _, candidate in pairs(candidates) do
-        if (
-                not candidate.indicator.sv
-                or sv > candidate.indicator.sv
-                or sv == candidate.indicator and not candidate.indicator.color
-            ) then
+        if
+            not candidate.indicator.sv
+            or sv > candidate.indicator.sv
+            or sv == candidate.indicator and not candidate.indicator.color
+        then
             candidate.indicator.sv = sv
             candidate.indicator.color = color
         end
@@ -151,7 +151,7 @@ function indicatorManager.IndicatorManager:applyLocalColors()
         if indicator.color or indicator.sv then
             severity.setObjectColor(indicator[1], indicator.color or indicator.sv or { 1, 1, 1 })
         else
-            severity.setDisabledObjectColor(indicator[1], {0, 0, 0})
+            severity.setDisabledObjectColor(indicator[1], { 0, 0, 0 })
         end
     end
 end

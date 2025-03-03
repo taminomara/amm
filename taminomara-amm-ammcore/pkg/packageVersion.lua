@@ -1,13 +1,13 @@
-local class          = require "ammcore.util.class"
+local class = require "ammcore.util.class"
 local builder = require "ammcore.pkg.builder"
-local array          = require "ammcore.util.array"
+local array = require "ammcore.util.array"
 
-local ns             = {}
+local ns = {}
 
 --- Represents a single package version.
 ---
 --- @class ammcore.pkg.package.PackageVersion: class.Base
-ns.PackageVersion    = class.create("PackageVersion")
+ns.PackageVersion = class.create("PackageVersion")
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version

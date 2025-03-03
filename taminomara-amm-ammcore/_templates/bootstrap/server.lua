@@ -4,7 +4,7 @@ local config = {
     --- Packages to install in addition to the loader system.
     packages = {
         -- "taminomara-amm-amm ~= 1.0",
-    }
+    },
 }
 
 -- Implementation

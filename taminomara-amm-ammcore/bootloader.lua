@@ -190,13 +190,13 @@ function _loaders.net(config)
                 error("timeout while waiting for response from a code server")
             end
             e, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
-            if (
-                    e == "NetworkMessage"
-                    and sender == config.netCodeServerAddr
-                    and port == config.netCodeServerPort
-                    and msg == "rcvCode"
-                    and responseCandidates == pathCandidatesStr
-                ) then
+            if
+                e == "NetworkMessage"
+                and sender == config.netCodeServerAddr
+                and port == config.netCodeServerPort
+                and msg == "rcvCode"
+                and responseCandidates == pathCandidatesStr
+            then
                 break
             end
         end
