@@ -183,15 +183,15 @@ function _loaders.net(config)
 
         -- Wait for response.
         local deadline = computer.millis() + 500
-        local event, sender, port, msg, responseCandidates, code, realPath
+        local e, sender, port, msg, responseCandidates, code, realPath
         while true do
             local now = computer.millis()
             if now > deadline then
                 error("timeout while waiting for response from a code server")
             end
-            event, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
+            e, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
             if (
-                    event == "NetworkMessage"
+                    e == "NetworkMessage"
                     and sender == config.netCodeServerAddr
                     and port == config.netCodeServerPort
                     and msg == "rcvCode"

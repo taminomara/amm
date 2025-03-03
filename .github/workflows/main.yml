@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      - name: Write server template
+        run: python compile_core.py
+        shell: bash
       - name: Test and build an AMM package
         uses: taminomara/amm@main
         with:

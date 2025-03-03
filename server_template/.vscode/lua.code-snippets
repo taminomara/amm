@@ -1,0 +1,29 @@
+{
+	"AMM Class Create": {
+		"prefix": "$class",
+		"body": [
+			"--- $0",
+			"--- ",
+			"--- @class ${RELATIVE_FILEPATH/([\\/\\\\])|(^taminomara.amm.)|(.lua$)/${1:+.}/g}.${1:${TM_FILENAME_BASE/^(.*)$/${1:/pascalcase}/}}: ${3/^(.*)$/${1:class.Base}/}",
+			"${2/^$/local /}${1} = class.create(\"${1}\"${3/^(.*)$/${1:+, }$1/})",
+			"",
+			"--- @generic T: ${RELATIVE_FILEPATH/([\\/\\\\])|(^taminomara.amm.)|(.lua$)/${1:+.}/g}.$1",
+			"--- @param self T",
+			"--- @return T",
+			"function ${2:ns.}${1:${TM_FILENAME_BASE/^(.*)$/${1:/pascalcase}/}}:New()",
+			"    self = ${3/^(.*)$/${1:class.Base}/}.New(self)",
+			"",
+			"    return self",
+			"end",
+		]
+	},
+	"AMM file": {
+		"prefix": "$ns",
+		"body": [
+			"--- ${1:Documentation}"
+			"local ns = {}",
+			"",
+			"return ns",
+		]
+	}
+}

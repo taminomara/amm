@@ -1,4 +1,5 @@
 local pkg               = require "ammcore.pkg.index"
+local serverTemplate            = require "ammcore.templates.server"
 local eepromTemplate    = require "ammcore.templates.eeprom"
 local bootloader        = require "ammcore.bootloader"
 
@@ -29,6 +30,7 @@ do
     end
 end
 
+serverTemplate.writeServerTemplate(assert(bootloader.getDevRoot(), "config.devRoot is not set"))
 computer.setEEPROM(eepromTemplate.formatServerEeprom("ammcore.bin.server"))
 
 print("AMM server successfully installed.")

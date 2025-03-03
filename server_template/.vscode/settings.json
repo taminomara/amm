@@ -1,0 +1,24 @@
+{
+  "jira-plugin.workingProject": "",
+  "Lua.runtime.pathStrict": true,
+  "Lua.runtime.path": ["taminomara-amm-?.lua", "?.lua"],
+  "Lua.type.castNumberToInteger": false,
+  "Lua.type.checkTableShape": true,
+  "Lua.type.inferParamType": true,
+  "Lua.workspace.library": ["${workspaceFolder}/.amm/lib"],
+  "cSpell.words": ["ammcore", "ammtest", "ammlib"],
+  "Lua.completion.requireSeparator": ".",
+  "Lua.workspace.preloadFileSize": 1024,
+  "Lua.runtime.version": "Lua 5.4",
+  "Lua.runtime.builtin": {
+    "os": "disable",
+    "io": "disable",
+    "bit": "disable",
+    "bit32": "disable",
+    "ffi": "disable",
+    "jit": "disable",
+    "jit.profile": "disable",
+    "jit.util": "disable",
+    "package": "disable"
+  }
+}

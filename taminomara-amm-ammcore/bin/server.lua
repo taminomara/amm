@@ -50,7 +50,7 @@ event.registerListener(
         logger:debug("Request %s:%s %q", sender, port, message)
         local handler = handlers[message]
         if handler then
-            local ok, err = fin.xpcall(handler, event, _, sender, port, message, table.unpack(...))
+            local ok, err = fin.xpcall(handler, event, _, sender, port, message, ...)
             if not ok then
                 logger:error("error when processing message %q from %s: %s", message, sender, err)
             end
@@ -59,6 +59,8 @@ event.registerListener(
         end
     end
 )
+
+logger:info("Core server is listening on port %s", config.netCodeServerPort)
 
 networkCard:broadcast(config.netCodeServerPort, "reset")
 

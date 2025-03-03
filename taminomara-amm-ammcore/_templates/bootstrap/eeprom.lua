@@ -4,10 +4,9 @@
 local config = {
     --- Program to run, parsed from computer's nick by default.
     prog = [[{ prog }]],
-    -- prog = "ammcore/bin/installPackages", -- to check and install new packages
-    -- prog = "ammcore/bin/updatePackages", -- to update all packages to the latest version
-    -- prog = "ammcore/bin/createPackage", -- to create an example package
-    -- prog = "ammtest/bin/main", -- to run tests
+    -- prog = "ammcore.bin.installPackages", -- to check and install new packages
+    -- prog = "ammcore.bin.updatePackages", -- to update all packages to the latest version
+    -- prog = "ammtest.bin.main", -- to run tests
 
     --- Where to find the program: either `drive` or `net`.
     target = [[{ target }]],
@@ -124,15 +123,15 @@ function loaders.net(path)
 
     -- Wait for response.
     local deadline = computer.millis() + 500
-    local event, sender, port, msg, responseCandidates, code, realPath
+    local e, sender, port, msg, responseCandidates, code, realPath
     while true do
         local now = computer.millis()
         if now > deadline then
             error("timeout while waiting for response from a code server")
         end
-        event, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
+        e, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
         if (
-                event == "NetworkMessage"
+                e == "NetworkMessage"
                 and (not config.netCodeServerAddr or sender == config.netCodeServerAddr)
                 and port == config.netCodeServerPort
                 and msg == "rcvCode"
@@ -148,7 +147,7 @@ function loaders.net(path)
 
     -- Got a response.
     config.netCodeServerAddr = sender
-    print("[EEPROM] Using code server %s", sender)
+    print(string.format("[EEPROM] Using code server %s", sender))
 
     return code, realPath
 end

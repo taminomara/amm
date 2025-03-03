@@ -1,14 +1,15 @@
-if not AMM_BOOT_CONFIG then
-    AMM_BOOT_CONFIG = {}
+local bootloader = require "ammcore.bootloader"
+
+local config = bootloader.getBootloaderConfig()
+
+if not config.prog then
+    config.prog = computer.getInstance().nick:gsub("#.*$", ""):gsub("^%s*", ""):gsub("%s*$", "")
 end
-if not AMM_BOOT_CONFIG.prog then
-    AMM_BOOT_CONFIG.prog = computer.getInstance().nick:gsub("#.*$", ""):gsub("^%s*", ""):gsub("%s*$", "")
+if config.prog and not type(config.prog) == "string" then
+    error("config.prog is not a string")
 end
-if AMM_BOOT_CONFIG.prog and not type(AMM_BOOT_CONFIG.prog) == "string" then
-    error("AMM_BOOT_CONFIG.prog is not a string")
-end
-if not AMM_BOOT_CONFIG.prog or AMM_BOOT_CONFIG.prog:len() == 0 then
-    error("AMM_BOOT_CONFIG.prog is not defined")
+if not config.prog or config.prog:len() == 0 then
+    error("config.prog is not defined")
 end
 
 local nick = require "ammcore.util.nick"
@@ -26,6 +27,6 @@ do
     end
 end
 
-print("Booting " .. AMM_BOOT_CONFIG.prog)
+print("Booting " .. config.prog)
 
-require(AMM_BOOT_CONFIG.prog)
+require(config.prog)
