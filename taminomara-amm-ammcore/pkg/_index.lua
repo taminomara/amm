@@ -5,9 +5,10 @@ local version           = require "ammcore.pkg.version"
 local localProvider     = require "ammcore.pkg.providers.local"
 local githubProvider    = require "ammcore.pkg.providers.github"
 local aggregateProvider = require "ammcore.pkg.providers.aggregate"
-local fin               = require "ammcore.util.fin"
 local bootloader        = require "ammcore.bootloader"
+local array             = require "ammcore.util.array"
 
+--- API for AMM package manager.
 local ns                = {}
 
 local logger            = log.Logger:New()
@@ -59,22 +60,22 @@ function ns.gatherRootRequirements(provider)
                 error(string.format("invalid package requirement in config.packages: %s", req))
             end
 
-            local name, spec = req:match("^([%w_-]*)(.*)$")
+            local name, specTxt = req:match("^([%w_-]*)(.*)$")
 
             if not packageName.parseFullPackageName(name) then
                 error(string.format("invalid package name in config.packages: %s", name))
             end
 
-            local parsedSpec
-            local ok, err = pcall(function() parsedSpec = version.parseSpec(spec) end)
+            local spec
+            local ok, err = pcall(function() spec = version.parseSpec(specTxt) end)
             if not ok then
                 error(string.format("invalid package requirement in config.packages: %s: %s", name, err))
             end
 
             if rootRequirements[name] then
-                rootRequirements[name] = rootRequirements[name] .. parsedSpec
+                rootRequirements[name] = rootRequirements[name] .. spec
             else
-                rootRequirements[name] = parsedSpec
+                rootRequirements[name] = spec
             end
         end
     end
@@ -110,14 +111,14 @@ function ns.verify(rootRequirements, provider)
     local allPkgs = {}
 
     do
-        local packages = {}
-        for name, versionSpec in pairs(rootRequirements) do
-            table.insert(packages, name)
-            allRequirements[name] = versionSpec
+        local pkgNamesStack = {}
+        for name, spec in pairs(rootRequirements) do
+            table.insert(pkgNamesStack, name)
+            allRequirements[name] = spec
         end
 
-        while #packages > 0 do
-            local name = table.remove(packages)
+        while #pkgNamesStack > 0 do
+            local name = table.remove(pkgNamesStack)
 
             if allPkgs[name] then
                 goto continue
@@ -136,15 +137,9 @@ function ns.verify(rootRequirements, provider)
             allPkgs[name] = pkg
 
             do
-                local requirements = pkg:getAllRequirements()
-                for name, spec in pairs(requirements) do
-                    table.insert(packages, name)
-                    if allRequirements[name] then
-                        allRequirements[name] = allRequirements[name] .. spec
-                    else
-                        allRequirements[name] = spec
-                    end
-                end
+                array.insertTable(allRequirements, pkg:getAllRequirements(), function (l, r)
+                    return l .. r
+                end)
             end
 
             ::continue::
@@ -178,11 +173,11 @@ function ns.install(rootRequirements, provider, updateAll, includeRemotePackages
 
     local nUpgraded, nDowngraded, nInstalled, nUninstalled, nRebuilt = 0, 0, 0, 0, 0
 
-    local packagesPath = filesystem.path(srvRoot, "lib")
-    if not filesystem.exists(packagesPath) then
-        assert(filesystem.createDir(packagesPath, true))
-    elseif not filesystem.isDir(packagesPath) then
-        error(string.format("not a directory: %s", packagesPath))
+    local pkgsPath = filesystem.path(srvRoot, "lib")
+    if not filesystem.exists(pkgsPath) then
+        assert(filesystem.createDir(pkgsPath, true))
+    elseif not filesystem.isDir(pkgsPath) then
+        error(string.format("not a directory: %s", pkgsPath))
     end
 
     local isResolved = {}
@@ -191,26 +186,26 @@ function ns.install(rootRequirements, provider, updateAll, includeRemotePackages
         isResolved[pkg.name] = true
 
         if not pkg.isInstalled then
-            local installed, foundInstalledPackage = provider:findPackageVersions(pkg.name, false)
-
+            -- Check if another version is installed?
+            local installedVersions, foundInstalled = provider:findPackageVersions(pkg.name, false)
             local opetaion = ""
-            if foundInstalledPackage and #installed == 1 then
-                if pkg.version > installed[1].version then
-                    opetaion = string.format(" (upgrade from %s)", installed[1].version)
+            if foundInstalled and #installedVersions == 1 then
+                if pkg.version > installedVersions[1].version then
+                    opetaion = string.format(" (upgrade from %s)", installedVersions[1].version)
                     nUpgraded = nUpgraded + 1
-                elseif pkg.version == installed[1].version then
+                elseif pkg.version == installedVersions[1].version then
                     opetaion = " (rebuild)"
                     nRebuilt = nRebuilt + 1
                 else
-                    opetaion = string.format(" (downgrade from %s)", installed[1].version)
+                    opetaion = string.format(" (downgrade from %s)", installedVersions[1].version)
                     nDowngraded = nDowngraded + 1
                 end
             else
                 nInstalled = nInstalled + 1
             end
 
-            local pkgStagingPath = filesystem.path(packagesPath, ".staging")
-            local pkgDestinationPath = filesystem.path(packagesPath, pkg.name)
+            local pkgStagingPath = filesystem.path(pkgsPath, ".staging")
+            local pkgDestinationPath = filesystem.path(pkgsPath, pkg.name)
 
             if filesystem.exists(pkgStagingPath) then
                 assert(filesystem.remove(pkgStagingPath, true))

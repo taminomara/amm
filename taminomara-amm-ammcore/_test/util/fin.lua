@@ -1,7 +1,7 @@
-local test = require "ammtest.index"
+local test = require "ammtest"
 local fin = require "ammcore.util.fin"
 
-local suite = test.suite("fin")
+local suite = test.suite()
 
 suite:case("xpcall success", function()
     local args

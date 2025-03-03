@@ -1,5 +1,5 @@
 local bootloader = require "ammcore.bootloader"
-local pkg = require "ammcore.pkg.index"
+local pkg = require "ammcore.pkg"
 local log = require "ammcore.util.log"
 local fin = require "ammcore.util.fin"
 

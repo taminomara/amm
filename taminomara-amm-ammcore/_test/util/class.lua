@@ -1,7 +1,7 @@
-local test = require "ammtest.index"
+local test = require "ammtest"
 local class = require "ammcore.util.class"
 
-local suite = test.suite("class")
+local suite = test.suite()
 
 suite:case("Base", function ()
     test.assertEq(tostring(class.Base), "Base")

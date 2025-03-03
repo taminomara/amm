@@ -8,7 +8,6 @@ local packageName       = require "ammcore.pkg.packageName"
 local package           = require "ammcore.pkg.packageVersion"
 local ammPackageJson    = require "ammcore.pkg.packageJson"
 local bootloader        = require "ammcore.bootloader"
-local packageBuilder    = require "ammcore.pkg.packageBuilder"
 
 --- Github package provider.
 local ns                = {}
@@ -47,8 +46,8 @@ function ns.GithubPackageVersion:getRequirements()
         self:_loadData()
     elseif not self._requirements then
         self._requirements = {}
-        for name, spec in pairs(self._cacheData.data.requirements or {}) do
-            self._requirements[name] = version.parseSpec(spec)
+        for name, specTxt in pairs(self._cacheData.data.requirements or {}) do
+            self._requirements[name] = version.parseSpec(specTxt)
         end
     end
 
@@ -67,20 +66,14 @@ function ns.GithubPackageVersion:_loadData()
     end
 
     logger:debug("Fetching %s", self._cacheData.metadataUrl)
-    local res, rawMetadata = internetCard:request(self._cacheData.metadataUrl, "GET", ""):await()
+    local res, metadataTxt = internetCard:request(self._cacheData.metadataUrl, "GET", ""):await()
     if not res then
         error("failed fetching package metadata: couldn't connect to github", 0)
     elseif res ~= 200 then
         error(string.format("failed fetching package metadata: HTTP error %s", res), 0)
     end
 
-    local rawData
-    local ok, err = pcall(function() rawData = json.decode(rawMetadata) end)
-    if not ok then
-        error(string.format("failed parsing package metadata: %s", err), 0)
-    end
-
-    local ver, requirements, _, data = ammPackageJson.parse(rawData, "github response")
+    local ver, requirements, _, data = ammPackageJson.parseFromString(metadataTxt, "github response")
     if data.name ~= self.name then
         error("package metadata name is inconsistent with release name", 0)
     end
@@ -164,7 +157,7 @@ function ns.GithubProvider:_loadData(user, repo, name)
         return
     end
 
-    logger:info("Fetching versions for %s", name)
+    logger:info("Fetching versions from github repo %s", ghName)
 
     --- @type ammcore.pkg.providers.github.CacheRepo
     local cache = { packages = {} }
@@ -176,7 +169,7 @@ function ns.GithubProvider:_loadData(user, repo, name)
 
     local url = string.format("https://api.github.com/repos/%s/%s/releases", user, repo)
     logger:debug("Fetching %s", url)
-    local res, rawReleases = self._internetCard:request(url, "GET", ""):await()
+    local res, releasesTxt = self._internetCard:request(url, "GET", ""):await()
     if not res then
         error("failed fetching package versions: couldn't connect to github", 0)
     elseif res == 404 then
@@ -186,7 +179,7 @@ function ns.GithubProvider:_loadData(user, repo, name)
     end
 
     local releases
-    local ok, err = pcall(function() releases = json.decode(rawReleases) end)
+    local ok, err = pcall(function() releases = json.decode(releasesTxt) end)
     if not ok then
         error(string.format("failed parsing package versions: %s", err), 0)
     end
@@ -197,39 +190,36 @@ function ns.GithubProvider:_loadData(user, repo, name)
     for _, release in ipairs(releases) do
         local tag = release["tag_name"]
         if type(tag) ~= "string" then
+            logger:warning("Repo %s: ignoring an unknown release: no tag specified", ghName)
             goto continue
         end
 
-        local releaseName, releaseVer = tag:match("^(.*)/v(.-)$")
-        if not releaseName or not releaseVer then
-            logger:warning("Repo https://github.com/%s/%s: ignoring release %s: tag is not properly formatted", user,
-                repo, tag)
+        local releaseName, releaseVerTxt = tag:match("^(.*)/v(.-)$")
+        if not releaseName or not releaseVerTxt then
+            logger:warning("Repo %s: ignoring release %s: tag is not properly formatted", ghName, tag)
             goto continue
         end
 
         local releaseNameIsValid, releaseUser, releaseRepo, releasePkg = packageName.parseFullPackageName(releaseName)
         if not releaseNameIsValid then
-            logger:warning("Repo https://github.com/%s/%s: ignoring release %s: tag is not properly formatted", user,
-                repo, tag)
+            logger:warning("Repo %s: ignoring release %s: tag is not properly formatted", ghName, tag)
             goto continue
         end
         if releaseUser ~= user or releaseRepo ~= repo then
-            logger:warning("Repo https://github.com/%s/%s: ignoring release %s: tag does not belong to this repo", user,
-                repo, tag)
+            logger:warning("Repo %s: ignoring release %s: tag does not belong to this repo", ghName, tag)
             goto continue
         end
 
         releasePkg = releasePkg or ""
 
         --- @type ammcore.pkg.version.Version
-        local parsedReleaseVer
-        if not pcall(function() parsedReleaseVer = version.parse(releaseVer) end) then
-            logger:warning("Repo https://github.com/%s/%s: ignoring release %s: version is not properly formatted", user,
-                repo, tag)
+        local releaseVer
+        if not pcall(function() releaseVer = version.parse(releaseVerTxt) end) then
+            logger:warning("Repo %s: ignoring release %s: version is not properly formatted", ghName, tag)
             goto continue
         end
 
-        local releaseVerCanon = parsedReleaseVer:canonicalString()
+        local releaseVerCanonTxt = releaseVer:canonicalString()
 
         local metadataUrl, codeUrl
 
@@ -242,8 +232,7 @@ function ns.GithubProvider:_loadData(user, repo, name)
         end
 
         if not metadataUrl or not codeUrl then
-            logger:warning("Repo https://github.com/%s/%s: ignoring release %s: couldn't find necessary assets", user,
-                repo, tag)
+            logger:warning("Repo %s: ignoring release %s: couldn't find necessary assets", ghName, tag)
             goto continue
         end
 
@@ -252,11 +241,11 @@ function ns.GithubProvider:_loadData(user, repo, name)
             nPackages = nPackages + 1
         end
 
-        cache.packages[releasePkg][releaseVerCanon] = { metadataUrl = metadataUrl, codeUrl = codeUrl }
+        cache.packages[releasePkg][releaseVerCanonTxt] = { metadataUrl = metadataUrl, codeUrl = codeUrl }
         nTags = nTags + 1
 
-        if oldCache and oldCache.packages[releasePkg] and oldCache.packages[releasePkg][releaseVerCanon] then
-            cache.packages[releasePkg][releaseVerCanon].data = oldCache.packages[releasePkg][releaseVerCanon].data
+        if oldCache and oldCache.packages[releasePkg] and oldCache.packages[releasePkg][releaseVerCanonTxt] then
+            cache.packages[releasePkg][releaseVerCanonTxt].data = oldCache.packages[releasePkg][releaseVerCanonTxt].data
         end
 
         ::continue::

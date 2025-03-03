@@ -1,4 +1,4 @@
-local test = require "ammtest.index"
+local test = require "ammtest"
 
 local asserts = test.suite("test.asserts")
 

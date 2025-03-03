@@ -52,6 +52,24 @@ function ns.insertMany(t, arr)
     return t
 end
 
+--- Insert values from one table into another.
+---
+--- @generic T
+--- @generic U
+--- @param t table<T, U>
+--- @param from table<T, U>
+--- @param merger nil | fun(l: U, r: U): U
+function ns.insertTable(t, from, merger)
+    merger = merger or function (l, r) return r end
+    for k, v in pairs(from) do
+        if t[k] then
+            t[k] = merger(t[k], v)
+        else
+            t[k] = v
+        end
+    end
+end
+
 --- Allpy function over array.
 ---
 --- @generic T

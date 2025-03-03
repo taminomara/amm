@@ -82,43 +82,54 @@ end
 --- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
 --- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
 function ns.parseFromFile(path)
-    local rawData = filesystemHelpers.readFile(path)
-    local data
-    do
-        local ok, err = pcall(function() data = json.decode(rawData) end)
-        if not ok then
-            error(string.format("unable to parse %s: %s", path, err), 0)
-        end
-    end
-
-    return ns.parse(data, path)
+    return ns.parseFromString(filesystemHelpers.readFile(path), path)
 end
 
---- Read `ammpackage.json` from lua table.
+--- Read `ammpackage.json` from json string.
 ---
---- @param data any
+--- @param metadataTxt string
 --- @param path string
 --- @return ammcore.pkg.version.Version version
 --- @return table<string, ammcore.pkg.version.VersionSpec> requirements
 --- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
 --- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
-function ns.parse(data, path)
-    local err = checkSchema(data, schema, "")
+function ns.parseFromString(metadataTxt, path)
+    local metadata
+    do
+        local ok, err = pcall(function() metadata = json.decode(metadataTxt) end)
+        if not ok then
+            error(string.format("unable to parse %s: %s", path, err), 0)
+        end
+    end
+
+    return ns.parse(metadata, path)
+end
+
+--- Read `ammpackage.json` from lua table.
+---
+--- @param metadata any
+--- @param path string
+--- @return ammcore.pkg.version.Version version
+--- @return table<string, ammcore.pkg.version.VersionSpec> requirements
+--- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
+--- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
+function ns.parse(metadata, path)
+    local err = checkSchema(metadata, schema, "")
     if err then
         error(string.format("unable to parse %s: %s", path, err), 0)
     end
 
     local ver
     do
-        local ok, err = pcall(function() ver = version.parse(data.version) end)
+        local ok, err = pcall(function() ver = version.parse(metadata.version) end)
         if not ok then
-            error(string.format("unable to parse %s: invalid package version %s:", path, data.version, err), 0)
+            error(string.format("unable to parse %s: invalid package version %s:", path, metadata.version, err), 0)
         end
     end
 
     local requirements = {}
     do
-        for k, v in pairs(data.requirements or {}) do
+        for k, v in pairs(metadata.requirements or {}) do
             local spec
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
@@ -132,7 +143,7 @@ function ns.parse(data, path)
 
     local devRequirements = {}
     do
-        for k, v in pairs(data.devRequirements or {}) do
+        for k, v in pairs(metadata.devRequirements or {}) do
             local spec
             do
                 local ok, err = pcall(function() spec = version.parseSpec(v) end)
@@ -144,7 +155,7 @@ function ns.parse(data, path)
         end
     end
 
-    return ver, requirements, devRequirements, data
+    return ver, requirements, devRequirements, metadata
 end
 
 return ns

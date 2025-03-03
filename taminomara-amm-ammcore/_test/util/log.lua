@@ -1,7 +1,7 @@
-local test = require "ammtest.index"
+local test = require "ammtest"
 local log = require "ammcore.util.log"
 
-local suite = test.suite("log")
+local suite = test.suite()
 
 function suite:setupTest()
     test.patch(_G, "AMM_LOG_LEVELS", {})

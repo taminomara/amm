@@ -40,11 +40,11 @@ end
 ---
 --- @param name string
 --- @param version ammcore.pkg.version.Version
---- @param data string
-function ns.PackageArchiver:FromArchive(name, version, data)
+--- @param archive string
+function ns.PackageArchiver:FromArchive(name, version, archive)
     self = self:New(name, version)
 
-    local fn, err = load("return " .. data, "<package archive>", "bt", {})
+    local fn, err = load("return " .. archive, "<package archive>", "bt", {})
     if not fn then
         error(string.format("failed unpacking %s == %s: %s", self.name, self.version, err), 0)
     end
@@ -71,7 +71,7 @@ function ns.PackageArchiver:unpack(pkgRoot)
     for _, filename in ipairs(filenames) do
         local content = self._outputFiles[filename]
         local filePath = filesystem.path(pkgRoot, filesystem.path(2, filename))
-        local fileDir = filePath:match("^(.*)/[^/]*$")
+        local fileDir = filesystemHelpers.parent(filePath)
         if not filesystem.exists(fileDir) then
             logger:trace("Creating %s", fileDir)
             assert(filesystem.createDir(fileDir, true))
@@ -101,24 +101,16 @@ function ns.PackageArchiver:_verify()
         end
     end
 
-    local metadata = self._outputFiles[".ammpackage.json"]
-    if not metadata then
+    local metadataTxt = self._outputFiles[".ammpackage.json"]
+    if not metadataTxt then
         error(string.format(
             "failed unpacking %s == %s: file .ammpackage.json not found",
             self.name, self.version
         ), 0)
     end
 
-    local parserMetadata
-    do
-        local ok, err = pcall(function() parserMetadata = json.decode(metadata) end)
-        if not ok then
-            error(string.format("failed unpacking %s == %s: invalid .ammpackage.json: %s", self.name, self.version, err))
-        end
-    end
-
-    local version, _, _, data = packageJson.parse(
-        parserMetadata,
+    local version, _, _, data = packageJson.parseFromString(
+        metadataTxt,
         string.format(".ammpackage.json from archive %s == %s", self.name, self.version)
     )
     if data.name ~= self.name then
@@ -155,16 +147,17 @@ end
 function ns.PackageArchiver:build()
     self:_verify()
 
-    local code = {}
+    local archiveContents = {}
+
     local filenames = {}
     for path in pairs(self._outputFiles) do
         table.insert(filenames, path)
     end
     table.sort(filenames)
     for _, filename in ipairs(filenames) do
-        table.insert(code, string.format("[%q]=%q", filename, self._outputFiles[filename]:gsub("\r\n", "\n")))
+        table.insert(archiveContents, string.format("[%q]=%q", filename, self._outputFiles[filename]:gsub("\r\n", "\n")))
     end
-    return string.format("{%s}", table.concat(code, ","))
+    return string.format("{%s}", table.concat(archiveContents, ","))
 end
 
 --- Manages files that will end up in the final package distribution.

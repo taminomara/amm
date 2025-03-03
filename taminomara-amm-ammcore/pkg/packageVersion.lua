@@ -1,5 +1,6 @@
 local class       = require "ammcore.util.class"
 local packageBuilder = require "ammcore.pkg.packageBuilder"
+local array          = require "ammcore.util.array"
 
 local ns          = {}
 
@@ -98,18 +99,14 @@ function ns.PackageVersion:getAllRequirements()
     if not self._allRequirements then
         self._allRequirements = {}
 
-        for name, spec in pairs(self:getRequirements()) do
-            self._allRequirements[name] = spec
-        end
+        array.insertTable(self._allRequirements, self:getRequirements(), function (l, r)
+            return l .. r
+        end)
 
         if self.isDevMode then
-            for name, spec in pairs(self:getDevRequirements()) do
-                if not self._allRequirements[name] then
-                    self._allRequirements[name] = spec
-                else
-                    self._allRequirements[name] = self._allRequirements[name] .. spec
-                end
-            end
+            array.insertTable(self._allRequirements, self:getDevRequirements(), function (l, r)
+                return l .. r
+            end)
         end
     end
 

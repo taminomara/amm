@@ -180,25 +180,25 @@ end
 
 --- Parse a version string.
 ---
---- @param s string
+--- @param verTxt string
 --- @param allowStar boolean?
 --- @return ammcore.pkg.version.Version
-function ns.parse(s, allowStar)
+function ns.parse(verTxt, allowStar)
     local components = {}
     local seenStar = false
-    for component in (s .. "."):gmatch("(.-)%.") do
+    for verComponentTxt in (verTxt .. "."):gmatch("(.-)%.") do
         if seenStar then
             error("star is only allowed in the last version component", 0)
         end
-        if allowStar and component == "*" then
+        if allowStar and verComponentTxt == "*" then
             table.insert(components, "*")
             seenStar = true
-        elseif component == "*" then
+        elseif verComponentTxt == "*" then
             error("star is only allowed with '==' and '!=' operators", 0)
         else
-            local n = math.tointeger(component)
+            local n = math.tointeger(verComponentTxt)
             if not n then
-                error(string.format("version component is not an integer: %s", component), 0)
+                error(string.format("version component is not an integer: %s", verComponentTxt), 0)
             end
             table.insert(components, n)
         end
@@ -210,6 +210,8 @@ function ns.parse(s, allowStar)
 
     return ns.Version:New(table.unpack(components))
 end
+
+local VersionSpecCompiler
 
 --- Represents a version specification, i.e. a parsed requirement version.
 ---
@@ -227,10 +229,10 @@ function ns.VersionSpec:New(version)
 
     --- @package
     --- @type { version: ammcore.pkg.version.Version, op: string }[]
-    self._specs = {}
+    self._components = {}
 
     if version then
-        table.insert(self._specs, { version = version, op = "==" })
+        table.insert(self._components, { version = version, op = "==" })
     end
 
     --- @private
@@ -246,9 +248,9 @@ end
 
 --- @return string
 function ns.VersionSpec:__tostring()
-    local res, sep, opSep = "", "", #self._specs == 1 and " " or ""
-    for _, spec in ipairs(self._specs) do
-        res = res .. sep .. spec.op .. opSep .. tostring(spec.version)
+    local res, sep, opSep = "", "", #self._components == 1 and " " or ""
+    for _, component in ipairs(self._components) do
+        res = res .. sep .. component.op .. opSep .. tostring(component.version)
         sep = ", "
     end
     return res
@@ -263,16 +265,16 @@ function ns.VersionSpec.__concat(lhs, rhs)
     end
 
     local res = ns.VersionSpec:New()
-    array.insertMany(res._specs, lhs._specs)
-    array.insertMany(res._specs, rhs._specs)
+    array.insertMany(res._components, lhs._components)
+    array.insertMany(res._components, rhs._components)
     return res
 end
 
 --- @private
 function ns.VersionSpec:_compile()
     local c = VersionSpecCompiler:New()
-    for _, spec in ipairs(self._specs) do
-        c:add(spec.op, spec.version)
+    for _, component in ipairs(self._components) do
+        c:add(component.op, component.version)
     end
     self._cmp, self._isExact = c:compile()
 end
@@ -300,22 +302,22 @@ end
 
 --- Parse a version string.
 ---
---- @param specs string
+--- @param specTxt string
 --- @return ammcore.pkg.version.VersionSpec
-function ns.parseSpec(specs)
+function ns.parseSpec(specTxt)
     local res = ns.VersionSpec:New()
 
-    for spec in (specs .. ","):gmatch("(.-),") do
-        if spec:len() > 0 then
-            local op, s = spec:match("^%s*([!<>=~]*)%s*(.-)%s*$")
+    for specComponentTxt in (specTxt .. ","):gmatch("(.-),") do
+        if specComponentTxt:len() > 0 then
+            local op, verTxt = specComponentTxt:match("^%s*([!<>=~]*)%s*(.-)%s*$")
             if op == "" then
                 op = "=="
             end
             if not VersionSpecCompiler._ops[op] then
                 error(string.format("unknown operator %s", op), 0)
             end
-            table.insert(res._specs, {
-                version = ns.parse(s, op == "" or op == "==" or op == "!="),
+            table.insert(res._components, {
+                version = ns.parse(verTxt, op == "" or op == "==" or op == "!="),
                 op = op,
             })
         end

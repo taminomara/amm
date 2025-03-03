@@ -1,3 +1,3 @@
-local pkg = require "ammcore.pkg.index"
+local pkg = require "ammcore.pkg"
 
 pkg.checkAndUpdate(false)

@@ -1,5 +1,5 @@
 local resolver      = require "ammcore.pkg.resolver"
-local test          = require "ammtest.index"
+local test          = require "ammtest"
 local provider      = require "ammcore.pkg.provider"
 local class         = require "ammcore.util.class"
 local localProvider = require "ammcore.pkg.providers.local"
@@ -10,7 +10,7 @@ local suite         = test.suite()
 --- @class ammcore._test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
 local TestProvider  = class.create("TestProvider", provider.Provider)
 
---- @param packages table<string, table<string, {[string]: string, _local?: boolean}>>
+--- @param packages table<string, table<string, {[string]: string, _local?: boolean, _broken?: boolean}>>
 ---
 --- @generic T: ammcore._test.pkg.resolver.TestProvider
 --- @param self T
@@ -28,8 +28,11 @@ function TestProvider:New(packages)
                 name, version.parse(ver), self, { name = name, version = ver }, "/", "/"
             )
             pkg.isInstalled = requirements._local and true or false
+            if requirements._broken then
+                pkg.getRequirements = function () error("broken", 0) end
+            end
             for reqName, spec in pairs(requirements) do
-                if reqName ~= "_local" then
+                if reqName:sub(1, 1) ~= "_" then
                     --- @diagnostic disable-next-line: param-type-mismatch
                     pkg.requirements[reqName] = version.parseSpec(spec)
                 end
@@ -64,6 +67,35 @@ local function checkResolved(got, expected)
 end
 
 suite:case("ok", function()
+    local provider = TestProvider:New({
+        baz = {
+            ["1"] = {},
+        },
+    })
+
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
+    checkResolved(res, { baz = "1" })
+end)
+
+suite:case("ok unknown", function()
+    local provider = TestProvider:New({
+        foo = {
+            ["1"] = { bar = "2" },
+            ["2"] = { bar = "2", unknown = "1" },
+        },
+        bar = {
+            ["1"] = {},
+            ["2"] = {},
+        },
+        baz = {
+            ["1"] = { foo = "*" },
+            ["2"] = { foo = "*" },
+            ["3"] = { foo = "*" },
+        },
+    })
+
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
+    checkResolved(res, { baz = "3", foo = "1", bar = "2" })
 end)
 
 suite:case("prefer higher", function()
@@ -131,6 +163,67 @@ suite:case("ok unused tail", function()
 
     local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
     checkResolved(res, { baz = "1", foo = "1" })
+end)
+
+suite:case("ok broken", function()
+    local provider = TestProvider:New({
+        baz = {
+            ["1"] = {},
+            ["2"] = { _broken = true },
+        },
+    })
+
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
+    checkResolved(res, { baz = "1" })
+end)
+
+suite:case("ok broken dep", function()
+    local provider = TestProvider:New({
+        foo = {
+            ["1"] = {},
+            ["2"] = { _broken = true },
+        },
+        baz = {
+            ["1"] = { foo = "*" },
+            ["2"] = { foo = "*" },
+        },
+    })
+
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
+    checkResolved(res, { baz = "2", foo = "1" })
+end)
+
+suite:case("broken", function()
+    local provider = TestProvider:New({
+        baz = {
+            ["1"] = { _broken = true },
+            ["2"] = { _broken = true },
+        },
+    })
+
+    test.assertError(
+        resolver.resolve,
+        { { baz = version.parseSpec("*") }, provider },
+        "Version baz == . can'be used because it was skipped"
+    )
+end)
+
+suite:case("broken dep", function()
+    local provider = TestProvider:New({
+        foo = {
+            ["1"] = { _broken = true },
+            ["2"] = { _broken = true },
+        },
+        baz = {
+            ["1"] = { foo = "*" },
+        },
+    })
+
+    test.assertError(
+        resolver.resolve,
+        { { baz = version.parseSpec("*") }, provider },
+        "Version foo == . can'be used because it was skipped"
+    )
 end)
 
 suite:case("circular", function()

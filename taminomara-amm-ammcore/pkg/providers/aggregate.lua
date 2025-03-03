@@ -1,5 +1,6 @@
 local class = require "ammcore.util.class"
 local provider = require "ammcore.pkg.provider"
+local array    = require "ammcore.util.array"
 
 local ns = {}
 
@@ -27,9 +28,7 @@ end
 function ns.AggregateProvider:getLocalPackages()
     local pkgs = {}
     for _, provider in ipairs(self._providers) do
-        for _, pkg in ipairs(provider:getLocalPackages()) do
-            table.insert(pkgs, pkg)
-        end
+        array.insertMany(pkgs, provider:getLocalPackages())
     end
     return pkgs
 end

@@ -1,7 +1,7 @@
-local pkg               = require "ammcore.pkg.index"
-local serverTemplate            = require "ammcore.templates.server"
-local eepromTemplate    = require "ammcore.templates.eeprom"
-local bootloader        = require "ammcore.bootloader"
+local pkg            = require "ammcore.pkg"
+local serverTemplate = require "ammcore._templates.server"
+local eepromTemplate = require "ammcore._templates.eeprom"
+local bootloader     = require "ammcore.bootloader"
 
 pkg.checkAndUpdate(false)
 

@@ -146,7 +146,7 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
     local combinedSpec = version.VersionSpec:New()
 
     if rootRequirements[name] then
-        res = res .. string.format("AMM_PACKAGES requires %s %s\n", name, rootRequirements[name])
+        res = res .. string.format("config.packages requires %s %s\n", name, rootRequirements[name])
         combinedSpec = combinedSpec .. rootRequirements[name]
     end
 

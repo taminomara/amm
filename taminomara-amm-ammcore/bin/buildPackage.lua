@@ -27,11 +27,8 @@ do
     if not tag then error(string.format("invalid release tag %s", tagArg), 0) end
 end
 
-local name, ver
-do
-    name, ver = tag:match("^(.*)/v(.*)$")
-    if not name or not ver then error(string.format("invalid release tag %s", tag), 0) end
-end
+local name, ver = tag:match("^(.*)/v(.*)$")
+if not name or not ver then error(string.format("invalid release tag %s", tag), 0) end
 
 local isValid, packageUser, packageRepo = packageName.parseFullPackageName(name)
 if not isValid then
@@ -42,18 +39,24 @@ elseif packageUser ~= user or packageRepo ~= repo then
     error(string.format("invalid release tag %s: package name does not match repo name", tag), 0)
 end
 
-local parsedVer
+local packageVer
 do
-    local ok, err = pcall(function() parsedVer = version.parse(ver) end)
+    local ok, err = pcall(function() packageVer = version.parse(ver) end)
     if not ok then
         error(string.format("invalid release version %s: %s", tag, err), 0)
     end
 end
 
-print(string.format("Building %s == %s", name, ver))
+print(string.format("Building %s == %s", name, packageVer))
 
 local devRoot = assert(bootloader.getDevRoot(), "config.devRoot is not set")
+
 local buildDir = filesystem.path(devRoot, "build")
+if not filesystem.exists(buildDir) then
+    assert(filesystem.createDir(buildDir, true), "failed creating build directory")
+elseif not filesystem.isDir(buildDir) then
+    error(string.format("not a directory: %s", buildDir), 0)
+end
 
 local devProvider = localProvider.LocalProvider:New(devRoot, true)
 local pkgs, found = devProvider:findPackageVersions(name, false)
@@ -63,13 +66,7 @@ end
 
 local pkg = pkgs[1]
 
-pkg:overrideVersion(parsedVer)
-
-if not filesystem.exists(buildDir) then
-    assert(filesystem.createDir(buildDir, true), "failed creating build directory")
-elseif not filesystem.isDir(buildDir) then
-    error(string.format("not a directory: %s", buildDir), 0)
-end
+pkg:overrideVersion(packageVer)
 
 logger:info("Writing build/ammpackage.json")
 filesystemHelpers.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
@@ -77,4 +74,4 @@ filesystemHelpers.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.e
 logger:info("Writing build/package")
 filesystemHelpers.writeFile(filesystem.path(buildDir, "package"), pkg:build())
 
-print(string.format("Successfully built %s == %s", name, pkg.version))
+print(string.format("Successfully built %s == %s", name, packageVer))

@@ -836,9 +836,9 @@ local function loadTests(root, devRoot)
     for _, filename in ipairs(filesystem.children(root)) do
         local path = filesystem.path(root, filename)
         local devPath = filesystem.path(devRoot, filename)
-        local modpath = filesystem.path(devRoot, filename):match("^(.*)%.lua$")
+        local modpath = devPath:match("^(.*)%.lua$")
         if modpath then
-            require(modpath:gsub("/", "."))
+            require(modpath:gsub("/_index%.lua", ""):gsub("/", "."))
         elseif filesystem.isDir(path) then
             loadTests(path, devPath)
         end

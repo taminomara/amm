@@ -52,4 +52,19 @@ function ns.copyFile(from, to)
     ns.writeFile(to, ns.readFile(from))
 end
 
+--- Get parent directory of the given path.
+---
+--- @param path string
+--- @return string
+function ns.parent(path)
+    path = filesystem.path(0, path)
+
+    local parent = path:match("^(.+)/[^/]+$")
+    if parent then
+        return parent
+    else
+        return path:sub(1, 1) == "/" and "/" or ""
+    end
+end
+
 return ns

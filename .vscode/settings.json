@@ -1,7 +1,7 @@
 {
   "jira-plugin.workingProject": "",
   "Lua.runtime.pathStrict": true,
-  "Lua.runtime.path": ["taminomara-amm-?.lua", "?.lua"],
+  "Lua.runtime.path": ["taminomara-amm-?.lua", "taminomara-amm-?/_index.lua", "?.lua", "?/_index.lua"],
   "Lua.type.castNumberToInteger": false,
   "Lua.type.checkTableShape": true,
   "Lua.type.inferParamType": true,
