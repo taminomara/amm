@@ -1,4 +1,5 @@
 local class       = require "ammcore.util.class"
+local packageBuilder = require "ammcore.pkg.packageBuilder"
 
 local ns          = {}
 
@@ -71,10 +72,12 @@ function ns.PackageVersion:getDevRequirements()
     error("not implemented")
 end
 
---- Return a table that can be serialized to `ammpackage.json`.
+--- Download this package and return the package archive.
 ---
---- @return ammcore.pkg.ammPackageJson.AmmPackageJson
-function ns.PackageVersion:serialize()
+--- You can use results of this operation with package builder to unpack the archive.
+---
+--- @return string
+function ns.PackageVersion:build()
     error("not implemented")
 end
 
@@ -82,7 +85,9 @@ end
 ---
 --- @param packageRoot string
 function ns.PackageVersion:install(packageRoot)
-    error("not implemented")
+    local archive = self:build()
+    local builder = packageBuilder.PackageArchiver:FromArchive(self.name, self.version, archive)
+    builder:unpack(packageRoot)
 end
 
 --- Get or fetch requirements for this version. Add dev requirements

@@ -57,8 +57,8 @@ function loaders.drive(path)
     local pathTemplates = {
         filesystem.path(config.devRoot, "taminomara-amm-%s"),
         filesystem.path(config.devRoot, "%s"),
-        filesystem.path(config.srvRoot, "packages/taminomara-amm-%s"),
-        filesystem.path(config.srvRoot, "packages/%s"),
+        filesystem.path(config.srvRoot, "lib/taminomara-amm-%s"),
+        filesystem.path(config.srvRoot, "lib/%s"),
     }
 
     -- Locate package.
@@ -160,6 +160,8 @@ elseif not config.target then
 elseif not loaders[config.target] then
     error(string.format("config.target has invalid value %s", config.target))
 else
+    config.eepromVersion = 1
+
     local path = "ammcore/bootloader.lua"
     local code, realPath = loaders[config.target](path)
 

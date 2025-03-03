@@ -23,11 +23,26 @@ function ns.AggregateProvider:New(providers)
     return self
 end
 
-function ns.AggregateProvider:findPackageVersions(name)
+--- @return ammcore.pkg.package.PackageVersion[]
+function ns.AggregateProvider:getLocalPackages()
+    local pkgs = {}
+    for _, provider in ipairs(self._providers) do
+        for _, pkg in ipairs(provider:getLocalPackages()) do
+            table.insert(pkgs, pkg)
+        end
+    end
+    return pkgs
+end
+
+--- @param name string
+--- @param includeRemotePackages boolean
+--- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+--- @return boolean
+function ns.AggregateProvider:findPackageVersions(name, includeRemotePackages)
     local versions, found = {}, false
 
     for _, provider in ipairs(self._providers) do
-        local pVersions, pFound = provider:findPackageVersions(name)
+        local pVersions, pFound = provider:findPackageVersions(name, includeRemotePackages)
         found = found or pFound
         for _, pVersion in ipairs(pVersions) do
             if pVersion.isDevMode then
@@ -39,6 +54,12 @@ function ns.AggregateProvider:findPackageVersions(name)
     end
 
     return versions, found
+end
+
+function ns.AggregateProvider:finalize()
+    for _, provider in ipairs(self._providers) do
+        provider:finalize()
+    end
 end
 
 return ns

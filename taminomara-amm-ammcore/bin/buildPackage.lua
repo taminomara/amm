@@ -5,8 +5,6 @@ local filesystemHelpers = require "ammcore.util.filesystemHelpers"
 local json              = require "ammcore.contrib.json"
 local version           = require "ammcore.pkg.version"
 local log               = require "ammcore.util.log"
-local build             = require "ammcore.pkg.packageBuilder"
-local array             = require "ammcore.util.array"
 local bootloader        = require "ammcore.bootloader"
 
 local logger            = log.Logger:New()
@@ -44,32 +42,28 @@ elseif packageUser ~= user or packageRepo ~= repo then
     error(string.format("invalid release tag %s: package name does not match repo name", tag), 0)
 end
 
+local parsedVer
 do
-    local parsedVer
     local ok, err = pcall(function() parsedVer = version.parse(ver) end)
     if not ok then
         error(string.format("invalid release version %s: %s", tag, err), 0)
     end
-    ver = tostring(parsedVer) -- canonize
 end
 
 print(string.format("Building %s == %s", name, ver))
 
-local devRoot = assert(bootloader.getDevRoot())
+local devRoot = assert(bootloader.getDevRoot(), "config.devRoot is not set")
 local buildDir = filesystem.path(devRoot, "build")
 
-local devProvider = localProvider.LocalProvider:Dev()
-local pkgs, found = devProvider:findPackageVersions(name)
+local devProvider = localProvider.LocalProvider:New(devRoot, true)
+local pkgs, found = devProvider:findPackageVersions(name, false)
 if not found or #pkgs ~= 1 then
-    error(string.format("could not find a dev package named %s", name), 0)
+    error(string.format("couldn't find a dev package named %s", name), 0)
 end
 
 local pkg = pkgs[1]
 
-local metaData = pkg:serialize()
-metaData.version = ver
-local buildData = metaData.build or {}
-local metaDataJson = json.encode(metaData)
+pkg:overrideVersion(parsedVer)
 
 if not filesystem.exists(buildDir) then
     assert(filesystem.createDir(buildDir, true), "failed creating build directory")
@@ -78,22 +72,9 @@ elseif not filesystem.isDir(buildDir) then
 end
 
 logger:info("Writing build/ammpackage.json")
-
-filesystemHelpers.writeFile(filesystem.path(buildDir, "ammpackage.json"), metaDataJson)
+filesystemHelpers.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
 
 logger:info("Writing build/package")
-
-local builder = build.PackageBuilder:New(name, tostring(version))
-
-local allowedFiles = buildData.files or array.insertMany(
-    {"*.lua", "README*", "LICENSE*", "!_build.lua", "!_test/*"},
-    buildData.addFiles or {}
-)
-
-builder:copyDir(name, "", allowedFiles, true)
-build.callBuildScript(name, builder)
-builder:addFile(".ammpackage.json", metaDataJson, true)
-
-filesystemHelpers.writeFile(filesystem.path(buildDir, "package"), builder:build())
+filesystemHelpers.writeFile(filesystem.path(buildDir, "package"), pkg:build())
 
 print(string.format("Successfully built %s == %s", name, pkg.version))

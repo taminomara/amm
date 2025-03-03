@@ -8,6 +8,7 @@ local packageName       = require "ammcore.pkg.packageName"
 local package           = require "ammcore.pkg.packageVersion"
 local ammPackageJson    = require "ammcore.pkg.packageJson"
 local bootloader        = require "ammcore.bootloader"
+local packageBuilder    = require "ammcore.pkg.packageBuilder"
 
 --- Github package provider.
 local ns                = {}
@@ -58,13 +59,6 @@ function ns.GithubPackageVersion:getDevRequirements()
     return {}
 end
 
-function ns.GithubPackageVersion:serialize()
-    if not self._cacheData.data then
-        self:_loadData()
-    end
-    return self._cacheData.data
-end
-
 --- @private
 function ns.GithubPackageVersion:_loadData()
     local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
@@ -98,61 +92,21 @@ function ns.GithubPackageVersion:_loadData()
     self._requirements = requirements
 end
 
-function ns.GithubPackageVersion:install(packageRoot)
+function ns.GithubPackageVersion:build()
     local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
     if not internetCard then
         error("GitHub dependency provider requires an internet card to download code")
     end
 
     logger:debug("Fetching %s", self._cacheData.codeUrl)
-    local res, rawCode = internetCard:request(self._cacheData.codeUrl, "GET", ""):await()
+    local res, archive = internetCard:request(self._cacheData.codeUrl, "GET", ""):await()
     if not res then
         error("failed fetching package contents: couldn't connect to github", 0)
     elseif res ~= 200 then
         error(string.format("failed fetching package contents: HTTP error %s", res), 0)
     end
 
-    local fn, err = load("return " .. rawCode, "<package bundle>", "bt", {})
-    if not fn then
-        error(string.format("failed parsing package contents: %s", err), 0)
-    end
-
-    logger:debug("Unpacking %s to %s", self.name, packageRoot)
-
-    local files = fn()
-    if type(files) ~= "table" then
-        error("failed parsing package contents", 0)
-    end
-    local filenames = {}
-    for path in pairs(files) do
-        table.insert(filenames, path)
-    end
-    table.sort(filenames)
-    for _, filename in ipairs(filenames) do
-        local content = files[filename]
-
-        if type(filename) ~= "string" or type(content) ~= "string" then
-            error("failed parsing package contents", 0)
-        end
-
-        local filePath = filesystem.path(packageRoot, filesystem.path(2, filename))
-        local fileDir = filePath:match("^(.*)/[^/]*$")
-        if not filesystem.exists(fileDir) then
-            logger:trace("Creating %q", fileDir)
-            assert(filesystem.createDir(fileDir, true))
-        end
-        logger:trace("Writing %s", filePath)
-        filesystemHelpers.writeFile(filePath, content)
-    end
-
-    -- Verify installation.
-    local version, _, _, data = ammPackageJson.parseFromFile(filesystem.path(packageRoot, ".ammpackage.json"))
-    if data.name ~= self.name then
-        error("failed parsing package contents: name from package contents doesn't match name from package metadata", 0)
-    end
-    if version ~= self.version then
-        error("failed parsing package contents: version from package contents doesn't match version from package metadata", 0)
-    end
+    return archive
 end
 
 --- @class ammcore.pkg.providers.github.CacheVersion
@@ -168,16 +122,15 @@ end
 --- @class ammcore.pkg.providers.github.GithubProvider: ammcore.pkg.provider.Provider
 ns.GithubProvider = class.create("GithubProvider", provider.Provider)
 
+--- @param internetCard FINInternetCard
+---
 --- @generic T: ammcore.pkg.providers.github.GithubProvider
 --- @param self T
 --- @return T
-function ns.GithubProvider:New()
+function ns.GithubProvider:New(internetCard)
     self = provider.Provider.New(self)
 
-    self._internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
-    if not self._internetCard then
-        error("GitHub dependency provider requires an internet card to download code")
-    end
+    self._internetCard = internetCard
 
     --- @private
     --- @type table<string, ammcore.pkg.providers.github.CacheRepo>
@@ -187,8 +140,9 @@ function ns.GithubProvider:New()
     --- @type table<string, true>
     self._freshPackages = {}
 
-    local cachePath = filesystem.path(assert(bootloader.getSrvRoot()), "github.cache")
-    if filesystem.exists(cachePath) and filesystem.isFile(cachePath) then
+    local srvRoot = bootloader.getSrvRoot()
+    local cachePath = srvRoot and filesystem.path(srvRoot, "github.cache")
+    if cachePath and filesystem.exists(cachePath) and filesystem.isFile(cachePath) then
         local content = filesystemHelpers.readFile(cachePath)
         local ok, err = pcall(function() self._packages = json.decode(content) end)
         if not ok then
@@ -317,7 +271,15 @@ function ns.GithubProvider:_loadData(user, repo, name)
     )
 end
 
-function ns.GithubProvider:findPackageVersions(name)
+--- @param name string
+--- @param includeRemotePackages boolean
+--- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+--- @return boolean
+function ns.GithubProvider:findPackageVersions(name, includeRemotePackages)
+    if not includeRemotePackages then
+        return {}, false
+    end
+
     local ok, user, repo, pkg = packageName.parseFullPackageName(name)
     if not ok or not user or not repo then
         logger:warning("Not a github package: %s", name)
@@ -348,9 +310,12 @@ function ns.GithubProvider:findPackageVersions(name)
     return result, true
 end
 
-function ns.GithubProvider:saveCache()
-    local cachePath = filesystem.path(assert(bootloader.getSrvRoot()), "github.cache")
-    filesystemHelpers.writeFile(cachePath, json.encode(self._packages))
+function ns.GithubProvider:finalize()
+    local srvRoot = bootloader.getSrvRoot()
+    if srvRoot then
+        local cachePath = filesystem.path(srvRoot, "github.cache")
+        filesystemHelpers.writeFile(cachePath, json.encode(self._packages))
+    end
 end
 
 return ns

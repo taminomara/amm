@@ -14,7 +14,7 @@ local Candidate = class.create("Candidate")
 
 --- @param name string
 --- @param versions ammcore.pkg.package.PackageVersion[]
---- @param updateAll boolean?
+--- @param updateAll boolean
 ---
 --- @generic T: ammcore.pkg.resolver.Candidate
 --- @param self T
@@ -42,9 +42,6 @@ function Candidate:New(name, versions, updateAll)
                 return lhs.version > rhs.version
             end
         end)
-    end
-    for _, v in ipairs(self.versions) do
-        print(v.name, v.version, v.isInstalled)
     end
 
     --- Indicates that this candidate has a pinned version.
@@ -203,14 +200,15 @@ end
 
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
 --- @param provider ammcore.pkg.provider.Provider
---- @param updateAll boolean?
+--- @param updateAll boolean
+--- @param includeRemotePackages boolean
 --- @return { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
-local function resolve(rootRequirements, provider, updateAll)
+local function resolve(rootRequirements, provider, updateAll, includeRemotePackages)
     --- @type table<string, ammcore.pkg.resolver.Candidate>
     local candidates = {}
 
     for name, spec in pairs(rootRequirements) do
-        local candidate = Candidate:New(name, provider:findPackageVersions(name), updateAll)
+        local candidate = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages), updateAll)
 
         candidate.isRootPackage = true
         candidate.requested = 1
@@ -333,7 +331,7 @@ local function resolve(rootRequirements, provider, updateAll)
             for name, spec in pairs(pinnedVersion:getAllRequirements()) do
                 if not candidates[name] then
                     -- Haven't seen this package before.
-                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name), updateAll)
+                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages), updateAll)
                 end
 
                 candidates[name].requested = candidates[name].requested + 1
@@ -381,11 +379,12 @@ end
 ---
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
 --- @param provider ammcore.pkg.provider.Provider
---- @param updateAll boolean?
+--- @param updateAll boolean
+--- @param includeRemotePackages boolean
 --- @return ammcore.pkg.package.PackageVersion[]
-function ns.resolve(rootRequirements, provider, updateAll)
+function ns.resolve(rootRequirements, provider, updateAll, includeRemotePackages)
     local res = {}
-    for _, candidate in ipairs(resolve(rootRequirements, provider, updateAll)) do
+    for _, candidate in ipairs(resolve(rootRequirements, provider, updateAll, includeRemotePackages)) do
         table.insert(res, candidate.candidate.versions[candidate.versionIndex])
     end
     return res

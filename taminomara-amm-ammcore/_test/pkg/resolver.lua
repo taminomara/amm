@@ -25,7 +25,7 @@ function TestProvider:New(packages)
         self.packages[name] = {}
         for ver, requirements in pairs(versions) do
             local pkg = localProvider.LocalPackageVersion:New(
-                name, version.parse(ver), self, { name = name, version = ver }
+                name, version.parse(ver), self, { name = name, version = ver }, "/", "/"
             )
             pkg.isInstalled = requirements._local and true or false
             for reqName, spec in pairs(requirements) do
@@ -75,7 +75,7 @@ suite:case("prefer higher", function()
         },
     })
 
-    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider)
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
     checkResolved(res, { baz = "3" })
 end)
 
@@ -88,8 +88,21 @@ suite:case("prefer local", function()
         },
     })
 
-    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider)
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
     checkResolved(res, { baz = "2" })
+end)
+
+suite:case("prefer higher if update requested", function()
+    local provider = TestProvider:New({
+        baz = {
+            ["1"] = {},
+            ["2"] = { _local = true },
+            ["3"] = {},
+        },
+    })
+
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, true, false)
+    checkResolved(res, { baz = "3" })
 end)
 
 suite:case("ok large", function()
@@ -116,7 +129,7 @@ suite:case("ok unused tail", function()
         },
     })
 
-    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider)
+    local res = resolver.resolve({ baz = version.parseSpec("*") }, provider, false, false)
     checkResolved(res, { baz = "1", foo = "1" })
 end)
 

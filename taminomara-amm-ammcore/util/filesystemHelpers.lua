@@ -21,7 +21,7 @@ function ns.readFile(path)
     local content = ""
     while true do
         local chunk = fd:read(1024)
-        if chunk == nil or #chunk == 0 then
+        if not chunk or chunk:len() == 0 then
             break
         end
         content = content .. chunk

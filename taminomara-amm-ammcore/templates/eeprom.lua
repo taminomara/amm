@@ -10,7 +10,7 @@ local ns         = {}
 ---
 --- @param prog string
 function ns.formatServerEeprom(prog)
-    local eepromTemplate = bootloader.findModuleCode({"ammcore/_templates/bootstrap/eeprom.lua"})
+    local eepromTemplate = bootloader.findModuleCode("ammcore/_templates/bootstrap/eeprom.lua")
     assert(eepromTemplate, "can't find the EEPROM template")
 
     local config = bootloader.getBootloaderConfig()

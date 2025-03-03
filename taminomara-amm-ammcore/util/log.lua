@@ -43,16 +43,63 @@ ns.Level = {
     Critical = 500,
 }
 
+local lowercaseLevels = {}
+for k, v in pairs(ns.Level) do
+    lowercaseLevels[k:lower()] = v
+end
+lowercaseLevels["dbg"] = ns.Level.Debug
+lowercaseLevels["warn"] = ns.Level.Warning
+lowercaseLevels["err"] = ns.Level.Error
+lowercaseLevels["crit"] = ns.Level.Critical
+
+--- Parse level name and return an appropriate level value.
+---
+--- @param name string|integer
+--- @return integer?
+function ns.levelFromName(name)
+    if type(name) == "string" then
+        local level = lowercaseLevels[name:lower()]
+        if level then
+            return level
+        end
+        local level = math.tointeger(name)
+        if level and level >= 0 then
+            return level
+        end
+    elseif type(name) == "number" then
+        if name >= 0 and name == math.floor(name) then
+            return name
+        end
+    end
+    return nil
+end
+
+--- Parse a log record and get its components.
+---
+--- If parsing fails, assume the record was printed manually.
+---
+--- @param s string string that was printed
+--- @param msgLevel integer verbosity that was used to print the string
+--- @return { logger: string, level: integer, message: string }
+function ns.parseLogRecord(s, msgLevel)
+    local logger, level, message = s:match("^%[([^%]]*)%] (%w+): (.*)$")
+    return {
+        logger = logger or "",
+        level = ns.levelFromName(level) or (100 + msgLevel * 100),
+        message = message or s,
+    }
+end
+
 --- Mapping from logger name to its level.
 ---
 --- @enum ammcore.util.log.LevelName
 ns.LevelName = {
-    [ns.Level.Trace] = "Trace",
-    [ns.Level.Debug] = "Debug",
-    [ns.Level.Info] = "Info",
-    [ns.Level.Warning] = "Warning",
-    [ns.Level.Error] = "Error",
-    [ns.Level.Critical] = "Critical",
+    [ns.Level.Trace] = "TRACE",
+    [ns.Level.Debug] = "DEBUG",
+    [ns.Level.Info] = "INFO",
+    [ns.Level.Warning] = "WARNING",
+    [ns.Level.Error] = "ERROR",
+    [ns.Level.Critical] = "CRITICAL",
 }
 
 --- @private

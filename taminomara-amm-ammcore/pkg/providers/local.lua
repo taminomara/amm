@@ -5,6 +5,9 @@ local version          = require "ammcore.pkg.version"
 local packageName      = require "ammcore.pkg.packageName"
 local package          = require "ammcore.pkg.packageVersion"
 local bootloader       = require "ammcore.bootloader"
+local packageBuilder   = require "ammcore.pkg.packageBuilder"
+local json             = require "ammcore.contrib.json"
+local array            = require "ammcore.util.array"
 
 --- Local package provider.
 local ns               = {}
@@ -18,11 +21,13 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 --- @param version ammcore.pkg.version.Version
 --- @param provider ammcore.pkg.providers.local.LocalProvider
 --- @param data ammcore.pkg.ammPackageJson.AmmPackageJson
+--- @param installationRoot string
+--- @param packageRoot string
 ---
 --- @generic T: ammcore.pkg.providers.local.LocalPackageVersion
 --- @param self T
 --- @return T
-function ns.LocalPackageVersion:New(name, version, provider, data)
+function ns.LocalPackageVersion:New(name, version, provider, data, installationRoot, packageRoot)
     self = package.PackageVersion.New(self, name, version, provider)
 
     self.isInstalled = true
@@ -42,7 +47,25 @@ function ns.LocalPackageVersion:New(name, version, provider, data)
     --- @type ammcore.pkg.ammPackageJson.AmmPackageJson
     self.data = data
 
+    --- Root directory containing all packages.
+    ---
+    --- @type string
+    self.installationRoot = installationRoot
+
+    --- Root directory of the package.
+    ---
+    --- @type string
+    self.packageRoot = packageRoot
+
     return self
+end
+
+--- Override package version with a new one.
+---
+--- @param ver ammcore.pkg.version.Version
+function ns.LocalPackageVersion:overrideVersion(ver)
+    self.version = ver
+    self.data.version = tostring(ver)
 end
 
 function ns.LocalPackageVersion:getRequirements()
@@ -53,16 +76,21 @@ function ns.LocalPackageVersion:getDevRequirements()
     return self.devRequirements
 end
 
-function ns.LocalPackageVersion:serialize()
-    return self.data
-end
+function ns.LocalPackageVersion:build()
+    local builder = packageBuilder.PackageBuilder:New(
+        self.name, self.version, self.installationRoot, self.packageRoot
+    )
 
-function ns.LocalPackageVersion:install(packageRoot)
-    error("this package is already installed")
+    builder:copyDir(self.packageRoot, ".", true)
+    if self.isDevMode then
+        builder:addFile(".ammpackage.json", json.encode(self.data), true)
+    end
+
+    return builder:build()
 end
 
 --- Implements a provider that loads packages from a directory
---- (usually `/.amm_packages/lib` or `/`).
+--- (usually `/.amm/packages` or `/`).
 ---
 --- @class ammcore.pkg.providers.local.LocalProvider: ammcore.pkg.provider.Provider
 ns.LocalProvider = class.create("LocalProvider", provider.Provider)
@@ -94,7 +122,7 @@ function ns.LocalProvider:New(root, isDev)
                 if data.name ~= name then
                     error(string.format("package name from %s doesn't match the directory name", pkgPath), 0)
                 end
-                local pkg = ns.LocalPackageVersion:New(name, ver, self, data)
+                local pkg = ns.LocalPackageVersion:New(name, ver, self, data, root, path)
                 pkg.requirements = requirements
                 pkg.devRequirements = devRequirements
                 pkg.isDevMode = isDev
@@ -106,36 +134,20 @@ function ns.LocalProvider:New(root, isDev)
     return self
 end
 
---- Get provider for dev packages.
----
---- @generic T: ammcore.pkg.providers.local.LocalProvider
---- @param self T
---- @return T
-function ns.LocalProvider:Dev()
-    return self:New(bootloader.getDevRoot(), true)
-end
-
---- Get provider for local packages.
----
---- @generic T: ammcore.pkg.providers.local.LocalProvider
---- @param self T
---- @return T
-function ns.LocalProvider:Local()
-    return self:New(filesystem.path(bootloader.getSrvRoot(), "packages"), false)
-end
-
---- Get all top-level packages as requirements.
----
---- @return table<string, ammcore.pkg.version.VersionSpec>
-function ns.LocalProvider:getRootRequirements()
-    local reqs = {}
-    for name, pkg in pairs(self._packages) do
-        reqs[name] = version.VersionSpec:New(pkg.version)
+--- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+function ns.LocalProvider:getLocalPackages()
+    local pkgs = {}
+    for _, pkg in pairs(self._packages) do
+        table.insert(pkgs, pkg)
     end
-    return reqs
+    return pkgs
 end
 
-function ns.LocalProvider:findPackageVersions(name)
+--- @param name string
+--- @param includeRemotePackages boolean
+--- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+--- @return boolean
+function ns.LocalProvider:findPackageVersions(name, includeRemotePackages)
     local pkg = self._packages[name]
     if pkg then
         return { pkg }, true

@@ -743,7 +743,7 @@ local function main(...)
         local path
         local candidates = {
             filesystem.path(config.devRoot, "taminomara-amm-ammcore/bootloader.lua"),
-            filesystem.path(config.srvRoot, "packages/taminomara-amm-ammcore/bootloader.lua"),
+            filesystem.path(config.srvRoot, "lib/taminomara-amm-ammcore/bootloader.lua"),
         }
         for _, candidate in ipairs(candidates) do
             if filesystem.exists(candidate) then

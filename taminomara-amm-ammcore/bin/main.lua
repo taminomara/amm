@@ -18,10 +18,11 @@ do
     local parsedNick = nick.parse(computer.getInstance().nick)
     local level = parsedNick:getOne("logLevel", tostring)
     if level then
-        if not log.Level[level] then
+        local levelInt = log.levelFromName(level)
+        if not levelInt then
             error(string.format("unknown log level %s", level))
         end
-        AMM_LOG_LEVELS[""] = log.Level[level]
+        AMM_LOG_LEVELS[""] = levelInt
     end
 end
 

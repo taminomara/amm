@@ -17,11 +17,31 @@ do
     end
 end
 
-local _loaders = {}
+--- A function that resolves file contents.
+---
+--- @alias ammcore.bootloader.Bootloader fun(pathCandidates: string[]): string?, string?
 
+--- @type ammcore.bootloader.Bootloader
 local loader
+
+--- A bootloader config.
+---
+--- @class ammcore.bootloader.BootloaderConfig: table<string, unknown>
+--- @field target string
+--- @field devRoot string?
+--- @field srvRoot string?
+--- @field netCodeServerAddr string?
+--- @field netCodeServerPort integer?
+--- @field packages string[]?
+
+--- @type ammcore.bootloader.BootloaderConfig
 local bootloaderConfig
 
+--- @type table<string, fun(config: ammcore.bootloader.BootloaderConfig): ammcore.bootloader.Bootloader>
+local _loaders = {}
+
+--- @param config ammcore.bootloader.BootloaderConfig
+--- @return ammcore.bootloader.Bootloader
 function _loaders.drive(config)
     if type(config.devRoot) ~= "string" then
         error(string.format("config.devRoot has invalid value %s", config.devRoot))
@@ -40,44 +60,69 @@ function _loaders.drive(config)
     local pathTemplates = {
         filesystem.path(config.devRoot, "taminomara-amm-%s"),
         filesystem.path(config.devRoot, "%s"),
-        filesystem.path(config.srvRoot, "packages/taminomara-amm-%s"),
-        filesystem.path(config.srvRoot, "packages/%s"),
+        filesystem.path(config.srvRoot, "lib/taminomara-amm-%s"),
+        filesystem.path(config.srvRoot, "lib/%s"),
     }
 
-    --- @type fun(pathCandidates: string[]): string?, string?
+    --- @type table<string, string|false>
+    local pkgIndex = {}
+
+    --- @type fun(path: string): string
+    local function readFile(path)
+        local fd = filesystem.open(path, "r")
+        local _ <close> = setmetatable({}, { __close = function() fd:close() end })
+        local content = ""
+        while true do
+            local chunk = fd:read(1024)
+            if not chunk or chunk:len() == 0 then
+                break
+            end
+            content = content .. chunk
+        end
+        return content
+    end
+
+    --- @type fun(pkg: string): string?
+    local function resolvePackagePath(pkg)
+        local pkgPath = pkgIndex[pkg]
+        if pkgPath then
+            return pkgPath
+        elseif pkgPath == false then
+            return nil
+        end
+
+        for _, template in ipairs(pathTemplates) do
+            local candidatePkgPath = string.format(template, pkg)
+            if filesystem.exists(candidatePkgPath) then
+                pkgIndex[pkg] = candidatePkgPath
+                return candidatePkgPath
+            end
+        end
+
+        pkgIndex[pkg] = false
+        return nil
+    end
+
+    --- @type ammcore.bootloader.Bootloader
     return function(pathCandidates)
-        for _, path in ipairs(pathCandidates) do
-            path = filesystem.path(2, path)
+        for _, pathCandidate in ipairs(pathCandidates) do
+            pathCandidate = filesystem.path(2, pathCandidate)
 
             -- Locate package.
-            local pkg = path:match("^([^/]*)")
+            local pkg, path = pathCandidate:match("^([^/]*)/(.*)$")
+
             if not pkg or pkg:len() == 0 then
                 goto continue
             end
-            local realPath = nil
-            for _, template in ipairs(pathTemplates) do
-                if filesystem.exists(string.format(template, pkg)) then
-                    realPath = string.format(template, path)
-                    break
-                end
-            end
 
-            -- Locate file.
-            if not realPath or not (filesystem.exists(realPath) and filesystem.isFile(realPath)) then
+            local pkgPath = resolvePackagePath(pkg)
+            if not pkgPath then
                 goto continue
             end
 
-            local code = ""
-
-            local fd = filesystem.open(realPath, "r")
-            local _ <close> = setmetatable({}, { __close = function() fd:close() end })
-
-            while true do
-                local chunk = fd:read(1024)
-                if not chunk or chunk:len() == 0 then
-                    return code, realPath
-                end
-                code = code .. chunk
+            local realPath = filesystem.path(pkgPath, path)
+            if filesystem.exists(realPath) and filesystem.isFile(realPath) then
+                return readFile(realPath), realPath
             end
 
             ::continue::
@@ -87,16 +132,14 @@ function _loaders.drive(config)
     end
 end
 
+--- @param config ammcore.bootloader.BootloaderConfig
+--- @return ammcore.bootloader.Bootloader
 function _loaders.net(config)
     -- Find a network card.
     local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
     if not networkCard then
         error("no network card detected")
     end
-
-    -- Prepare a network card.
-    event.listen(networkCard)
-    networkCard:open(0x1CD)
 
     -- Check config.
     if type(config.netCodeServerAddr) ~= "string" then
@@ -105,6 +148,10 @@ function _loaders.net(config)
     if type(config.netCodeServerPort) ~= "number" then
         error(string.format("config.netCodeServerPort has invalid value %s", config.netCodeServerPort))
     end
+
+    -- Prepare a network card.
+    event.listen(networkCard)
+    networkCard:open(config.netCodeServerPort)
 
     event.registerListener(
         event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.netCodeServerPort } },
@@ -123,7 +170,7 @@ function _loaders.net(config)
         end
     )
 
-    --- @type fun(pathCandidates: string[]): string?, string?
+    --- @type ammcore.bootloader.Bootloader
     return function(pathCandidates)
         local pathCandidatesStr = table.concat(pathCandidates, ":")
 
@@ -190,7 +237,7 @@ end
 --- Find and load a lua module.
 ---
 --- @param required string
-function require(required)
+function require(required) --- @diagnostic disable-line: lowercase-global
     if not loader then
         error("'require' called before 'init'", 2)
     end
@@ -204,7 +251,7 @@ function require(required)
     if not _modules[mod] then
         local code, realPath
         code, realPath = loader(pathCandidates)
-        if not code then
+        if not code or not realPath then
             error(string.format("no module named %s", mod), 2)
         end
 
@@ -236,6 +283,8 @@ function require(required)
 end
 
 --- Initializes and installs the global `require` function.
+---
+--- @param config ammcore.bootloader.BootloaderConfig
 function ns.init(config)
     if loader then
         error("loader is already installed")
@@ -248,7 +297,7 @@ function ns.init(config)
     end
 
     if type(config.target) == "function" then
-        loader = config.target
+        loader = config.target --[[ @as ammcore.bootloader.Bootloader ]]
         config.target = "bootstrap"
     elseif type(config.target) == "string" then
         if not _loaders[config.target] then
@@ -264,15 +313,27 @@ end
 
 --- Find and return a file by its path.
 ---
+--- If given an array of strings, then the first found file is returned.
+--- For example, `findModuleCode({ "a/b/_index.lua", "a/b.lua" })` will try
+--- `"a/b/_index.lua"` first, then `"a/b.lua"`. It will return contents
+--- of the first file that exists.
+---
 --- Note: code is not cached. If target loader is 'net', this call will issue
 --- a request to a code server. If target loader is 'drive' and the code has changed
 --- since it was last loaded, this function will return the new version of the code.
 ---
---- @param pathCandidates string[] module path
+--- @param path string|string[] file path, including its extension
 --- @return string? module code
 --- @string string? realPath actual path to the `.lua` file that contains the code
-function ns.findModuleCode(pathCandidates)
-    return loader(pathCandidates)
+function ns.findModuleCode(path)
+    if type(path) == "string" then
+        local pathCandidatesStr = path
+        path = {}
+        for candidate in pathCandidatesStr:gmatch("[^:]+") do
+            table.insert(path, candidate)
+        end
+    end
+    return loader(path)
 end
 
 --- Get loader that was used to load the code.

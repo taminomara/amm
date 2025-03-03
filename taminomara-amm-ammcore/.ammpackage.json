@@ -11,8 +11,5 @@
   },
   "devRequirements": {
     "taminomara-amm-ammtest": "~1.0"
-  },
-  "build": {
-    "addFiles": ["_templates/*"]
   }
 }

@@ -853,13 +853,17 @@ function test.loadTests(name)
         error("test library only works with drive loader")
     end
 
-    local loader = provider.LocalProvider:Dev()
+    local devRoot = bootloader.getDevRoot()
+    if not devRoot then
+        error("config.devRoot is not set")
+    end
+    local loader = provider.LocalProvider:New(devRoot, true)
 
-    for pkgName, _ in pairs(loader:getRootRequirements()) do
-        if not name or pkgName == name then
+    for _, pkg in ipairs(loader:getLocalPackages()) do
+        if not name or pkg.name == name then
             loadTests(
-                filesystem.path(assert(bootloader.getDevRoot()), pkgName, "_test"),
-                filesystem.path(pkgName, "_test")
+                filesystem.path(pkg.packageRoot, "_test"),
+                filesystem.path(pkg.name, "_test")
             )
         end
     end

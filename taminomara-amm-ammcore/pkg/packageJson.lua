@@ -17,7 +17,6 @@ local ns                = {}
 --- @field urls? table<string, string>
 --- @field requirements? table<string, string>
 --- @field devRequirements? table<string, string>
---- @field build? { addFiles?: string[], files?: string[] }
 
 --- Schema for `ammcore.pkg.ammPackageJson.AmmPackageJson`.
 local schema = {
@@ -32,10 +31,6 @@ local schema = {
     urls = { _k = "string", _v = "string" },
     requirements = { _k = "string", _v = "string" },
     devRequirements = { _k = "string", _v = "string" },
-    build = {
-        addFiles = { _k = "number", _v = "string" },
-        files = { _k = "number", _v = "string" },
-    }
 }
 
 --- Checks that `data` matches `schema`, returns error or nil.
