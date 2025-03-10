@@ -1,5 +1,8 @@
+local log = require "ammcore.util.log"
 --- Type-safe wrappers for FIN API.
 local ns = {}
+
+local logger = log.Logger:New()
 
 --- Version of FIN xpcall for proper type checking.
 ---
@@ -33,12 +36,14 @@ end
 --- @class ammcore.utils.fin.Defer
 --- @field fn fun(...)
 --- @field args any[]
+--- @field closed boolean
 local Defer = {
     __name = "Defer",
-    __tostring = function (self)
+    __tostring = function(self)
         return string.format("fin.defer(%s)", self.fn)
     end,
     __close = function(self, upErr)
+        self.closed = true
         local ok, err = ns.xpcall(self.fn, table.unpack(self.args))
         if not ok and upErr then
             error(string.format(
@@ -48,6 +53,14 @@ local Defer = {
             ))
         elseif not ok then
             error(tostring(err.message) .. err.trace)
+        end
+    end,
+    __gc = function(self)
+        if not self.closed then
+            logger:warning(
+                "value returned from 'fin.defer' was not properly closed; closing it now"
+            )
+            self:__close()
         end
     end,
 }
@@ -72,7 +85,7 @@ local Defer = {
 --- @param ... any
 --- @return ammcore.utils.fin.Defer
 function ns.defer(fn, ...)
-    return setmetatable({ fn = fn, args = { ... } }, Defer)
+    return setmetatable({ fn = fn, args = { ... }, closed = false }, Defer)
 end
 
 return ns
