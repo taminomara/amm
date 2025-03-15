@@ -62,7 +62,7 @@ runs:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
         GITHUB_REPO: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
-        ARGS: ${{ args }}
+        ARGS: ${{ inputs.args }}
       working-directory: ${{ inputs.root }}
     - name: Parse tag
       id: parse-tag
