@@ -21,7 +21,9 @@ local function loader(pathCandidates)
         else
             return nil
         end
-        return moduleCode[realPath], "gh://" .. realPath
+        if moduleCode[realPath] then
+            return moduleCode[realPath], "gh://" .. realPath
+        end
     end
 
     return nil, nil

@@ -9,7 +9,7 @@ local config = {
     -- prog = "ammtest.bin.main", -- to run tests
 
     --- Where to find the program: either `drive` or `net`.
-    target = [[{ target }]]
+    target = [[{ target }]],
     --[[{ configExtras }]] }
 
 -- Implementation
