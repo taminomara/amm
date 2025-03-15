@@ -1134,19 +1134,22 @@ function ns.main(name)
         end
     end
 
-    local logLevel, msg, beepA, beepB
+    local logLevel, msg, beepA, beepB, exitcode
     if nTests[ns.Status.FAIL] > 0 then
         logLevel = 3
         msg = "Failed"
         beepA, beepB = 1, 0.7
+        exitcode = 2
     elseif nTests[ns.Status.SKIP] > 0 or nTests[ns.Status.OK] > 0 then
         logLevel = 1
         msg = "Passed"
         beepA, beepB = 0.7, 1
+        exitcode = 0
     else
         logLevel = 2
         msg = "No tests found"
         beepA, beepB = 0.7, 0.7
+        exitcode = 1
     end
 
     computer.log(
@@ -1163,6 +1166,9 @@ function ns.main(name)
     computer.beep(beepA)
     sleep(0.1)
     computer.beep(beepB)
+    if exitcode ~= 0 then
+        computer.panic(string.format("Tests failed: %s", exitcode))
+    end
 end
 
 return ns
