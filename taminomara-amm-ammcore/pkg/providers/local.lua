@@ -1,12 +1,13 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
-local ammPackageJson = require "ammcore.pkg.packageJson"
+local packageJson = require "ammcore.pkg.packageJson"
 local packageName = require "ammcore.pkg.packageName"
-local package = require "ammcore.pkg.packageVersion"
+local package = require "ammcore.pkg.package"
 local builder = require "ammcore.pkg.builder"
-local json = require "ammcore.contrib.json"
+local json = require "ammcore._contrib.json"
 
---- Local package provider.
+--- !doctype module
+--- @class ammcore.pkg.providers.local
 local ns = {}
 
 --- Package version that was found on the hard drive.
@@ -17,7 +18,7 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 --- @param name string
 --- @param version ammcore.pkg.version.Version
 --- @param provider ammcore.pkg.providers.local.LocalProvider
---- @param data ammcore.pkg.ammPackageJson.AmmPackageJson
+--- @param data ammcore.pkg.packageJson.PackageJson
 --- @param installationRoot string
 --- @param packageRoot string
 ---
@@ -41,7 +42,7 @@ function ns.LocalPackageVersion:New(name, version, provider, data, installationR
 
     --- Raw package data.
     ---
-    --- @type ammcore.pkg.ammPackageJson.AmmPackageJson
+    --- @type ammcore.pkg.packageJson.PackageJson
     self.data = data
 
     --- Root directory containing all packages.
@@ -115,7 +116,7 @@ function ns.LocalProvider:New(root, isDev)
             local path = filesystem.path(root, name)
             local pkgPath = filesystem.path(path, ".ammpackage.json")
             if nameIsValid and filesystem.isDir(path) and filesystem.exists(pkgPath) then
-                local ver, requirements, devRequirements, data = ammPackageJson.parseFromFile(pkgPath)
+                local ver, requirements, devRequirements, data = packageJson.parseFromFile(pkgPath)
                 if data.name ~= name then
                     error(string.format("package name from %s doesn't match the directory name", pkgPath), 0)
                 end

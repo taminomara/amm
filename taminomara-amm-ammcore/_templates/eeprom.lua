@@ -1,5 +1,5 @@
 local bootloader = require "ammcore.bootloader"
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 
 local logger = log.Logger:New()
 

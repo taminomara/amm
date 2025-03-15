@@ -1,7 +1,7 @@
-local array = require "ammcore.util.array"
-local class = require "ammcore.util.class"
+local array = require "ammcore._util.array"
+local class = require "ammcore.clas"
 local severity = require "amm.lib.severity"
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 local errorReporter = require "amm.lib.errorReporter"
 local controller = require "amm.lib.controller"
 local recipeHelpers = require "amm.lib.recipeHelpers"
@@ -27,7 +27,7 @@ lc.Status = {
 
 --- State of a production line.
 ---
---- @class lc.LineState: class.Base
+--- @class lc.LineState: ammcore.class.Base
 lc.LineState = class.create("LineState")
 
 --- @generic T: lc.LineState

@@ -1,11 +1,11 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 
 --- Utilities for working with control panel modules.
 local controlPanel = {}
 
 --- A unified interface for working with control panels.
 ---
---- @class controlPanel.Panel: class.Base
+--- @class controlPanel.Panel: ammcore.class.Base
 controlPanel.Panel = class.create("Panel")
 
 --- @param panel LargeControlPanel | ModulePanel

@@ -1,22 +1,27 @@
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json = require "ammcore.contrib.json"
+local fsh = require "ammcore._util.fsh"
+local json = require "ammcore._contrib.json"
 local version = require "ammcore.pkg.version"
 
---- Parser for `.ammpackage.json`.
+--- Parser for ``.ammpackage.json``.
+---
+--- !doctype module
+--- @class ammcore.pkg.packageJson
 local ns = {}
 
---- @class ammcore.pkg.ammPackageJson.AmmPackageJson
---- @field name string
---- @field version string
---- @field description? string
---- @field author? string
---- @field authors? table<number, string>
---- @field maintainer? string
---- @field maintainers? table<number, string>
---- @field license? string
---- @field urls? table<string, string>
---- @field requirements? table<string, string>
---- @field devRequirements? table<string, string>
+--- Data parsed from ``.ammpackage.json``.
+---
+--- @class ammcore.pkg.packageJson.PackageJson
+--- @field name string package name.
+--- @field version string package version.
+--- @field description? string short package description.
+--- @field author? string author of the package.
+--- @field authors? string[] authors of the package, if there are more than one.
+--- @field maintainer? string maintainer of the package.
+--- @field maintainers? string[] maintainers of the package, if there are more than one.
+--- @field license? string license type.
+--- @field urls? table<string, string> links to pages related to the package.
+--- @field requirements? table<string, string> list of production requirements.
+--- @field devRequirements? table<string, string> list of development requirements.
 
 --- Schema for `ammcore.pkg.ammPackageJson.AmmPackageJson`.
 local schema = {
@@ -74,25 +79,25 @@ local function checkSchema(data, schema, path)
     end
 end
 
---- Read `ammpackage.json` from file.
+--- Read ``ammpackage.json`` from file.
 ---
---- @param path string
---- @return ammcore.pkg.version.Version version
---- @return table<string, ammcore.pkg.version.VersionSpec> requirements
---- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
---- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
+--- @param path string path to an ``ammpackage.json`` file.
+--- @return ammcore.pkg.version.Version version parsed package version.
+--- @return table<string, ammcore.pkg.version.VersionSpec> requirements parsed production requirements.
+--- @return table<string, ammcore.pkg.version.VersionSpec> devRequirements parsed development requirements.
+--- @return ammcore.pkg.packageJson.PackageJson packageJson raw package data, verified and prepared.
 function ns.parseFromFile(path)
-    return ns.parseFromString(filesystemHelpers.readFile(path), path)
+    return ns.parseFromString(fsh.readFile(path), path)
 end
 
 --- Read `ammpackage.json` from json string.
 ---
---- @param metadataTxt string
---- @param path string
---- @return ammcore.pkg.version.Version version
---- @return table<string, ammcore.pkg.version.VersionSpec> requirements
---- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
---- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
+--- @param metadataTxt string a json string.
+--- @param path string where this string comes from, needed for error messages.
+--- @return ammcore.pkg.version.Version version parsed package version.
+--- @return table<string, ammcore.pkg.version.VersionSpec> requirements parsed production requirements.
+--- @return table<string, ammcore.pkg.version.VersionSpec> devRequirements parsed development requirements.
+--- @return ammcore.pkg.packageJson.PackageJson packageJson raw package data, verified and prepared.
 function ns.parseFromString(metadataTxt, path)
     local metadata
     do
@@ -107,12 +112,12 @@ end
 
 --- Read `ammpackage.json` from lua table.
 ---
---- @param metadata any
---- @param path string
---- @return ammcore.pkg.version.Version version
---- @return table<string, ammcore.pkg.version.VersionSpec> requirements
---- @return table<string, ammcore.pkg.version.VersionSpec> dev requirements
---- @return ammcore.pkg.ammPackageJson.AmmPackageJson raw package data
+--- @param metadata any parsed json data.
+--- @param path string where this data comes from, needed for error messages.
+--- @return ammcore.pkg.version.Version version parsed package version.
+--- @return table<string, ammcore.pkg.version.VersionSpec> requirements parsed production requirements.
+--- @return table<string, ammcore.pkg.version.VersionSpec> devRequirements parsed development requirements.
+--- @return ammcore.pkg.packageJson.PackageJson packageJson raw package data, verified and prepared.
 function ns.parse(metadata, path)
     local err = checkSchema(metadata, schema, "")
     if err then

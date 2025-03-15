@@ -1,4 +1,4 @@
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 local resolver = require "ammcore.pkg.resolver"
 local packageName = require "ammcore.pkg.packageName"
 local version = require "ammcore.pkg.version"
@@ -6,37 +6,45 @@ local localProvider = require "ammcore.pkg.providers.local"
 local githubProvider = require "ammcore.pkg.providers.github"
 local aggregateProvider = require "ammcore.pkg.providers.aggregate"
 local bootloader = require "ammcore.bootloader"
-local array = require "ammcore.util.array"
+local array = require "ammcore._util.array"
 
 --- API for AMM package manager.
+---
+--- .. warning::
+---
+---    This API is unstable and may change in the future. Do not use it.
+---
+--- !doctype module
+--- @class ammcore.pkg
 local ns = {}
 
 local logger = log.Logger:New()
 
 --- Get package provider with locally installed packages.
 ---
---- @return ammcore.pkg.provider.Provider
-function ns.getPackageProvider()
+--- @param silent boolean? don't emit warnings if provider is unavailable.
+--- @return ammcore.pkg.provider.Provider provider a package provider.
+function ns.getPackageProvider(silent)
     local providers = {}
 
     local devRoot = bootloader.getDevRoot()
     if devRoot then
         table.insert(providers, localProvider.LocalProvider:New(devRoot, true))
-    else
+    elseif not silent then
         logger:warning("config.devRoot is not set, dev package provider is not available")
     end
 
     local srvRoot = bootloader.getSrvRoot()
     if srvRoot then
         table.insert(providers, localProvider.LocalProvider:New(filesystem.path(srvRoot, "lib"), false))
-    else
+    elseif not silent then
         logger:warning("config.srvRoot is not set, local package provider is not available")
     end
 
     local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
     if internetCard then
         table.insert(providers, githubProvider.GithubProvider:New(internetCard))
-    else
+    elseif not silent then
         logger:warning("no internet card detected, github package provider is not available")
     end
 
@@ -45,8 +53,8 @@ end
 
 --- Scan `config.packages` and dev packages to get root requirements.
 ---
---- @param provider ammcore.pkg.provider.Provider
---- @return table<string, ammcore.pkg.version.VersionSpec>
+--- @param provider ammcore.pkg.provider.Provider a package provider.
+--- @return table<string, ammcore.pkg.version.VersionSpec> map from package name to requirement spec for the package.
 function ns.gatherRootRequirements(provider)
     local rootRequirements = {}
 
@@ -101,9 +109,9 @@ end
 
 --- Check if all requirements are satisfied by the locally installed packages.
 ---
---- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
---- @param provider ammcore.pkg.provider.Provider
---- @return boolean
+--- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec> root requirements (see `gatherRootRequirements`).
+--- @param provider ammcore.pkg.provider.Provider a package provider.
+--- @return boolean ok `true` if ``rootRequirements`` are satisfied by installed packages.
 function ns.verify(rootRequirements, provider)
     --- @type table<string, ammcore.pkg.version.VersionSpec>
     local allRequirements = {}
@@ -157,15 +165,19 @@ end
 
 --- Resolve and install packages.
 ---
---- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
---- @param provider ammcore.pkg.provider.Provider
---- @param updateAll boolean
---- @param includeRemotePackages boolean
---- @return number nUpgraded
---- @return number nDowngraded
---- @return number nInstalled
---- @return number nUninstalled
---- @return number nRebuilt
+--- If ``updateAll`` is `true`, resolver will install the newest available versions
+--- of all packages. Otherwise, it will prefer already installed versions
+--- if they don't conflict with requirements.
+---
+--- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec> root requirements (see `gatherRootRequirements`).
+--- @param provider ammcore.pkg.provider.Provider a package provider.
+--- @param updateAll boolean update local packages even if current versions don't conflict with requirements.
+--- @param includeRemotePackages boolean allow package to fetch packages from github or other remote source.
+--- @return number nUpgraded number of updraded packages.
+--- @return number nDowngraded number of downgraded packages.
+--- @return number nInstalled number of freshly installed packages.
+--- @return number nUninstalled number uninstalled packages that were no longer needed.
+--- @return number nRebuilt number of dev packages that were rebuilt.
 function ns.install(rootRequirements, provider, updateAll, includeRemotePackages)
     local srvRoot = assert(bootloader.getSrvRoot(), "can't install paclages because config.srvRoot is not set")
 
@@ -239,7 +251,7 @@ end
 
 --- Check local installation and update it if needed.
 ---
---- @param updateAll boolean if `true`, force-install latest versions of all packages.
+--- @param updateAll boolean update local packages even if current versions don't conflict with requirements.
 --- @returns boolean didUpdate `true` if any packages were updated, and restart is required.
 function ns.checkAndUpdate(updateAll)
     local provider = ns.getPackageProvider()

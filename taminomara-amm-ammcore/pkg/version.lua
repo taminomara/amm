@@ -1,15 +1,23 @@
-local class = require "ammcore.util.class"
-local array = require "ammcore.util.array"
+local class = require "ammcore.class"
+local array = require "ammcore._util.array"
 
+--- Version specifications.
+---
+--- !doctype module
+--- @class ammcore.pkg.version
 local ns = {}
 
 --- Represents a package version.
 ---
---- @class ammcore.pkg.version.Version: class.Base
+--- @class ammcore.pkg.version.Version: ammcore.class.Base
 --- @operator concat(integer|"*"): ammcore.pkg.version.Version
 ns.Version = class.create("Version")
 
---- @param ... integer|"*"
+--- @param ... integer|"*" components of the version. If given, ``"*"`` must be the last component.
+---
+--- @generic T: ammcore.pkg.version.Version
+--- @param self T
+--- @return T
 function ns.Version:New(...)
     self = class.Base.New(self)
 
@@ -26,14 +34,14 @@ end
 
 --- Return version without its last component.
 ---
---- @return ammcore.pkg.version.Version
+--- @return ammcore.pkg.version.Version upVersion version without its last component.
 function ns.Version:up()
     return ns.Version:New(table.unpack(self._components, 1, #self._components - 1))
 end
 
 --- Return version with its last component replaced by wildcard.
 ---
---- @return ammcore.pkg.version.Version
+--- @return ammcore.pkg.version.Version wildVersion version with its last component replaced by wildcard.
 function ns.Version:makeWild()
     local res = ns.Version:New(table.unpack(self._components, 1, #self._components - 1))
     table.insert(res._components, "*")
@@ -45,7 +53,10 @@ function ns.Version:__tostring()
     return table.concat(self._components, ".")
 end
 
---- @return string
+--- Make a string that can be used to compare versions for strict equality,
+--- i.e. a version with trailing zeros remover.
+---
+--- @return string canonicalString
 function ns.Version:canonicalString()
     if not self._canonicalString then
         local n = #self._components
@@ -180,9 +191,9 @@ end
 
 --- Parse a version string.
 ---
---- @param verTxt string
---- @param allowStar boolean?
---- @return ammcore.pkg.version.Version
+--- @param verTxt string text representation of a version.
+--- @param allowStar boolean? allow last component of a version to be a wild card.
+--- @return ammcore.pkg.version.Version version parsed version.
 function ns.parse(verTxt, allowStar)
     local components = {}
     local seenStar = false
@@ -215,11 +226,11 @@ local VersionSpecCompiler
 
 --- Represents a version specification, i.e. a parsed requirement version.
 ---
---- @class ammcore.pkg.version.VersionSpec: class.Base
+--- @class ammcore.pkg.version.VersionSpec: ammcore.class.Base
 --- @operator add(ammcore.pkg.version.VersionSpec): ammcore.pkg.version.VersionSpec
 ns.VersionSpec = class.create("VersionSpec")
 
---- @param version ammcore.pkg.version.Version?
+--- @param version ammcore.pkg.version.Version? if given, produces a version spec with an exact version pinned.
 ---
 --- @generic T: ammcore.pkg.version.VersionSpec
 --- @param self T
@@ -256,6 +267,8 @@ function ns.VersionSpec:__tostring()
     return res
 end
 
+--- Combine requirements from two version specs.
+---
 --- @param lhs ammcore.pkg.version.VersionSpec
 --- @param rhs any ammcore.pkg.version.VersionSpec
 --- @return ammcore.pkg.version.VersionSpec
@@ -281,8 +294,8 @@ end
 
 --- Return `true` if this spec matches the given version.
 ---
---- @param ver ammcore.pkg.version.Version
---- @return boolean
+--- @param ver ammcore.pkg.version.Version version to check.
+--- @return boolean match `true` if version spec allows this version.
 function ns.VersionSpec:matches(ver)
     if not self._cmp then
         self:_compile()
@@ -292,7 +305,7 @@ end
 
 --- Return `true` if this spec pins an exact version of a package.
 ---
---- @return boolean
+--- @return boolean isExact true` if this spec allows exactly one version of a package.
 function ns.VersionSpec:isExact()
     if self._isExact == nil then
         self:_compile()
@@ -300,10 +313,31 @@ function ns.VersionSpec:isExact()
     return self._isExact
 end
 
---- Parse a version string.
+--- Parse a specification string.
+---
+--- Specification consists of components separated by comas. Each component has
+--- an operator and a version, for example ``>=1.0.0, <2.0.0, !=1.5.*``.
+---
+--- Allowed operators include:
+---
+--- - ``==``, strict version equality. Version specifications used with this
+---   operator can have wildcard at the end, in which case the operator only
+---   compares prefixes;
+--- - ``!=``, strict version inequality.Version specifications used with this
+---   operator can have wildcard at the end, in which case the operator only
+---   compares prefixes;
+--- - ``>``, greater than the given version;
+--- - ``>=``, greater than or equal to the given version;
+--- - ``<``, lesser than the given version;
+--- - ``<=``, lesser than or equal to the given version;
+--- - ``~``, compatible with the given version. Using this operator allows the last
+---   component of the version to be greater than or equal to the specified one.
+---   That is, ``~1.0.5`` is equivalent to ``==1.0.*, >=1.0.5``.
+---
+--- If operator is absent, it is implied to be ``==``.
 ---
 --- @param specTxt string
---- @return ammcore.pkg.version.VersionSpec
+--- @return ammcore.pkg.version.VersionSpec spec parsed version spec.
 function ns.parseSpec(specTxt)
     local res = ns.VersionSpec:New()
 
@@ -327,7 +361,7 @@ function ns.parseSpec(specTxt)
 end
 
 --- @private
---- @class ammcore.pkg.version.VersionSpecCompiler: class.Base
+--- @class ammcore.pkg.version._VersionSpecCompiler: ammcore.class.Base
 VersionSpecCompiler = class.create("VersionSpecCompiler")
 
 --- @package
@@ -341,7 +375,7 @@ VersionSpecCompiler._ops = {
     ["<"] = function(self, ver) self:addLt(ver) end,
 }
 
---- @generic T: ammcore.pkg.version.VersionSpecCompiler
+--- @generic T: ammcore.pkg.version._VersionSpecCompiler
 --- @param self T
 --- @return T
 function VersionSpecCompiler:New()

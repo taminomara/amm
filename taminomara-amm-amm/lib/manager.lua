@@ -1,13 +1,13 @@
 ---@diagnostic disable: invisible
 local severity = require "amm.lib.severity"
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 local pickle = require "amm.lib.pickle"
 local indicatorManager = require "amm.lib.indicatorManager"
-local nick = require "ammcore.util.nick"
-local array = require "ammcore.util.array"
-local log = require "ammcore.util.log"
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local fin = require "ammcore.util.fin"
+local nick = require "ammcore.nick"
+local array = require "ammcore._util.array"
+local log = require "ammcore.log"
+local filesystemHelpers = require "ammcore._util.fsh"
+local fin = require "ammcore._util.fin"
 
 --- Facilities for actually running controllers.
 local manager = {}
@@ -24,7 +24,7 @@ end
 --- Controller manager is a heart of the AMM package. It runs production controllers
 --- and provides inter-component messaging, event handling, error reporting, etc.
 ---
---- @class manager.Manager: class.Base
+--- @class manager.Manager: ammcore.class.Base
 manager.Manager = class.create("Manager")
 
 function manager.Manager:New()

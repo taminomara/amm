@@ -1,17 +1,21 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.class"
 local builder = require "ammcore.pkg.builder"
-local array = require "ammcore.util.array"
+local array = require "ammcore._util.array"
 
+--- Data about available packages and their versions.
+---
+--- !doctype module
+--- @class ammcore.pkg.package
 local ns = {}
 
 --- Represents a single package version.
 ---
---- @class ammcore.pkg.package.PackageVersion: class.Base
+--- @class ammcore.pkg.package.PackageVersion: ammcore.class.Base
 ns.PackageVersion = class.create("PackageVersion")
 
---- @param name string
---- @param version ammcore.pkg.version.Version
---- @param provider ammcore.pkg.provider.Provider
+--- @param name string package name.
+--- @param version ammcore.pkg.version.Version package version.
+--- @param provider ammcore.pkg.provider.Provider where this package comes from.
 ---
 --- @generic T: ammcore.pkg.package.PackageVersion
 --- @param self T
@@ -61,40 +65,24 @@ end
 
 --- Get or fetch requirements for this version.
 ---
---- @return table<string, ammcore.pkg.version.VersionSpec>
+--- @return table<string, ammcore.pkg.version.VersionSpec> requirements production requirements for this version.
 function ns.PackageVersion:getRequirements()
     error("not implemented")
 end
 
 --- Get or fetch dev requirements for this version.
 ---
---- @return table<string, ammcore.pkg.version.VersionSpec>
+--- @return table<string, ammcore.pkg.version.VersionSpec> devRequirements development requirements for this version.
 function ns.PackageVersion:getDevRequirements()
     error("not implemented")
-end
-
---- Download this package and return the package archive.
----
---- You can use results of this operation with package builder to unpack the archive.
----
---- @return string
-function ns.PackageVersion:build()
-    error("not implemented")
-end
-
---- Download and install this package to the given directory.
----
---- @param packageRoot string
-function ns.PackageVersion:install(packageRoot)
-    local archive = self:build()
-    local builder = builder.PackageArchiver:FromArchive(self.name, self.version, archive)
-    builder:unpack(packageRoot)
 end
 
 --- Get or fetch requirements for this version. Add dev requirements
 --- if this is a dev package.
 ---
---- @return table<string, ammcore.pkg.version.VersionSpec>
+--- This function caches its results to avoid re-fetching requirements.
+---
+--- @return table<string, ammcore.pkg.version.VersionSpec> allRequirements all requirements for this version.
 function ns.PackageVersion:getAllRequirements()
     if not self._allRequirements then
         self._allRequirements = {}
@@ -111,6 +99,24 @@ function ns.PackageVersion:getAllRequirements()
     end
 
     return self._allRequirements
+end
+
+--- Download this package and return the package archive.
+---
+--- You can use results of this operation with package builder to unpack the archive.
+---
+--- @return string archive package archive, see `ammcore.pkg.builder.PackageArchiver` for more info.
+function ns.PackageVersion:build()
+    error("not implemented")
+end
+
+--- Download and install this package to the given directory.
+---
+--- @param packageRoot string package installation directory, see `ammcore.pkg.builder.PackageArchiver.unpack` for more info.
+function ns.PackageVersion:install(packageRoot)
+    local archive = self:build()
+    local builder = builder.PackageArchiver:FromArchive(self.name, self.version, archive)
+    builder:unpack(packageRoot)
 end
 
 return ns

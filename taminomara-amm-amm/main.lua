@@ -1,7 +1,7 @@
 local manager = require "amm.lib.manager"
-local nick = require "ammcore.util.nick"
-local fin = require "ammcore.util.fin"
-local class = require "ammcore.util.class"
+local nick = require "ammcore.nick"
+local fin = require "ammcore._util.fin"
+local class = require "ammcore.clas"
 local controller = require "amm.lib.controller"
 
 local parsedNick = nick.parse(computer.getInstance().nick)

@@ -1,6 +1,6 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 local severity = require "amm.lib.severity"
-local nick = require "ammcore.util.nick"
+local nick = require "ammcore.nick"
 local machineWatcher = require "amm.lib.machineWatcher"
 
 --- Facilities for managing status indicator poles.

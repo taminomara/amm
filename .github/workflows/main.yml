@@ -25,6 +25,18 @@ jobs:
           test: true
           local: true
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install docs dependencies
+        if: startsWith(github.ref, 'refs/tags/')
+        run: pip install -r docs/requirements.txt
+        shell: bash
+      - name: Build docs
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          SPHINXOPTS: "-j auto"
+        run: |
+          cd docs
+          make html
+        shell: bash
       - name: Write bootloader
         if: startsWith(github.ref, 'refs/tags/')
         run: python compile_bootstrap.py
@@ -32,7 +44,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          path: build/docs/
+          path: docs/_build/html/
   deploy:
     needs: build
     runs-on: ubuntu-latest

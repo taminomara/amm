@@ -1,5 +1,5 @@
 local test = require "ammtest"
-local nick = require "ammcore.util.nick"
+local nick = require "ammcore.nick"
 
 local parsed = nick.parse(computer.getInstance().nick)
 

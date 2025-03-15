@@ -1,10 +1,10 @@
-local nick = require "ammcore.util.nick"
+local nick = require "ammcore.nick"
 local packageName = require "ammcore.pkg.packageName"
 local localProvider = require "ammcore.pkg.providers.local"
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json = require "ammcore.contrib.json"
+local fsh = require "ammcore._util.fsh"
+local json = require "ammcore._contrib.json"
 local version = require "ammcore.pkg.version"
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 local bootloader = require "ammcore.bootloader"
 
 local logger = log.Logger:New()
@@ -69,9 +69,9 @@ local pkg = pkgs[1]
 pkg:overrideVersion(packageVer)
 
 logger:info("Writing build/ammpackage.json")
-filesystemHelpers.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
+fsh.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
 
 logger:info("Writing build/package")
-filesystemHelpers.writeFile(filesystem.path(buildDir, "package"), pkg:build())
+fsh.writeFile(filesystem.path(buildDir, "package"), pkg:build())
 
 print(string.format("Successfully built %s == %s", name, packageVer))

@@ -1,0 +1,5 @@
+--- Available providers.
+---
+--- !doc undoc-members
+--- !doctype module
+--- @class ammcore.pkg.providers

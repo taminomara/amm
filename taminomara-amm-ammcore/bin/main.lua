@@ -1,6 +1,6 @@
 local bootloader = require "ammcore.bootloader"
-local nick = require "ammcore.util.nick"
-local log = require "ammcore.util.log"
+local nick = require "ammcore.nick"
+local log = require "ammcore.log"
 
 local config = bootloader.getBootloaderConfig()
 

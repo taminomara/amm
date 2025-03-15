@@ -1,4 +1,4 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 local controller = require "amm.lib.controller"
 
 --- Demo for stateful controllers and state observers.

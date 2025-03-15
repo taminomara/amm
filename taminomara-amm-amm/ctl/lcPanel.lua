@@ -1,5 +1,5 @@
-local class        = require "ammcore.util.class"
-local array        = require "ammcore.util.array"
+local class        = require "ammcore.clas"
+local array        = require "ammcore._util.array"
 local controlPanel = require "amm.lib.controlPanel"
 local lc           = require "amm.ctl.lc"
 local severity     = require "amm.lib.severity"
@@ -17,7 +17,7 @@ lcPanel.Mode       = {
 
 --- Represents a control panel.
 ---
---- @class lcPanel.PanelState: class.Base
+--- @class lcPanel.PanelState: ammcore.class.Base
 local PanelState   = class.create("PanelState")
 
 --- @param panel LargeControlPanel

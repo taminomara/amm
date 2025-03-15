@@ -1,20 +1,23 @@
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local class = require "ammcore.util.class"
-local log = require "ammcore.util.log"
+local fsh = require "ammcore._util.fsh"
+local class = require "ammcore.class"
+local log = require "ammcore.log"
 local packageJson = require "ammcore.pkg.packageJson"
 
 --- Build script API.
+---
+--- !doctype module
+--- @class ammcore.pkg.builder
 local ns = {}
 
 local logger = log.Logger:New()
 
 --- Creates and unpacks package archives.
 ---
---- @class ammcore.pkg.builder.PackageArchiver: class.Base
+--- @class ammcore.pkg.builder.PackageArchiver: ammcore.class.Base
 ns.PackageArchiver = class.create("PackageArchiver")
 
---- @param name string
---- @param version ammcore.pkg.version.Version
+--- @param name string name of the package.
+--- @param version ammcore.pkg.version.Version version of the package.
 ---
 --- @generic T: ammcore.pkg.builder.PackageArchiver
 --- @param self T
@@ -37,9 +40,9 @@ end
 
 --- Construct builder from a packaged archive data (i.e. the result of `build`).
 ---
---- @param name string
---- @param version ammcore.pkg.version.Version
---- @param archive string
+--- @param name string name of the package.
+--- @param version ammcore.pkg.version.Version version of the package.
+--- @param archive string data of the package archive.
 function ns.PackageArchiver:FromArchive(name, version, archive)
     self = self:New(name, version)
 
@@ -57,7 +60,7 @@ end
 
 --- Unpack the package to the given directory.
 ---
---- @param pkgRoot string
+--- @param pkgRoot string where to write package files.
 function ns.PackageArchiver:unpack(pkgRoot)
     self:_verify()
 
@@ -70,16 +73,18 @@ function ns.PackageArchiver:unpack(pkgRoot)
     for _, filename in ipairs(filenames) do
         local content = self._outputFiles[filename]
         local filePath = filesystem.path(pkgRoot, filesystem.path(2, filename))
-        local fileDir = filesystemHelpers.parent(filePath)
+        local fileDir = fsh.parent(filePath)
         if not filesystem.exists(fileDir) then
             logger:trace("Creating %s", fileDir)
             assert(filesystem.createDir(fileDir, true))
         end
         logger:trace("Writing %s", filePath)
-        filesystemHelpers.writeFile(filePath, content)
+        fsh.writeFile(filePath, content)
     end
 end
 
+--- Verify package integrity and throw an error if it's beroken.
+---
 --- @protected
 function ns.PackageArchiver:_verify()
     if type(self._outputFiles) ~= "table" then
@@ -129,7 +134,7 @@ end
 
 --- Get read-only view of table that maps package filenames to their contents.
 ---
---- @return table<string, string>
+--- @return table<string, string> code table with all files in the package.
 function ns.PackageArchiver:getCode()
     return setmetatable(
         {},
@@ -143,7 +148,7 @@ end
 
 --- Compile the package distribution and return it as a string.
 ---
---- @return string
+--- @return string archive data of the package archive.
 function ns.PackageArchiver:build()
     self:_verify()
 
@@ -240,7 +245,7 @@ function ns.PackageBuilder:copyFile(src, dst, override)
 
     if override or not self._outputFiles[dst] then
         logger:trace("Adding %s -> %s%s", src, dst, self._outputFiles[dst] and " [override]" or "")
-        self._outputFiles[dst] = filesystemHelpers.readFile(src)
+        self._outputFiles[dst] = fsh.readFile(src)
     end
 end
 
@@ -272,7 +277,7 @@ function ns.PackageBuilder:_travelDir(src, dst, override)
         if filesystem.isFile(src) then
             if override or not self._outputFiles[dst] then
                 logger:trace("Adding %s -> %s%s", src, dst, self._outputFiles[dst] and " [override]" or "")
-                self._outputFiles[dst] = filesystemHelpers.readFile(src)
+                self._outputFiles[dst] = fsh.readFile(src)
             end
         elseif filesystem.isDir(src) then
             self:_travelDir(src, dst, override)

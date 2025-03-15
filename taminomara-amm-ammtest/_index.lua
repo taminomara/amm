@@ -1,12 +1,15 @@
-local fin = require "ammcore.util.fin"
-local debugHelpers = require "ammcore.util.debugHelpers"
+local defer = require "ammcore.defer"
 local bootloader = require "ammcore.bootloader"
 local provider = require "ammcore.pkg.providers.local"
+local class = require "ammcore.class"
 
 --- AMM test library.
-local test = {}
+---
+--- !doctype module
+--- @class ammtest
+local ns = {}
 
-local fileRe = debugHelpers.getFile():match("^.-/taminomara%-amm%-ammtest/")
+local fileRe = bootloader.getFile():match("^.-/taminomara%-amm%-ammtest/")
 if fileRe then
     fileRe = fileRe:gsub("[^%w]", "%%%1") .. "[^:]*"
 else
@@ -15,7 +18,6 @@ end
 
 --- Pretty print implementation.
 ---
---- @see test.pprint
 --- @param x any
 --- @param long boolean
 --- @param depth integer
@@ -84,49 +86,49 @@ end
 
 --- Pretty print a table/variable.
 ---
---- @param x any
---- @param long boolean
+--- @param x any value to be pretty printed.
+--- @param long boolean whether to shorten the value or not.
 --- @return string
-function test.pprint(x, long)
+function ns.pprint(x, long)
     return _pprintImpl(x, long, 0)
 end
 
 --- Pretty print function arguments.
 ---
---- @param params any[]
---- @param long boolean
+--- @param params any[] array of function arguments.
+--- @param long boolean whether to shorten the value or not.
 --- @return string
-function test.pprintVa(params, long)
+function ns.pprintVa(params, long)
     if #params == 0 then
         return "nil"
     elseif #params == 1 then
-        return test.pprint(params[1], long)
+        return ns.pprint(params[1], long)
     else
         local res = ""
         for i, param in ipairs(params) do
-            res = string.format("%s\n  %s: %s", res, i, test.pprint(param, long))
+            res = string.format("%s\n  %s: %s", res, i, ns.pprint(param, long))
         end
         return res
     end
 end
 
-local _TsMeta = { __tostring = test.pprintVa }
+local _TsMeta = { __tostring = ns.pprintVa }
 local function Ts(...)
     return setmetatable({ ... }, _TsMeta)
 end
 
-local _AssertErrorMeta = { __tostring = function(self) return "AssertError: " .. tostring(self.msg) end }
+local _AssertErrorMeta = { __tostring = function (self) return "AssertError: " .. tostring(self.msg) end }
 local function AssertError(msg, vars, fmt, ...)
-    return setmetatable({ msg = msg, vars = vars, fmt = fmt, args = { ... }, loc = debugHelpers.getLoc(4) },
+    return setmetatable({ msg = msg, vars = vars, fmt = fmt, args = { ... }, loc = bootloader.getLoc(4) },
         _AssertErrorMeta)
 end
 
-local _FailMeta = { __tostring = function(self) return "Fail: " .. tostring(self.msg) end }
+local _FailMeta = { __tostring = function (self) return "Fail: " .. tostring(self.msg) end }
 local function Fail(msg)
     return setmetatable({ msg = msg }, _FailMeta)
 end
 
-local _SkipMeta = { __tostring = function(self) return "Skip: " .. tostring(self.msg) end }
+local _SkipMeta = { __tostring = function (self) return "Skip: " .. tostring(self.msg) end }
 local function Skip(msg)
     return setmetatable({ msg = msg }, _SkipMeta)
 end
@@ -141,7 +143,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertTrue(g, msg)
+function ns.assertTrue(g, msg)
     check(
         g, msg, {},
         "Expected true, got %s", Ts(g))
@@ -151,7 +153,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertFalse(g, msg)
+function ns.assertFalse(g, msg)
     check(
         not g, msg, {},
         "Expected false, got %s", Ts(g))
@@ -162,7 +164,7 @@ end
 --- @param g any[]
 --- @param e integer
 --- @param msg string?
-function test.assertLen(g, e, msg)
+function ns.assertLen(g, e, msg)
     check(
         #g == e, msg, { g = { g }, e = { e } },
         "Expected length %s, got %s", Ts(#g), Ts(e))
@@ -173,47 +175,57 @@ end
 --- @param g any[]
 --- @param e integer
 --- @param msg string?
-function test.assertNotLen(g, e, msg)
+function ns.assertNotLen(g, e, msg)
     check(
         #g ~= e, msg, { g = { g }, e = { e } },
         "Expected length %s, got %s", Ts(#g), Ts(e))
 end
 
---- Assert that the given string matches a pattern.
+--- Assert that the given string `matches <string.match>` a pattern.
 ---
 --- @param g string
 --- @param pat string
 --- @param msg string?
-function test.assertMatch(g, pat, msg)
+function ns.assertMatch(g, pat, msg)
     check(
         string.match(g, pat), msg, { g = { g } },
         "Expected string to match %q", pat)
 end
 
---- Assert that the given string does not match a pattern.
+--- Assert that the given string does not `match <string.match>` a pattern.
 ---
 --- @param g string
 --- @param pat string
 --- @param msg string?
-function test.assertNotMatch(g, pat, msg)
+function ns.assertNotMatch(g, pat, msg)
     check(
         not string.match(g, pat), msg, { g = { g } },
         "Expected string not to match %q", pat)
 end
 
 --- Assert that the given function throws an error when called,
---- and that the error message matches the given pattern.
+--- and that the error message `matches <string.match>` the given pattern.
 ---
 --- If the given function doesn't throw an error, and returns a value instead,
 --- the value will be displayed in a test failure message.
+---
+--- **Example:**
+---
+--- .. code-block:: lua
+---
+---    test.assertError(
+---        function (a, b) return a + b end,
+---        { nil, 1 },
+---        "attempt to perform arithmetic on a nil value",
+---    )
 ---
 --- @param fn fun(...): ...
 --- @param args any[]
 --- @param pat string
 --- @param msg string?
-function test.assertError(fn, args, pat, msg)
+function ns.assertError(fn, args, pat, msg)
     local ret
-    local ok, err = fin.xpcall(function() ret = { fn(table.unpack(args or {})) } end)
+    local ok, err = defer.xpcall(function () ret = { fn(table.unpack(args or {})) } end)
     check(
         not ok, msg, { ret = ret },
         "Function didn't throw an error")
@@ -228,7 +240,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertLt(g, e, msg)
+function ns.assertLt(g, e, msg)
     check(
         g < e, msg, { g = { g }, e = { e } },
         "Expected %s < %s", Ts(g), Ts(e))
@@ -240,7 +252,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertLte(g, e, msg)
+function ns.assertLte(g, e, msg)
     check(
         g <= e, msg, { g = { g }, e = { e } },
         "Expected %s <= %s", Ts(g), Ts(e))
@@ -252,7 +264,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertGt(g, e, msg)
+function ns.assertGt(g, e, msg)
     check(
         g > e, msg, { g = { g }, e = { e } },
         "Expected %s > %s", Ts(g), Ts(e))
@@ -264,7 +276,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertGte(g, e, msg)
+function ns.assertGte(g, e, msg)
     check(
         g >= e, msg, { g = { g }, e = { e } },
         "Expected %s >= %s", Ts(g), Ts(e))
@@ -276,7 +288,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertEq(g, e, msg)
+function ns.assertEq(g, e, msg)
     check(
         g == e, msg, { g = { g }, e = { e } },
         "Expected %s == %s", Ts(g), Ts(e))
@@ -288,7 +300,7 @@ end
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertNotEq(g, e, msg)
+function ns.assertNotEq(g, e, msg)
     check(
         g ~= e, msg, { g = { g }, e = { e } },
         "Expected %s ~= %s", Ts(g), Ts(e))
@@ -312,13 +324,13 @@ end
 ---
 --- That is, if two values are tables, they should contain the same set of keys,
 --- and their values should themselves be deep-equal; if two values are not tables,
---- they should be equal when compared by the `==` operator.
+--- they should be equal when compared by the ``==`` operator.
 ---
 --- @generic T
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertDeepEq(g, e, msg)
+function ns.assertDeepEq(g, e, msg)
     check(
         deepEq(g, e), msg, { g = { g }, e = { e } },
         "Expected deep equality", Ts(g), Ts(e))
@@ -326,12 +338,11 @@ end
 
 --- Assert that two values are not deep-equal.
 ---
---- @see test.assertDeepEq
 --- @generic T
 --- @param g T
 --- @param e T
 --- @param msg string?
-function test.assertNotDeepEq(g, e, msg)
+function ns.assertNotDeepEq(g, e, msg)
     check(
         not deepEq(g, e), msg, { g = g, e = e },
         "Expected deep inequality", Ts(g), Ts(e))
@@ -343,7 +354,7 @@ end
 --- @param e number
 --- @param tol number?
 --- @param msg string?
-function test.assertClose(g, e, tol, msg)
+function ns.assertClose(g, e, tol, msg)
     tol = tol or 1e-9
     check(
         math.abs(g - e) <= tol, msg, { g = { g }, e = { e } },
@@ -356,7 +367,7 @@ end
 --- @param e number
 --- @param tol number?
 --- @param msg string?
-function test.assertNotClose(g, e, tol, msg)
+function ns.assertNotClose(g, e, tol, msg)
     tol = tol or 1e-9
     check(
         math.abs(g - e) > tol, msg, { g = { g }, e = { e } },
@@ -367,7 +378,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertBoolean(g, msg)
+function ns.assertBoolean(g, msg)
     check(
         type(g) == "boolean", msg, { g = { g } },
         "Expected boolean, got %s", type(g))
@@ -377,7 +388,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNotBoolean(g, msg)
+function ns.assertNotBoolean(g, msg)
     check(
         type(g) ~= "boolean", msg, { g = { g } },
         "Expected not boolean, got %s", type(g))
@@ -387,7 +398,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNil(g, msg)
+function ns.assertNil(g, msg)
     check(
         type(g) == "nil", msg, { g = { g } },
         "Expected nil, got %s", type(g))
@@ -397,7 +408,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNotNil(g, msg)
+function ns.assertNotNil(g, msg)
     check(
         type(g) ~= "nil", msg, { g = { g } },
         "Expected not nil, got %s", type(g))
@@ -407,7 +418,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertString(g, msg)
+function ns.assertString(g, msg)
     check(
         type(g) == "string", msg, { g = { g } },
         "Expected string, got %s", type(g))
@@ -417,7 +428,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNotString(g, msg)
+function ns.assertNotString(g, msg)
     check(
         type(g) ~= "string", msg, { g = { g } },
         "Expected not string, got %s", type(g))
@@ -427,7 +438,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertTable(g, msg)
+function ns.assertTable(g, msg)
     check(
         type(g) == "table", msg, { g = { g } },
         "Expected table, got %s", type(g))
@@ -437,7 +448,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNotTable(g, msg)
+function ns.assertNotTable(g, msg)
     check(
         type(g) ~= "table", msg, { g = { g } },
         "Expected not table, got %s", type(g))
@@ -447,7 +458,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNumber(g, msg)
+function ns.assertNumber(g, msg)
     check(
         type(g) == "number", msg, { g = { g } },
         "Expected number, got %s", type(g))
@@ -457,7 +468,7 @@ end
 ---
 --- @param g any
 --- @param msg string?
-function test.assertNotNumber(g, msg)
+function ns.assertNotNumber(g, msg)
     check(
         type(g) ~= "number", msg, { g = { g } },
         "Expected not number, got %s", type(g))
@@ -466,86 +477,146 @@ end
 --- Mark test as failed and immediately stop it.
 ---
 --- @param msg string?
-function test.fail(msg)
+function ns.fail(msg)
     error(Fail(msg), 2)
 end
 
 --- Mark test as skipped and immediately stop it.
 ---
 --- @param msg string?
-function test.skip(msg)
+function ns.skip(msg)
     error(Skip(msg), 2)
 end
 
---- @see test.param
---- @class test.Param-Cls
---- @field package loc string
---- @field package values any[]
-local Param = {}
-
-Param.__index = Param
-
---- Test parameter, used with `test.Suite:caseParams`.
+--- Container for test parameters and additional debug values.
+--- Used with `ammtest.Suite.caseParams`.
 ---
---- @see test.Suite-Cls.caseParams
---- @param ... any
---- @return test.Param-Cls
-function test.param(...)
-    return setmetatable({ values = { ... }, loc = debugHelpers.getLoc(2) }, Param)
+--- @class ammtest.Param: ammcore.class.Base
+ns.Param = class.create("Param")
+
+--- .. note::
+---
+---    Use `ammtest.param` to properly construct test parameters.
+---
+--- @param values any[]
+--- @param loc string?
+---
+--- @generic T: ammtest.Param
+--- @param self T
+--- @return T
+function ns.Param:New(values, loc)
+    self = class.Base.New(self)
+
+    --- Values that will be passed to the test function.
+    ---
+    --- !doctype const
+    --- @type any[]
+    self.values = values
+
+    --- Location where this parameter was created.
+    ---
+    --- !doctype const
+    --- @type string
+    self.loc = loc or bootloader.getLoc(2)
+
+    return self
 end
 
---- @see test.suite
---- @class test.Suite-Cls
---- @field name string
---- @field package _cases { name: string, loc: string, fn: fun(...), param: test.Param-Cls? }[]
-local Suite = {}
+--- Test parameter, used with `ammtest.Suite.caseParams`.
+---
+--- @param ... any
+--- @return ammtest.Param
+function ns.param(...)
+    return ns.Param:New({ ... }, bootloader.getLoc(2))
+end
 
-Suite.__index = Suite
+--- @type ammtest.Suite[]
+local suites = {}
+
+--- Base class for test suites.
+---
+--- @class ammtest.Suite: ammcore.class.Base
+ns.Suite = class.create("Suite")
+
+--- .. note::
+---
+---    Use `ammtest.suite` to properly construct test suites.
+---
+--- @param name string? name of the test suite.
+---
+--- @generic T: ammtest.Suite
+--- @param self T
+--- @return T
+function ns.Suite:New(name)
+    self = class.Base.New(self)
+
+    --- Name of the suite, used for error messages.
+    ---
+    --- !doctype const
+    --- @type string
+    self.name = name or bootloader.getMod(2)
+
+    --- @package
+    --- @type { name: string, loc: string, fn: fun(...), param: ammtest.Param? }[]
+    self._cases = {}
+
+    table.insert(suites, self)
+
+    return self
+end
 
 --- Runs before every test.
-function Suite:setupTest() end
+---
+--- !doc virtual
+function ns.Suite:setupTest() end
 
 --- Runs after every test.
-function Suite:teardownTest() end
+---
+--- !doc virtual
+function ns.Suite:teardownTest() end
 
 --- Runs before every suite.
-function Suite:setupSuite() end
+---
+--- !doc virtual
+function ns.Suite:setupSuite() end
 
 --- Runs after every suite.
-function Suite:teardownSuite() end
+---
+--- !doc virtual
+function ns.Suite:teardownSuite() end
 
 --- Add a test to the suite.
 ---
---- @param name string
---- @param fn fun()
-function Suite:case(name, fn)
-    table.insert(self._cases, { name = name, loc = debugHelpers.getLoc(2), fn = fn })
+--- @param name string test name, used for error messages.
+--- @param fn fun() test implementation.
+function ns.Suite:case(name, fn)
+    table.insert(self._cases, { name = name, loc = bootloader.getLoc(2), fn = fn })
 end
 
 --- Add a parametrized test to the suite.
 ---
---- # Example
+--- **Example:**
 ---
---- ```
---- local suite = test.suite("math")
---- suite:caseParams(
----     "multiply",
----     {
----         test.param(2, 2, 4),
----         test.param(3, 3, 9),
----     },
----     function(a, b, c)
----         test.assertEq(a * b, c)
----     end
---- )
---- ```
+--- .. code-block:: lua
 ---
---- @param name string
---- @param params test.Param-Cls[]
---- @param fn fun(...)
-function Suite:caseParams(name, params, fn)
+---    local suite = test.suite("math")
+---    suite:caseParams(
+---        "multiply",
+---        {
+---            test.param(2, 2, 4),
+---            test.param(3, 3, 9),
+---        },
+---        function (a, b, c)
+---            test.assertEq(a * b, c)
+---        end
+---    )
+---
+--- @param name string test name, used for error messages.
+--- @param params ammtest.Param[] array of test parameters.
+--- @param fn fun(...) test implementation, must accept parameters as its arguments.
+function ns.Suite:caseParams(name, params, fn)
     if #params == 0 then
-        self:case(name, function() test.skip("Parameter list is empty.") end)
+        self:case(name, function () ns.skip("Parameter list is empty.") end)
         return
     end
     for i, param in ipairs(params) do
@@ -553,18 +624,12 @@ function Suite:caseParams(name, params, fn)
     end
 end
 
---- @type test.Suite-Cls[]
-local suites = {}
-
 --- Create a new test suite.
 ---
 --- @param name string?
---- @return test.Suite-Cls
-function test.suite(name)
-    name = name or debugHelpers.getMod(2)
-    local suite = setmetatable({ name = name, _cases = {} }, Suite)
-    table.insert(suites, suite)
-    return suite
+--- @return ammtest.Suite
+function ns.suite(name)
+    return ns.Suite:New(name or bootloader.getMod(2))
 end
 
 local testData = {
@@ -587,26 +652,30 @@ end
 --- Check if we're currently in test mode.
 ---
 --- @return boolean
-function test.isInTest()
+function ns.isInTest()
     return testData.isInTest
 end
 
 --- Get log lines that were printed during the test.
 ---
+--- This function only works in tests, no in setup/teardown functions.
+---
 --- @return { level: integer, msg: string}[]
-function test.getLog()
+function ns.getLog()
     if not testData.output then
-        error("`test.getLog` can't be called outside of test case")
+        error("`ammtest.getLog` can't be called outside of test case")
     end
     return testData.output
 end
 
 --- Get log lines that were printed during the test, concatenated into a single string.
 ---
+--- This function only works in tests, no in setup/teardown functions.
+---
 --- @return string
-function test.getLogStr()
+function ns.getLogStr()
     if not testData.output then
-        error("`test.getLog` can't be called outside of test case")
+        error("`ammtest.getLog` can't be called outside of test case")
     end
     local log = ""
     for _, line in ipairs(testData.output) do
@@ -615,7 +684,7 @@ function test.getLogStr()
     return log
 end
 
---- Info about patches applied via `test.patch`.
+--- Info about patches applied via `ammtest.patch`.
 ---
 --- Patches are undone in layers: one layer for patches done in suite setup,
 --- one for patches in test setup, and one for patches in a test itself.
@@ -625,18 +694,18 @@ local patchStack = {}
 
 --- Temporarily replace value of a variable.
 ---
---- Calling `test.patch(a.b, "c", x)` is equivalent to executing `a.b.c = x`, and then
+--- Calling `ammtest.patch(a.b, "c", x)` is equivalent to executing `a.b.c = x`, and then
 --- restoring the old value. To replace global variable, set `env` to `nil`.
 ---
---- Depending on where this function was called from, the effects are testored
+--- Depending on where this function was called from, the effects are restored
 --- after test case, test teardown, or suite teardown.
 ---
---- @param env table<string, any>?
---- @param name string
---- @param value any
-function test.patch(env, name, value)
+--- @param env table<string, any>? table that contains the replaced value.
+--- @param name string name of the replaced value.
+--- @param value any new value.
+function ns.patch(env, name, value)
     if #patchStack == 0 then
-        error("`test.patch` can't be called outside of test suite")
+        error("`ammtest.patch` can't be called outside of test suite")
     end
 
     env = env or _ENV or _G
@@ -650,7 +719,7 @@ end
 local function pushPatchContext()
     table.insert(patchStack, {})
     return setmetatable({}, {
-        __close = function(err)
+        __close = function (err)
             if #patchStack == 0 then
                 computer.panic(string.format(
                     "Error when popping test patch context. Previous error: %s", err
@@ -669,8 +738,20 @@ end
 
 --- Result of a test run.
 ---
---- @enum test.Status
-test.Status = {
+--- .. data:: OK
+---
+---    Test finished successfully.
+---
+--- .. data:: SKIP
+---
+---    Test was skipped.
+---
+--- .. data:: FAIL
+---
+---    Test failed.
+---
+--- @alias ammtest.Status "OK" | "SKIP" | "FAIL"
+ns.Status = {
     OK = "OK",
     SKIP = "SKIP",
     FAIL = "FAIL",
@@ -678,52 +759,111 @@ test.Status = {
 
 --- Log a string using an appropriate level for the given status.
 ---
---- @param status test.Status
+--- @param status ammtest.Status
 --- @param msg string
 local function logWithStatus(status, msg)
-    local level = { [test.Status.OK] = 1, [test.Status.SKIP] = 2, [test.Status.FAIL] = 3 }
+    local level = { [ns.Status.OK] = 1, [ns.Status.SKIP] = 2, [ns.Status.FAIL] = 3 }
     computer.log(level[status], msg)
 end
 
 --- Results of a single test suite.
 ---
---- @class test.Result-Cls
---- @field name string
---- @field status test.Status
---- @field msg string?
---- @field loc string?
---- @field cases test.CaseResult-Cls[]
-local Result = {}
+--- @class ammtest.Result: ammcore.class.Base
+ns.Result = class.create("Result")
 
-Result.__index = Result
-
---- Create a new test suite results container.
----
 --- @param name string
---- @return test.Result-Cls
-function test.result(name)
-    return setmetatable({ name = name, status = test.Status.FAIL, cases = {} }, Result)
+--- @param status ammtest.Status?
+--- @param msg string?
+--- @param loc string?
+---
+--- @generic T: ammtest.Result
+--- @param self T
+--- @return T
+function ns.Result:New(name, status, msg, loc)
+    self = class.Base.New(self)
+
+    --- Name of the test suite.
+    ---
+    --- !doctype const
+    --- @type string
+    self.name = name
+
+    --- Status of the test suite.
+    ---
+    --- !doctype const
+    --- @type ammtest.Status
+    self.status = status or ns.Status.FAIL
+
+    --- Message with which the test suite failed.
+    ---
+    --- !doctype const
+    --- @type string?
+    self.msg = msg
+
+    --- Location of the error that failed the suite.
+    --- Only set if the failure occurred during suite setup/teardown.
+    ---
+    --- !doctype const
+    --- @type string?
+    self.loc = loc
+
+    --- Array of test cases executed within this suite.
+    ---
+    --- !doctype const
+    --- @type ammtest.CaseResult[]
+    self.cases = {}
+
+    return self
 end
 
 --- Results of a single test case.
 ---
---- @class test.CaseResult-Cls
---- @field name string
---- @field status test.Status
---- @field testLoc string
---- @field loc string?
---- @field msg string?
-local CaseResult = {}
+--- @class ammtest.CaseResult: ammcore.class.Base
+ns.CaseResult = class.create("Result")
 
-CaseResult.__index = CaseResult
-
---- Create a new test case results container.
----
 --- @param name string
---- @param testLoc string
---- @return test.CaseResult-Cls
-function test.caseResult(name, testLoc)
-    return setmetatable({ name = name, testLoc = testLoc, status = test.Status.FAIL }, CaseResult)
+--- @param status ammtest.Status?
+--- @param msg string?
+--- @param testLoc string?
+--- @param loc string?
+---
+--- @generic T: ammtest.CaseResult
+--- @param self T
+--- @return T
+function ns.CaseResult:New(name, status, msg, testLoc, loc)
+    self = class.Base.New(self)
+
+    --- Name of the test case.
+    ---
+    --- !doctype const
+    --- @type string
+    self.name = name
+
+    --- Status of the test case.
+    ---
+    --- !doctype const
+    --- @type ammtest.Status
+    self.status = status or ns.Status.FAIL
+
+    --- Message with which the test case failed.
+    ---
+    --- !doctype const
+    --- @type string?
+    self.msg = msg
+
+    --- Location of the test function.
+    ---
+    --- !doctype const
+    --- @type string?
+    self.testLoc = testLoc
+
+    --- Location of the error that failed the test.
+    ---
+    --- !doctype const
+    --- @type string?
+    self.loc = loc
+
+    return self
 end
 
 --- Add indentation to a string.
@@ -763,15 +903,17 @@ end
 --- @param what string?
 --- @param fn fun(...)
 --- @param ... any
---- @return test.Status, string?, string?
+--- @return ammtest.Status status
+--- @return string? msg
+--- @return string? loc
 local function run(what, fn, ...)
-    local ok, err = fin.xpcall(fn, ...)
+    local ok, err = defer.xpcall(fn, ...)
     if ok then
-        return test.Status.OK, nil, nil
+        return ns.Status.OK, nil, nil
     elseif type(err.message) == "table" and getmetatable(err.message) == _FailMeta then
-        return test.Status.FAIL, err.message.msg, nil
+        return ns.Status.FAIL, err.message.msg, nil
     elseif type(err.message) == "table" and getmetatable(err.message) == _SkipMeta then
-        return test.Status.SKIP, err.message.msg, nil
+        return ns.Status.SKIP, err.message.msg, nil
     elseif type(err.message) == "table" and getmetatable(err.message) == _AssertErrorMeta then
         local msg
 
@@ -798,18 +940,18 @@ local function run(what, fn, ...)
                     if isTb then
                         v = "\n" .. indent(cleanTraceback(tostring(err.message.vars[k])))
                     else
-                        v = " " .. test.pprintVa(err.message.vars[k], true)
+                        v = " " .. ns.pprintVa(err.message.vars[k], true)
                     end
                     msg = msg .. string.format("%s:%s", name, v) .. "\n"
                 end
             end
         end
         if testData.output then
-            local log = test.getLogStr()
+            local log = ns.getLogStr()
             if log:len() > 0 then msg = msg .. "Test log:\n" .. indent(log) .. "\n" end
         end
 
-        return test.Status.FAIL, msg, err.message.loc
+        return ns.Status.FAIL, msg:gsub("%s$", ""), err.message.loc
     else
         local msg
 
@@ -821,11 +963,11 @@ local function run(what, fn, ...)
         msg = msg .. tostring(err.message) .. "\n"
         msg = msg .. "Trace:\n" .. indent(cleanTraceback(err.trace)) .. "\n"
         if testData.output then
-            local log = test.getLogStr()
+            local log = ns.getLogStr()
             if log:len() > 0 then msg = msg .. "Test log:\n" .. indent(log) .. "\n" end
         end
 
-        return test.Status.FAIL, msg, nil
+        return ns.Status.FAIL, msg:gsub("%s$", ""), nil
     end
 end
 
@@ -838,7 +980,8 @@ local function loadTests(root, devRoot)
         local devPath = filesystem.path(devRoot, filename)
         local modpath = devPath:match("^(.*)%.lua$")
         if modpath then
-            require(modpath:gsub("/_index%.lua", ""):gsub("/", "."))
+            ---@diagnostic disable-next-line: invisible
+            bootloader._require(modpath:gsub("/_index%.lua", ""):gsub("/", "."), false)
         elseif filesystem.isDir(path) then
             loadTests(path, devPath)
         end
@@ -848,7 +991,7 @@ end
 --- Search and load all tests in all dev packages.
 ---
 --- @param name string?
-function test.loadTests(name)
+function ns.loadTests(name)
     if bootloader.getLoaderKind() ~= "drive" then
         error("test library only works with drive loader")
     end
@@ -871,18 +1014,18 @@ end
 
 --- Run all collected tests and return a result.
 ---
---- @return test.Result-Cls[]
-function test.run()
+--- @return ammtest.Result[]
+function ns.run()
     local results = {}
     for _, suite in ipairs(suites) do
         local _ <close> = pushPatchContext()
 
-        local suiteResult = test.result(suite.name)
+        local suiteResult = ns.Result:New(suite.name)
         table.insert(results, suiteResult)
 
         do
             local status, msg, loc = run("suite setup", suite.setupSuite, suite)
-            if status ~= test.Status.OK then
+            if status ~= ns.Status.OK then
                 suiteResult.status = status
                 suiteResult.loc = loc
                 suiteResult.msg = msg
@@ -893,12 +1036,13 @@ function test.run()
         for _, case in pairs(suite._cases) do
             local _ <close> = pushPatchContext()
 
-            local testResult = test.caseResult(case.name, case.loc)
+            local testResult = ns.CaseResult:New(case.name)
+            testResult.testLoc = case.loc
             table.insert(suiteResult.cases, testResult)
 
             do
                 local status, msg, loc = run("test setup", suite.setupTest, suite)
-                if status ~= test.Status.OK then
+                if status ~= ns.Status.OK then
                     testResult.status = status
                     testResult.loc = loc
                     testResult.msg = msg
@@ -909,10 +1053,10 @@ function test.run()
             do
                 local _ <close> = pushPatchContext()
 
-                test.patch(testData, "isInTest", true)
-                test.patch(testData, "output", {})
-                test.patch(_ENV, "print", printToOutput)
-                test.patch(computer, "log", logToOutput)
+                ns.patch(testData, "isInTest", true)
+                ns.patch(testData, "output", {})
+                ns.patch(_ENV, "print", printToOutput)
+                ns.patch(computer, "log", logToOutput)
 
                 local values = (case.param and case.param.values) or {}
                 local status, msg, loc = run(nil, case.fn, table.unpack(values))
@@ -923,7 +1067,7 @@ function test.run()
 
             do
                 local status, msg, loc = run("test teardown", suite.teardownTest, suite)
-                if status == test.Status.FAIL then
+                if status == ns.Status.FAIL then
                     testResult.status = status
                     testResult.loc = loc
                     if testResult.msg and msg then
@@ -940,7 +1084,7 @@ function test.run()
 
         do
             local status, msg, loc = run("suite teardown", suite.teardownSuite, suite)
-            if status ~= test.Status.OK then
+            if status ~= ns.Status.OK then
                 suiteResult.status = status
                 suiteResult.loc = loc
                 suiteResult.msg = "Suite teardown " .. status
@@ -949,7 +1093,7 @@ function test.run()
             end
         end
 
-        suiteResult.status = test.Status.OK
+        suiteResult.status = ns.Status.OK
 
         ::continue::
     end
@@ -960,18 +1104,18 @@ end
 --- Main function that will collect and run all the tests.
 ---
 --- @param name string?
-function test.main(name)
-    test.loadTests(name)
-    local results = test.run()
+function ns.main(name)
+    ns.loadTests(name)
+    local results = ns.run()
 
     local nTests = {
-        [test.Status.OK] = 0,
-        [test.Status.SKIP] = 0,
-        [test.Status.FAIL] = 0,
+        [ns.Status.OK] = 0,
+        [ns.Status.SKIP] = 0,
+        [ns.Status.FAIL] = 0,
     }
 
     for _, suite in ipairs(results) do
-        if suite.status ~= test.Status.OK then
+        if suite.status ~= ns.Status.OK then
             local suiteDesc = string.format("%s: %s", suite.name, suite.status)
             if suite.loc then suiteDesc = suiteDesc .. "\n" .. string.format("  At %s", suite.loc) end
             if suite.msg then suiteDesc = suiteDesc .. "\n" .. indent(suite.msg) end
@@ -980,7 +1124,7 @@ function test.main(name)
 
         for _, case in ipairs(suite.cases) do
             nTests[case.status] = nTests[case.status] + 1
-            if case.status ~= test.Status.OK then
+            if case.status ~= ns.Status.OK then
                 local caseDesc = string.format("%s/%s: %s", suite.name, case.name, case.status)
                 if case.testLoc then caseDesc = caseDesc .. "\n" .. string.format("  At %s", case.testLoc) end
                 if case.loc then caseDesc = caseDesc .. "\n" .. string.format("  At %s", case.loc) end
@@ -991,11 +1135,11 @@ function test.main(name)
     end
 
     local logLevel, msg, beepA, beepB
-    if nTests[test.Status.FAIL] > 0 then
+    if nTests[ns.Status.FAIL] > 0 then
         logLevel = 3
         msg = "Failed"
         beepA, beepB = 1, 0.7
-    elseif nTests[test.Status.SKIP] > 0 or nTests[test.Status.OK] > 0 then
+    elseif nTests[ns.Status.SKIP] > 0 or nTests[ns.Status.OK] > 0 then
         logLevel = 1
         msg = "Passed"
         beepA, beepB = 0.7, 1
@@ -1009,9 +1153,9 @@ function test.main(name)
         logLevel,
         string.format(
             "========================================\n%s OK, %s SKIP, %s FAIL\n%s",
-            nTests[test.Status.OK],
-            nTests[test.Status.SKIP],
-            nTests[test.Status.FAIL],
+            nTests[ns.Status.OK],
+            nTests[ns.Status.SKIP],
+            nTests[ns.Status.FAIL],
             msg
         )
     )
@@ -1021,4 +1165,4 @@ function test.main(name)
     computer.beep(beepB)
 end
 
-return test
+return ns

@@ -1,11 +1,11 @@
 local test = require "ammtest"
-local fin = require "ammcore.util.fin"
+local defer = require "ammcore.defer"
 
 local suite = test.suite()
 
 suite:case("xpcall success", function()
     local args
-    local ok, err = fin.xpcall(
+    local ok, err = defer.xpcall(
         function(...)
             args = { ... };
 
@@ -22,7 +22,7 @@ end)
 
 suite:case("xpcall fail", function()
     local errValue = {}
-    local ok, err = fin.xpcall(function() error(errValue) end)
+    local ok, err = defer.xpcall(function() error(errValue) end)
 
     test.assertFalse(ok)
     test.assertTable(err)
@@ -34,7 +34,7 @@ suite:case("defer", function()
     local called = false
 
     do
-        local _<close> = fin.defer(function() called = true end)
+        local _<close> = defer.defer(function() called = true end)
         test.assertFalse(called)
     end
 

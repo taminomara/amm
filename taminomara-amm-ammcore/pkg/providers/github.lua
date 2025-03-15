@@ -1,15 +1,16 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
 local version = require "ammcore.pkg.version"
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local json = require "ammcore.contrib.json"
-local log = require "ammcore.util.log"
+local fsh = require "ammcore._util.fsh"
+local json = require "ammcore._contrib.json"
+local log = require "ammcore.log"
 local packageName = require "ammcore.pkg.packageName"
-local package = require "ammcore.pkg.packageVersion"
-local ammPackageJson = require "ammcore.pkg.packageJson"
+local package = require "ammcore.pkg.package"
+local packageJson = require "ammcore.pkg.packageJson"
 local bootloader = require "ammcore.bootloader"
 
---- Github package provider.
+--- !doctype module
+--- @class ammcore.pkg.providers.github
 local ns = {}
 
 local logger = log.Logger:New()
@@ -21,7 +22,7 @@ ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVe
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
---- @param cacheData ammcore.pkg.providers.github.CacheVersion
+--- @param cacheData ammcore.pkg.providers.github._CacheVersion
 --- @param provider ammcore.pkg.providers.github.GithubProvider
 ---
 --- @generic T: ammcore.pkg.providers.github.GithubPackageVersion
@@ -31,7 +32,7 @@ function ns.GithubPackageVersion:New(name, version, cacheData, provider)
     self = package.PackageVersion.New(self, name, version, provider)
 
     --- @private
-    --- @type ammcore.pkg.providers.github.CacheVersion
+    --- @type ammcore.pkg.providers.github._CacheVersion
     self._cacheData = cacheData
 
     --- @private
@@ -73,7 +74,7 @@ function ns.GithubPackageVersion:_loadData()
         error(string.format("failed fetching package metadata: HTTP error %s", res), 0)
     end
 
-    local ver, requirements, _, data = ammPackageJson.parseFromString(metadataTxt, "github response")
+    local ver, requirements, _, data = packageJson.parseFromString(metadataTxt, "github response")
     if data.name ~= self.name then
         error("package metadata name is inconsistent with release name", 0)
     end
@@ -102,13 +103,15 @@ function ns.GithubPackageVersion:build()
     return archive
 end
 
---- @class ammcore.pkg.providers.github.CacheVersion
+--- !doc private
+--- @class ammcore.pkg.providers.github._CacheVersion
 --- @field metadataUrl string
 --- @field codeUrl string
---- @field data? ammcore.pkg.ammPackageJson.AmmPackageJson
+--- @field data? ammcore.pkg.packageJson.PackageJson
 
---- @class ammcore.pkg.providers.github.CacheRepo
---- @field packages table<string, table<string, ammcore.pkg.providers.github.CacheVersion>>
+--- !doc private
+--- @class ammcore.pkg.providers.github._CacheRepo
+--- @field packages table<string, table<string, ammcore.pkg.providers.github._CacheVersion>>
 
 --- Implements a provider that loads packages from github.
 ---
@@ -126,7 +129,7 @@ function ns.GithubProvider:New(internetCard)
     self._internetCard = internetCard
 
     --- @private
-    --- @type table<string, ammcore.pkg.providers.github.CacheRepo>
+    --- @type table<string, ammcore.pkg.providers.github._CacheRepo>
     self._packages = {}
 
     --- @private
@@ -136,7 +139,7 @@ function ns.GithubProvider:New(internetCard)
     local srvRoot = bootloader.getSrvRoot()
     local cachePath = srvRoot and filesystem.path(srvRoot, "github.cache")
     if cachePath and filesystem.exists(cachePath) and filesystem.isFile(cachePath) then
-        local content = filesystemHelpers.readFile(cachePath)
+        local content = fsh.readFile(cachePath)
         local ok, err = pcall(function() self._packages = json.decode(content) end)
         if not ok then
             logger:warning("Error when loading github metadata cache: %s", err)
@@ -158,9 +161,9 @@ function ns.GithubProvider:_loadData(user, repo)
 
     logger:info("Fetching versions from github repo %s", ghName)
 
-    --- @type ammcore.pkg.providers.github.CacheRepo
+    --- @type ammcore.pkg.providers.github._CacheRepo
     local cache = { packages = {} }
-    --- @type ammcore.pkg.providers.github.CacheRepo
+    --- @type ammcore.pkg.providers.github._CacheRepo
     local oldCache = self._packages[ghName]
 
     self._packages[ghName] = cache
@@ -302,7 +305,7 @@ function ns.GithubProvider:finalize()
     local srvRoot = bootloader.getSrvRoot()
     if srvRoot then
         local cachePath = filesystem.path(srvRoot, "github.cache")
-        filesystemHelpers.writeFile(cachePath, json.encode(self._packages))
+        fsh.writeFile(cachePath, json.encode(self._packages))
     end
 end
 

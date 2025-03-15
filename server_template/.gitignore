@@ -51,3 +51,8 @@ luac.out
 
 # FIN-specific files
 FINLuaDocumentation.lua
+
+# Documentation build
+.python-version
+docs/build
+docs/_build

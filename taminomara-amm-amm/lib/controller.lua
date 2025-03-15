@@ -1,6 +1,6 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 local errorReporter = require "amm.lib.errorReporter"
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 
 local logger = log.Logger:New()
 
@@ -26,7 +26,7 @@ local controller = {}
 
 --- A handle that allows sending messages to controller managers.
 ---
---- @class controller.ManagerApiHandle: class.Base
+--- @class controller.ManagerApiHandle: ammcore.class.Base
 controller.ManagerApiHandle = class.create("ManagerApiHandle")
 
 --- @param ctl controller.Controller
@@ -90,7 +90,7 @@ end
 ---    and then finalize it. If you need to trigger a check manually,
 ---    call `check`, not `_check`.
 ---
---- @class controller.Controller: class.Base
+--- @class controller.Controller: ammcore.class.Base
 controller.Controller = class.create("Controller")
 
 --- Unique code for a controller. AMM allows only one instance of a particular
@@ -417,7 +417,7 @@ end
 
 --- Observed state of a computer.
 ---
---- @class controller.ObservedState: class.Base
+--- @class controller.ObservedState: ammcore.class.Base
 --- @field sv severity.Severity
 --- @field color severity.Color?
 --- @field pingsEnabled boolean
@@ -428,7 +428,7 @@ end
 
 --- Observed state of a controller.
 ---
---- @class controller.ObservedCtlState: class.Base
+--- @class controller.ObservedCtlState: ammcore.class.Base
 --- @field sv severity.Severity
 --- @field color severity.Color?
 --- @field state any

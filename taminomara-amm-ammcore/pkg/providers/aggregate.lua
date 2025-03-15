@@ -1,7 +1,9 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
-local array = require "ammcore.util.array"
+local array = require "ammcore._util.array"
 
+--- !doctype module
+--- @class ammcore.pkg.providers.aggregate
 local ns = {}
 
 --- A provider that combines results from other providers.

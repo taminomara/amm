@@ -1,7 +1,7 @@
 local bootloader = require "ammcore.bootloader"
-local json = require "ammcore.contrib.json"
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
-local log = require "ammcore.util.log"
+local json = require "ammcore._contrib.json"
+local fsh = require "ammcore._util.fsh"
+local log = require "ammcore.log"
 
 --- Write server template.
 local ns = {}
@@ -21,14 +21,14 @@ function ns.writeServerTemplate(devRoot)
 
     for _, filename in ipairs(filenames) do
         local path = filesystem.path(devRoot, filename)
-        local dir = filesystemHelpers.parent(path)
+        local dir = fsh.parent(path)
         if not filesystem.exists(dir) then
             logger:trace("Creating %s", dir)
             assert(filesystem.createDir(dir, true))
         end
         if not filesystem.exists(path) then
             logger:trace("Writing %s", path)
-            filesystemHelpers.writeFile(path, templateData[filename])
+            fsh.writeFile(path, templateData[filename])
         else
             logger:trace("Skipping %s: already exists", path)
         end

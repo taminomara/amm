@@ -1,5 +1,5 @@
 local test = require "ammtest"
-local filesystemHelpers = require "ammcore.util.filesystemHelpers"
+local fsh = require "ammcore._util.fsh"
 
 local suite = test.suite()
 
@@ -26,6 +26,6 @@ suite:caseParams(
         test.param("./foo/bar/baz", "foo/bar"),
     },
     function(path, parent)
-        test.assertEq(filesystemHelpers.parent(path), parent)
+        test.assertEq(fsh.parent(path), parent)
     end
 )

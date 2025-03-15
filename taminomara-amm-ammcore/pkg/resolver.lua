@@ -1,22 +1,26 @@
-local class = require "ammcore.util.class"
-local log = require "ammcore.util.log"
+local class = require "ammcore.class"
+local log = require "ammcore.log"
 local version = require "ammcore.pkg.version"
 
 --- Resolves dependencies.
+---
+--- !doctype module
+--- @class ammcore.pkg.resolver
 local ns = {}
 
 local logger = log.Logger:New()
 
 --- A package candidate.
 ---
---- @class ammcore.pkg.resolver.Candidate: class.Base
+--- !doc private
+--- @class ammcore.pkg.resolver._Candidate: ammcore.class.Base
 local Candidate = class.create("Candidate")
 
 --- @param name string
 --- @param versions ammcore.pkg.package.PackageVersion[]
 --- @param updateAll boolean
 ---
---- @generic T: ammcore.pkg.resolver.Candidate
+--- @generic T: ammcore.pkg.resolver._Candidate
 --- @param self T
 --- @return T
 function Candidate:New(name, versions, updateAll)
@@ -73,8 +77,8 @@ function Candidate:New(name, versions, updateAll)
     return self
 end
 
---- @param lhs ammcore.pkg.resolver.Candidate
---- @param rhs ammcore.pkg.resolver.Candidate
+--- @param lhs ammcore.pkg.resolver._Candidate
+--- @param rhs ammcore.pkg.resolver._Candidate
 function Candidate.__lt(lhs, rhs)
     if (#lhs.versions > 0) ~= (#rhs.versions > 0) then
         return #rhs.versions == 0
@@ -87,26 +91,26 @@ function Candidate.__lt(lhs, rhs)
     end
 end
 
---- @param lhs ammcore.pkg.resolver.Candidate
---- @param rhs ammcore.pkg.resolver.Candidate
+--- @param lhs ammcore.pkg.resolver._Candidate
+--- @param rhs ammcore.pkg.resolver._Candidate
 function Candidate.__lte(lhs, rhs)
     return not rhs < lhs
 end
 
---- @param lhs ammcore.pkg.resolver.Candidate
---- @param rhs ammcore.pkg.resolver.Candidate
+--- @param lhs ammcore.pkg.resolver._Candidate
+--- @param rhs ammcore.pkg.resolver._Candidate
 function Candidate.__gt(lhs, rhs)
     return rhs < lhs
 end
 
---- @param lhs ammcore.pkg.resolver.Candidate
---- @param rhs ammcore.pkg.resolver.Candidate
+--- @param lhs ammcore.pkg.resolver._Candidate
+--- @param rhs ammcore.pkg.resolver._Candidate
 function Candidate.__gte(lhs, rhs)
     return not lhs < rhs
 end
 
---- @param candidates table<string, ammcore.pkg.resolver.Candidate>
---- @return ammcore.pkg.resolver.Candidate?
+--- @param candidates table<string, ammcore.pkg.resolver._Candidate>
+--- @return ammcore.pkg.resolver._Candidate?
 local function getNextCandidate(candidates)
     local best = nil
     for _, candidate in pairs(candidates) do
@@ -120,7 +124,7 @@ local function getNextCandidate(candidates)
 end
 
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
---- @param bestAttempt { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
+--- @param bestAttempt { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
 --- @return string
 local function describeBestAttempt(rootRequirements, bestAttempt)
     if #bestAttempt == 0 then
@@ -202,9 +206,9 @@ end
 --- @param provider ammcore.pkg.provider.Provider
 --- @param updateAll boolean
 --- @param includeRemotePackages boolean
---- @return { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
+--- @return { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
 local function resolve(rootRequirements, provider, updateAll, includeRemotePackages)
-    --- @type table<string, ammcore.pkg.resolver.Candidate>
+    --- @type table<string, ammcore.pkg.resolver._Candidate>
     local candidates = {}
 
     for name, spec in pairs(rootRequirements) do
@@ -217,11 +221,11 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
         candidates[name] = candidate
     end
 
-    --- @type { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
+    --- @type { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
     local pinned = {}
     --- @type table<string, ammcore.pkg.package.PackageVersion>
     local pinnedByName = {}
-    --- @type { candidate: ammcore.pkg.resolver.Candidate, versionIndex: integer }[]
+    --- @type { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
     local bestAttempt = {}
 
     do
@@ -378,11 +382,47 @@ end
 
 --- Find suitable package versions to satisfy the given requirements.
 ---
---- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
---- @param provider ammcore.pkg.provider.Provider
---- @param updateAll boolean
---- @param includeRemotePackages boolean
---- @return ammcore.pkg.package.PackageVersion[]
+--- Resolving package versions is an NP-complete task. This implementation is inspired
+--- by the `NuGet package manager`_.
+---
+--- Essentially, this algorithm performs a full search using DFS-like approach,
+--- with some heuristics to speed it up.
+---
+--- On every step of an algorithm, we have a stack of package candidates that we will
+--- install, each candidate has a specific version pinned.
+---
+--- To make a step, we select the next package candidate that needs to be installed,
+--- and try pinning one of its versions.
+---
+--- If new pinned version doesn't conflict with other pinned candidates,
+--- we descend and try selecting the next candidate, and so on.
+---
+--- If no version could be pinned without creating a conflict with other pinned
+--- candidates, it means we can't find a solution with current pins. In this case,
+--- we backtrack to the previously selected package candidate, unpin its version
+--- and pin the next one.
+---
+--- We continue until either there is no more candidates to install, or we've
+--- backtracked to the end of the stack.
+---
+--- Heuristics to speed up this process include selecting a candidate that will narrow
+--- down our search the most, and selecting order in which to try versions
+--- of a candidate.
+---
+--- When selecting an uninstalled candidate, we consider the following factors:
+---
+--- - we prefer packages that are included in ``rootRequirements``;
+--- - we prefer packages that have an exact version required (version range narrowed by a ``==`` spec);
+--- - we track how many conflicts we've discovered while attempting to pin a candidate
+---   during previous iterations, and prefer ones that produce higher number of conflicts.
+---
+--- .. _NuGet package manager: https://fsprojects.github.io/Paket/resolver.html
+---
+--- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec> initial requirements to be considered.
+--- @param provider ammcore.pkg.provider.Provider where to find packages.
+--- @param updateAll boolean update local packages even if current versions don't conflict with requirements.
+--- @param includeRemotePackages boolean allow package to fetch packages from github or other remote source.
+--- @return ammcore.pkg.package.PackageVersion[] solution package versions that satisfy requirements.
 function ns.resolve(rootRequirements, provider, updateAll, includeRemotePackages)
     local res = {}
     for _, candidate in ipairs(resolve(rootRequirements, provider, updateAll, includeRemotePackages)) do

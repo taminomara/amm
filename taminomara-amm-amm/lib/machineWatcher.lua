@@ -1,4 +1,4 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 
 --- Helpers for keeping track of machines.
 local machineWatcher = {}
@@ -6,7 +6,7 @@ local machineWatcher = {}
 --- Scans network for machines of specific kind, and invokes callbacks
 --- when a new machine appears or an old one disappears.
 ---
---- @class machineWatcher.MachineWatcher: class.Base
+--- @class machineWatcher.MachineWatcher: ammcore.class.Base
 machineWatcher.MachineWatcher = class.create("MachineWatcher")
 
 --- @generic T: machineWatcher.MachineWatcher

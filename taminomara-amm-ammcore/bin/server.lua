@@ -1,7 +1,7 @@
 local bootloader = require "ammcore.bootloader"
 local pkg = require "ammcore.pkg"
-local log = require "ammcore.util.log"
-local fin = require "ammcore.util.fin"
+local log = require "ammcore.log"
+local defer = require "ammcore.defer"
 
 local logger = log.Logger:New()
 
@@ -50,7 +50,7 @@ event.registerListener(
         logger:debug("Request %s:%s %q", sender, port, message)
         local handler = handlers[message]
         if handler then
-            local ok, err = fin.xpcall(handler, event, _, sender, port, message, ...)
+            local ok, err = defer.xpcall(handler, event, _, sender, port, message, ...)
             if not ok then
                 logger:error("error when processing message %q from %s: %s", message, sender, err)
             end

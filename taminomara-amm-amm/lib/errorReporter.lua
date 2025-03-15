@@ -1,6 +1,6 @@
-local class = require "ammcore.util.class"
+local class = require "ammcore.clas"
 local severity = require "amm.lib.severity"
-local array = require "ammcore.util.array"
+local array = require "ammcore._util.array"
 
 local errorReporter = {}
 
@@ -52,7 +52,7 @@ local Messages = {}
 --- which weren't, and which were resolved. You just report everything that you find,
 --- and the error reporter will figure it out.
 ---
---- @class errorReporter.ErrorReporter: class.Base
+--- @class errorReporter.ErrorReporter: ammcore.class.Base
 errorReporter.ErrorReporter = class.create("ErrorReporter")
 
 function errorReporter.ErrorReporter:New()

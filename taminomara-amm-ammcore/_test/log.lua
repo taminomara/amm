@@ -1,5 +1,5 @@
 local test = require "ammtest"
-local log = require "ammcore.util.log"
+local log = require "ammcore.log"
 
 local suite = test.suite()
 

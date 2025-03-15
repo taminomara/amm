@@ -1,5 +1,5 @@
-local class = require "ammcore.util.class"
-local array = require "ammcore.util.array"
+local class = require "ammcore.clas"
+local array = require "ammcore._util.array"
 
 --- Helpers for passing recipes around the network.
 local recipeHelpers = {}
@@ -8,7 +8,7 @@ local recipeHelpers = {}
 ---
 --- There's no easy way to get a recipe by its internal name, so we make do...
 ---
---- @class recipeHelpers.Recipe: class.Base
+--- @class recipeHelpers.Recipe: ammcore.class.Base
 recipeHelpers.Recipe = class.create("Recipe")
 
 --- @param recipe Recipe-Class

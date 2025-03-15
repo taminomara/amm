@@ -1,47 +1,63 @@
---- Implements the `require` function and code loaders.
+--- Bootloader implements the `require` function
+--- and all necessary APIs for it to function.
+---
+--- .. autoobject:: require
+---    :global:
+---
+--- !doctype module
+--- @class ammcore.bootloader
 local ns = {}
 
---- @type table<string, { loaded: boolean, value: any }>
+--- @type table<string, { loaded: boolean, value: any, realPath: string }>
 local _modules = {}
 do
-    _modules["ammcore.bootloader"] = { loaded = true, value = ns }
+    _modules["ammcore.bootloader"] = { loaded = true, value = ns, realPath = "<unknown>" }
 end
 
 --- @type table<string, string>
 local _paths = {}
+
 do
     _paths["EEPROM"] = "EEPROM"
     local path = debug.getinfo(1).source:match("^@(.-)$")
     if path then
         _paths[path] = "ammcore.bootloader"
+        _modules["ammcore.bootloader"].realPath = path
     end
 end
 
+--- @type table<string, ammcore.pkg.package.PackageVersion>[]?
+local localPackages = nil
+
 --- A function that resolves file contents.
 ---
---- @alias ammcore.bootloader.Bootloader fun(pathCandidates: string[]): string?, string?
+--- !doc private
+--- @alias ammcore.bootloader._Bootloader fun(pathCandidates: string[]): string?, string?
 
---- @type ammcore.bootloader.Bootloader
+--- @type ammcore.bootloader._Bootloader
 local loader
 
 --- A bootloader config.
 ---
---- @class ammcore.bootloader.BootloaderConfig: table<string, unknown>
---- @field target string
---- @field devRoot string?
---- @field srvRoot string?
---- @field netCodeServerAddr string?
---- @field netCodeServerPort integer?
---- @field packages string[]?
+--- @class ammcore.bootloader.BootloaderConfig: { [string]: unknown }
+--- @field prog string? Program to run, parsed from computer's nick by default.
+--- @field target "drive"|"net"|"bootstrap"|string Name of the loader that was used to load the code.
+--- @field devRoot string? Directory for dev packages if one is configured.
+--- @field srvRoot string? Directory for internal AMM files.
+--- @field driveId string? Id of the hard drive that contains AMM files, used when `target` is ``drive``.
+--- @field driveMountPoint string? Point where the hard drive with AMM files will be mounted, used when `target` is ``drive``.
+--- @field netCodeServerAddr string? Address of the code server, used when `target` is ``net``.
+--- @field netCodeServerPort integer? Port of the code server, used when `target` is ``net``.
+--- @field packages string[]? List of dependencies that should be installed before the code server starts.
 
 --- @type ammcore.bootloader.BootloaderConfig
 local bootloaderConfig
 
---- @type table<string, fun(config: ammcore.bootloader.BootloaderConfig): ammcore.bootloader.Bootloader>
+--- @type table<string, fun(config: ammcore.bootloader.BootloaderConfig): ammcore.bootloader._Bootloader>
 local _loaders = {}
 
 --- @param config ammcore.bootloader.BootloaderConfig
---- @return ammcore.bootloader.Bootloader
+--- @return ammcore.bootloader._Bootloader
 function _loaders.drive(config)
     if type(config.devRoot) ~= "string" then
         error(string.format("config.devRoot has invalid value %s", config.devRoot))
@@ -103,7 +119,7 @@ function _loaders.drive(config)
         return nil
     end
 
-    --- @type ammcore.bootloader.Bootloader
+    --- @type ammcore.bootloader._Bootloader
     return function(pathCandidates)
         for _, pathCandidate in ipairs(pathCandidates) do
             pathCandidate = filesystem.path(2, pathCandidate)
@@ -133,7 +149,7 @@ function _loaders.drive(config)
 end
 
 --- @param config ammcore.bootloader.BootloaderConfig
---- @return ammcore.bootloader.Bootloader
+--- @return ammcore.bootloader._Bootloader
 function _loaders.net(config)
     -- Find a network card.
     local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
@@ -170,7 +186,7 @@ function _loaders.net(config)
         end
     )
 
-    --- @type ammcore.bootloader.Bootloader
+    --- @type ammcore.bootloader._Bootloader
     return function(pathCandidates)
         local pathCandidatesStr = table.concat(pathCandidates, ":")
 
@@ -206,7 +222,7 @@ function _loaders.net(config)
 end
 
 if require then
-    computer.log(2, "BootloaderWarning: 'require' function is already present")
+    computer.log(2, "[ammcore.bootloader] WARNING: 'require' function is already present")
 end
 
 --- @param mod string
@@ -214,7 +230,7 @@ end
 --- @return string[] candidates for file search
 local function canonizeModName(mod)
     if type(mod) ~= "string" then
-        error(string.format("expected a string, got %s", type(mod)), 2)
+        error(string.format("expected a string, got %s", type(mod)), 3)
     end
     if mod:match("/") then
         return nil, { filesystem.path(2, mod) }
@@ -234,18 +250,36 @@ local function canonizeModName(mod)
     end
 end
 
---- Find and load a lua module.
+--- Load the given module, return any value returned by it.
 ---
---- @param required string
-function require(required) --- @diagnostic disable-line: lowercase-global
+--- If module returns `nil`, it is replaced with `true`.
+---
+--- Besides that value, `require` also returns as a second result
+--- the loader data returned by the searcher, which indicates how `require`
+--- found the module. For instance, if the module came from a file,
+--- this loader data is the file path.
+---
+--- @param modname string module path.
+--- @return unknown # module contents.
+--- @return unknown realPath where this module comes from (usually a `string`).
+function require(modname) --- @diagnostic disable-line: lowercase-global
+    return ns._require(modname)
+end
+
+--- @package
+--- @param modname string module path.
+--- @param noWarnings boolean? disable warnings about requiring modules from foreign packages.
+--- @return unknown # module contents.
+--- @return unknown realPath where this module comes from (usually a `string`).
+function ns._require(modname, noWarnings)
     if not loader then
         error("'require' called before 'init'", 2)
     end
 
-    local mod, pathCandidates = canonizeModName(required)
+    local mod, pathCandidates = canonizeModName(modname)
 
     if not mod then
-        error(string.format("can't require a module by its full path name %s", required))
+        error(string.format("can't require a module by its full path name %s", modname), 2)
     end
 
     if not _modules[mod] then
@@ -255,11 +289,39 @@ function require(required) --- @diagnostic disable-line: lowercase-global
             error(string.format("no module named %s", mod), 2)
         end
 
+        if localPackages and not noWarnings then
+            local requiringMod = ns.getMod(2):match("^[^.]*")
+            local requiredMod = mod:match("^[^.]*")
+
+            if requiringMod ~= requiredMod then
+                local requiringPkg = nil
+                if localPackages["taminomara-amm-" .. requiringMod] then
+                    requiringPkg = localPackages["taminomara-amm-" .. requiringMod]
+                elseif localPackages[requiringMod] then
+                    requiringPkg = localPackages[requiringMod]
+                end
+                if requiringPkg then
+                    local requirements = requiringPkg:getAllRequirements()
+                    if not requirements[requiredMod] and not requirements["taminomara-amm-" .. requiredMod] then
+                        computer.log(
+                            2,
+                            string.format(
+                                "[ammcore.bootloader] WARNING: Module %s requires modules from %s, but %s is not listed as its dependency",
+                                requiringMod,
+                                requiredMod,
+                                requiredMod
+                            )
+                        )
+                    end
+                end
+            end
+        end
+
         if _paths[realPath] then
             computer.log(
                 2,
                 string.format(
-                    "The same lua file is required with different names: %s and %s",
+                    "[ammcore.bootloader] WARNING: The same lua file is required with different names: %s and %s",
                     mod,
                     _paths[realPath]
                 )
@@ -274,17 +336,17 @@ function require(required) --- @diagnostic disable-line: lowercase-global
             error(string.format("syntax error in %s: %s", realPath, err), 2)
         end
 
-        _modules[mod] = { loaded = true, value = codeFn() }
+        _modules[mod] = { loaded = true, value = codeFn() or true }
     elseif not _modules[mod].loaded then
         error(string.format("circular import in %s", mod), 2)
     end
 
-    return _modules[mod].value
+    return _modules[mod].value, _modules[mod].realPath
 end
 
---- Initializes and installs the global `require` function.
+--- Initialize and install the global `require` function.
 ---
---- @param config ammcore.bootloader.BootloaderConfig
+--- @param config ammcore.bootloader.BootloaderConfig bootloader config.
 function ns.init(config)
     if loader then
         error("loader is already installed")
@@ -297,7 +359,7 @@ function ns.init(config)
     end
 
     if type(config.target) == "function" then
-        loader = config.target --[[ @as ammcore.bootloader.Bootloader ]]
+        loader = config.target --[[ @as ammcore.bootloader._Bootloader ]]
         config.target = "bootstrap"
     elseif type(config.target) == "string" then
         if not _loaders[config.target] then
@@ -309,6 +371,13 @@ function ns.init(config)
     end
 
     bootloaderConfig = config
+
+    local pkg = require "ammcore.pkg"
+    local provider = pkg.getPackageProvider(true)
+    localPackages = {}
+    for _, package in ipairs(provider:getLocalPackages()) do
+        localPackages[package.name] = package
+    end
 end
 
 --- Find and return a file by its path.
@@ -322,9 +391,9 @@ end
 --- a request to a code server. If target loader is 'drive' and the code has changed
 --- since it was last loaded, this function will return the new version of the code.
 ---
---- @param path string|string[] file path, including its extension
---- @return string? module code
---- @string string? realPath actual path to the `.lua` file that contains the code
+--- @param path string|string[] file path, including its extension.
+--- @return string? code module code.
+--- @string string? realPath actual path to the `.lua` file that contains the code.
 function ns.findModuleCode(path)
     if type(path) == "string" then
         local pathCandidatesStr = path
@@ -336,7 +405,7 @@ function ns.findModuleCode(path)
     return loader(path)
 end
 
---- Get loader that was used to load the code.
+--- Get name of the loader that was used to load the code.
 ---
 --- @return "drive"|"net"|"bootstrap"|string
 function ns.getLoaderKind()
@@ -344,17 +413,19 @@ function ns.getLoaderKind()
     return bootloaderConfig.target
 end
 
---- Get directory for dev packages.
+--- Get bootloader config.
 ---
---- @return table
+--- @return ammcore.bootloader.BootloaderConfig config config that was used to init the bootloader.
 function ns.getBootloaderConfig()
     assert(loader, "'getBootloaderConfig' called before 'init'", 2)
     return bootloaderConfig
 end
 
---- Get directory for dev packages.
+--- Get directory for dev packages if one is configured.
 ---
---- @return string?
+--- Return `nil` if bootloader target is not `drive`.
+---
+--- @return string? devRoot directory where dev packages are installed.
 function ns.getDevRoot()
     assert(loader, "'getDevRoot' called before 'init'", 2)
     return bootloaderConfig.devRoot
@@ -362,19 +433,58 @@ end
 
 --- Get directory for internal AMM files.
 ---
---- @return string?
+--- Return `nil` if bootloader target is not `drive`.
+---
+--- @return string? srvRoot directory where AMM stores its internal data, including installed modules.
 function ns.getSrvRoot()
     assert(loader, "'getSrvRoot' called before 'init'", 2)
     return bootloaderConfig.srvRoot
 end
 
---- Given a real file path (as returned by `getFile`), look up associated module name.
+--- Given a real file path (as returned by `findModuleCode`), look up associated module name.
 ---
---- @param realPath string
+--- @param realPath string real path to a file, as returned by `findModuleCode` or `ammcore._util.debug.getFile`.
 --- @return string?
 function ns.getModuleByRealPath(realPath)
     assert(loader, "'getModuleByRealPath' called before 'init'", 2)
     return _paths[realPath]
+end
+
+--- Get module name at stack frame ``n``.
+---
+--- @param n integer? number of stack frame from the top of the stack. By default, return module of the calling frame.
+--- @return string module module name.
+function ns.getMod(n)
+    return ns.getModuleByRealPath(ns.getFile((n or 1) + 1)) or "<unknown>"
+end
+
+--- Get file name at stack frame ``n``.
+---
+--- @param n integer? number of stack frame from the top of the stack. By default, return file of the calling frame.
+--- @return string file file name.
+function ns.getFile(n)
+    return debug.getinfo((n or 1) + 1).source:match("^@(.-)$") or "<unknown>"
+end
+
+--- Get current line number at stack frame ``n``.
+---
+--- @param n integer? number of stack frame from the top of the stack. By default, return line at the calling frame.
+--- @return integer line line number.
+function ns.getLine(n)
+    return debug.getinfo((n or 1) + 1).currentline or 1
+end
+
+--- Get current location at stack frame ``n``.
+---
+--- @param n integer? number of stack frame from the top of the stack. By default, return location of the calling frame.
+--- @return string location location, consists of file name and line number.
+function ns.getLoc(n)
+    local loc = string.format(
+        "%s:%s",
+        ns.getFile((n or 1) + 1),
+        ns.getLine((n or 1) + 1)
+    )
+    return loc
 end
 
 return ns
