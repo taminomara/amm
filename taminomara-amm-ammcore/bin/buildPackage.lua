@@ -9,69 +9,81 @@ local bootloader = require "ammcore.bootloader"
 
 local logger = log.Logger:New()
 
-local parsed = nick.parse(computer.getInstance().nick)
-
-local user, repo
-do
-    local repoArg = parsed:getOne("repo", tostring)
-    if not repoArg then error("no github repo specified", 0) end
-    user, repo = repoArg:match("^(.*)/(.*)$")
-    if not user or not repo then error(string.format("invalid github repo %s", repoArg)) end
-end
-
-local tag
-do
-    local tagArg = parsed:getOne("tag", tostring)
-    if not tagArg then error("no installation tag specified", 0) end
-    tag = tagArg:match("^refs/tags/(.*)$")
-    if not tag then error(string.format("invalid release tag %s", tagArg), 0) end
-end
-
-local name, ver = tag:match("^(.*)/v(.*)$")
-if not name or not ver then error(string.format("invalid release tag %s", tag), 0) end
-
-local isValid, packageUser, packageRepo = packageName.parseFullPackageName(name)
-if not isValid then
-    error(string.format("invalid release tag %s", tag), 0)
-elseif not packageUser or not packageRepo then
-    error(string.format("invalid release tag %s: not a github package", tag), 0)
-elseif packageUser ~= user or packageRepo ~= repo then
-    error(string.format("invalid release tag %s: package name does not match repo name", tag), 0)
-end
-
-local packageVer
-do
-    local ok, err = pcall(function() packageVer = version.parse(ver) end)
-    if not ok then
-        error(string.format("invalid release version %s: %s", tag, err), 0)
-    end
-end
-
-print(string.format("Building %s == %s", name, packageVer))
-
 local devRoot = assert(bootloader.getDevRoot(), "config.devRoot is not set")
-
-local buildDir = filesystem.path(devRoot, "build")
-if not filesystem.exists(buildDir) then
-    assert(filesystem.createDir(buildDir, true), "failed creating build directory")
-elseif not filesystem.isDir(buildDir) then
-    error(string.format("not a directory: %s", buildDir), 0)
-end
-
 local devProvider = localProvider.LocalProvider:New(devRoot, true)
-local pkgs, found = devProvider:findPackageVersions(name, false)
-if not found or #pkgs ~= 1 then
-    error(string.format("couldn't find a dev package named %s", name), 0)
+
+local parsed = nick.parse(computer.getInstance().nick)
+local packages = parsed:getAll("package", tostring)
+
+if #packages == 0 then
+    error("no packages were provided")
 end
 
-local pkg = pkgs[1]
+-- Parse repo.
+local repoArg = parsed:getOne("repo", tostring)
+if not repoArg then error("no github repo specified", 0) end
+local user, repo = repoArg:match("^(.*)/(.*)$")
+if not user or not repo then
+    error(string.format("invalid github repo %s", repoArg))
+end
 
-pkg:overrideVersion(packageVer)
+-- Parse packages.
+local built = {}
+for _, package in ipairs(packages) do
+    -- Parse github tag.
+    package = package:gsub("^refs/tags/", "")
+    local name, verTxt = package:match("^(.*)/v(.*)$")
+    if not name or not verTxt then
+        name, verTxt = package, nil
+    end
 
-logger:info("Writing build/ammpackage.json")
-fsh.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
+    if built[name] then goto continue end
+    built[name] = true
 
-logger:info("Writing build/package")
-fsh.writeFile(filesystem.path(buildDir, "package"), pkg:build())
+    -- Check package name.
+    local isValid, packageUser, packageRepo = packageName.parseFullPackageName(name)
+    if not isValid then
+        error(string.format("invalid package %s", package), 0)
+    elseif not packageUser or not packageRepo then
+        error(string.format("invalid package %s: not a github package", package), 0)
+    elseif packageUser ~= user or packageRepo ~= repo then
+        error(string.format("invalid package %s: package name does not match repo name", package), 0)
+    end
 
-print(string.format("Successfully built %s == %s", name, packageVer))
+    -- Check package version.
+    local ver
+    if verTxt then
+        local ok, err = pcall(function() ver = version.parse(verTxt) end)
+        if not ok then error(string.format("invalid release version %s: %s", verTxt, err), 0) end
+    end
+
+    -- Find package.
+    local pkgs, ok = devProvider:findPackageVersions(name, false)
+    if not ok or #pkgs ~= 1 then error(string.format("can't find dev package %s", package)) end
+    local pkg = pkgs[1]
+
+    -- Set package version, if any.
+    if ver then
+        pkg:overrideVersion(ver)
+    end
+
+    -- Build package.
+    local buildDir = filesystem.path(devRoot, "build", pkg.name)
+    if not filesystem.exists(buildDir) then
+        assert(filesystem.createDir(buildDir, true), "failed creating build directory")
+    elseif not filesystem.isDir(buildDir) then
+        error(string.format("not a directory: %s", buildDir), 0)
+    end
+
+    print(string.format("Building %s == %s", pkg.name, pkg.version))
+
+    logger:info("Writing %s/ammpackage.json", buildDir)
+    fsh.writeFile(filesystem.path(buildDir, "ammpackage.json"), json.encode(pkg.data))
+
+    logger:info("Writing %s/package", buildDir)
+    fsh.writeFile(filesystem.path(buildDir, "package"), pkg:build())
+
+    print(string.format("Successfully built %s == %s", pkg.name, pkg.version))
+
+    ::continue::
+end

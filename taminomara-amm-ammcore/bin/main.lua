@@ -4,8 +4,10 @@ local log = require "ammcore.log"
 
 local config = bootloader.getBootloaderConfig()
 
+local parsedNick = nick.parse(computer.getInstance().nick)
+
 if not config.prog then
-    config.prog = computer.getInstance().nick:gsub("#.*$", ""):match("^%s*(.-)%s*$")
+    config.prog = parsedNick:getPos(1, tostring)
 end
 if type(config.prog) ~= "string" then
     error("config.prog is not a string")
@@ -14,7 +16,6 @@ elseif config.prog:len() == 0 then
 end
 
 do
-    local parsedNick = nick.parse(computer.getInstance().nick)
     local level = parsedNick:getOne("logLevel", tostring)
     if level then
         local levelInt = log.levelFromName(level)

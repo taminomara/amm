@@ -25,6 +25,9 @@ jobs:
           test: true
           local: true
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Make sure we always build ammcore
+          # in addition to currently released package.
+          args: package=taminomara-amm-ammcore
       - name: Install docs dependencies
         if: startsWith(github.ref, 'refs/tags/')
         run: pip install -r docs/requirements.txt
