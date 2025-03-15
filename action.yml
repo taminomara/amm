@@ -27,8 +27,7 @@ runs:
       uses: leafo/gh-actions-luarocks@v4
     - name: Setup lua dependencies
       run: |
-        luarocks install --only-deps $GITHUB_ACTION_PATH/fin_env/loader-dev-1.rockspec \
-          2>&1 >~/luarocks.log || (cat ~/luarocks.log && false)
+        luarocks install --only-deps $GITHUB_ACTION_PATH/fin_env/loader-dev-1.rockspec 2>&1 >~/luarocks.log || (cat ~/luarocks.log && false)
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
