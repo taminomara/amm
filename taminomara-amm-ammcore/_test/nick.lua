@@ -7,10 +7,11 @@ suite:caseParams(
     "basic",
     {
         test.param("meep=moop foo=bar foo=baz", { meep = { "moop" }, foo = { "bar", "baz" } }),
-        test.param("before=hash # after=hash", { after = { "hash" } }),
-        test.param("spaces = not allowed", {}),
-        test.param("spaces=break values", { spaces = { "break" } }),
-        test.param("a=b # key=value#with#hash", { key = { "value#with#hash" } }),
+        test.param("a b foo=bar", { "a", "b", foo = { "bar" } }),
+        test.param("a b \"foo=bar\"", { "a", "b", "foo=bar" }),
+        test.param("a b foo=\"foo=bar\"", { "a", "b", foo = { "foo=bar" } }),
+        test.param("esc\"\"qoutes", { "esc\"qoutes" }),
+        test.param("esc\"qoutes\"qoutes", { "escqoutesqoutes" }),
     },
     function(input, expected)
         test.assertDeepEq(nick.parse(input), expected)
