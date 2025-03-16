@@ -23,7 +23,7 @@ do
         if not levelInt then
             error(string.format("unknown log level %s", level))
         end
-        AMM_LOG_LEVELS[""] = levelInt
+        log.Logger:New(""):setLevel(levelInt)
     end
 end
 

@@ -27,22 +27,22 @@ local bootloader = require "ammcore.bootloader"
 ---
 --- You can configure logging level for each logger individually
 --- by calling `Logger.setLevel` or by setting its level via the
---- `AMM_LOG_LEVELS` global constant.
+--- `~ammcore.bootloader.BootloaderConfig`
+--- (see `~ammcore.bootloader.BootloaderConfig.logLevels`).
 ---
 --- You can also configure level for the root logger by adding ``logLevel`` parameter
 --- to the computer's nick (see `ammcore.nick`).
----
---- .. autoobject:: AMM_LOG_LEVELS
----    :global:
 ---
 --- !doctype module
 --- @class ammcore.log
 local ns = {}
 
---- Global log filter. By default, log level is "Info" for all messages.
----
 --- @type table<string, ammcore.log.Level>
-AMM_LOG_LEVELS = AMM_LOG_LEVELS or {}
+local logLevels = bootloader.getBootloaderConfig().logLevels
+if not logLevels then
+    logLevels = {}
+    bootloader.getBootloaderConfig().logLevels = logLevels
+end
 
 --- Logging level.
 ---
@@ -211,14 +211,14 @@ end
 ---
 --- @param level ammcore.log.Level? new logging level.
 function ns.Logger:setLevel(level)
-    AMM_LOG_LEVELS[self.name] = level
+    logLevels[self.name] = level
 end
 
 --- Get level for this logger.
 ---
 --- @return ammcore.log.Level? level current logging level.
 function ns.Logger:getLevel()
-    return AMM_LOG_LEVELS[self.name]
+    return logLevels[self.name]
 end
 
 --- Get level of this logger; if it has no configured level,
@@ -226,8 +226,8 @@ end
 ---
 --- @return ammcore.log.Level level current effective logging level.
 function ns.Logger:getEffectiveLevel()
-    if AMM_LOG_LEVELS[self.name] then
-        return AMM_LOG_LEVELS[self.name]
+    if logLevels[self.name] then
+        return logLevels[self.name]
     elseif self._parent then
         return self._parent:getEffectiveLevel()
     else

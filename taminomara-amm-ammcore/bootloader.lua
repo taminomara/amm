@@ -42,13 +42,14 @@ local loader
 --- @class ammcore.bootloader.BootloaderConfig: { [string]: unknown }
 --- @field prog string? Program to run, parsed from computer's nick by default.
 --- @field target "drive"|"net"|"bootstrap"|string Name of the loader that was used to load the code.
---- @field devRoot string? Directory for dev packages if one is configured.
---- @field srvRoot string? Directory for internal AMM files.
---- @field driveId string? Id of the hard drive that contains AMM files, used when `target` is ``drive``.
---- @field driveMountPoint string? Point where the hard drive with AMM files will be mounted, used when `target` is ``drive``.
+--- @field devRoot string? Directory for dev packages if one is configured, used when `target` is ``drive``.
+--- @field srvRoot string? Directory for internal AMM files, used when `target` is ``drive``.
+--- @field driveId string? Id of the hard drive that contains AMM files, used by EEPROM when `target` is ``drive``.
+--- @field driveMountPoint string? Point where the hard drive with AMM files will be mounted, used by EEPROM when `target` is ``drive``.
 --- @field netCodeServerAddr string? Address of the code server, used when `target` is ``net``.
 --- @field netCodeServerPort integer? Port of the code server, used when `target` is ``net``.
 --- @field packages string[]? List of dependencies that should be installed before the code server starts.
+--- @field logLevels table<string, ammcore.log.Level> configuration for loggers.
 
 --- @type ammcore.bootloader.BootloaderConfig
 local bootloaderConfig
