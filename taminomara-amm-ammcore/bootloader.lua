@@ -363,6 +363,12 @@ function ns.init(config)
         error("config.target should be a string")
     end
 
+    if not config.logLevels then
+        config.logLevels = {}
+    elseif type(config.logLevels) ~= "table" then
+        error("config.logLevels should be a table")
+    end
+
     bootloaderConfig = config
 
     local pkg = require "ammcore.pkg"
@@ -402,7 +408,7 @@ function ns.main()
             if not levelInt then
                 error(string.format("unknown log level %s", level))
             end
-            log.Logger:New(""):setLevel(levelInt)
+            config.logLevels[""] = levelInt
         end
     end
 

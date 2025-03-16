@@ -1,11 +1,12 @@
 local test = require "ammtest"
 local log = require "ammcore.log"
+local bootloader = require "ammcore.bootloader"
 
 local suite = test.suite()
 
 function suite:setupTest()
-    test.patch(_G, "AMM_LOG_LEVELS", {})
-    test.patch(log, "_loggers", {})
+    local config = bootloader.getBootloaderConfig()
+    test.patch(config, "logLevels", {})
 end
 
 suite:caseParams(
@@ -69,7 +70,7 @@ suite:case("Default log setup", function()
 end)
 
 suite:case("Global log setup", function()
-    AMM_LOG_LEVELS["foo"] = log.Level.Warning
+    bootloader.getBootloaderConfig().logLevels["foo"] = log.Level.Warning
 
     local l = log.Logger:New("foo")
     test.assertEq(l.name, "foo")

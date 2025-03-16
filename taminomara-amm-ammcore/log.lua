@@ -37,13 +37,6 @@ local bootloader = require "ammcore.bootloader"
 --- @class ammcore.log
 local ns = {}
 
---- @type table<string, ammcore.log.Level>
-local logLevels = bootloader.getBootloaderConfig().logLevels
-if not logLevels then
-    logLevels = {}
-    bootloader.getBootloaderConfig().logLevels = logLevels
-end
-
 --- Logging level.
 ---
 --- @class ammcore.log.Level: integer
@@ -211,6 +204,7 @@ end
 ---
 --- @param level ammcore.log.Level? new logging level.
 function ns.Logger:setLevel(level)
+    local logLevels = bootloader.getBootloaderConfig().logLevels
     logLevels[self.name] = level
 end
 
@@ -218,6 +212,7 @@ end
 ---
 --- @return ammcore.log.Level? level current logging level.
 function ns.Logger:getLevel()
+    local logLevels = bootloader.getBootloaderConfig().logLevels
     return logLevels[self.name]
 end
 
@@ -226,10 +221,13 @@ end
 ---
 --- @return ammcore.log.Level level current effective logging level.
 function ns.Logger:getEffectiveLevel()
-    if logLevels[self.name] then
-        return logLevels[self.name]
-    elseif self._parent then
-        return self._parent:getEffectiveLevel()
+    local logLevels = bootloader.getBootloaderConfig().logLevels
+    local logger = self
+    while logger and not logLevels[logger.name] do
+        logger = logger._parent
+    end
+    if logger and logLevels[logger.name] then
+        return logLevels[logger.name]
     else
         return ns.Level.Info
     end
