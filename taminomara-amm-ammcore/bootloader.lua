@@ -174,6 +174,9 @@ function _loaders.net(config)
         event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.netCodeServerPort } },
         function(event, _, sender, port, message)
             if message == "reset" then
+                -- Sleep between 0 and 1 second, this avoids
+                -- all computers restarting at once, bringing game performance down.
+                sleep(math.random(0, 1000) / 1000)
                 computer.reset()
             end
         end
