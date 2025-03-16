@@ -35,6 +35,8 @@ local handlers = {}
 function handlers.getCode(_, _, sender, port, message, path)
     if type(path) ~= "string" then
         logger:warning("invalid argument 'path' for message %q from %s: %s", message, sender, path)
+        networkCard:send(sender, port, "rcvCode", path, nil, nil)
+        return
     end
 
     networkCard:send(sender, port, "rcvCode", path, bootloader.findModuleCode(path))
@@ -60,7 +62,7 @@ event.registerListener(
     end
 )
 
-logger:info("Core server is listening on port %s", config.netCodeServerPort)
+logger:info("Code server is listening on port %s", config.netCodeServerPort)
 
 networkCard:broadcast(config.netCodeServerPort, "reset")
 

@@ -1,3 +1,3 @@
 furo~=2024.0
 sphinx~=8.0
-sphinx-lua-ls==2.0.0b0
+sphinx-lua-ls~=2.0

@@ -140,14 +140,14 @@ function loaders.net(path)
             if code then
                 break
             else
-                computer.log(0, string.format("[EEPROM] Response from code server %s: file not found", sender))
+                computer.log(0, string.format("[EEPROM] DEBUG: Response from code server %s: file not found", sender))
             end
         end
     end
 
     -- Got a response.
     config.netCodeServerAddr = sender
-    print(string.format("[EEPROM] Using code server %s", sender))
+    print(string.format("[EEPROM] INFO: Using code server %s", sender))
 
     return code, realPath
 end
