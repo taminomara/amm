@@ -173,15 +173,7 @@ function _loaders.net(config)
         event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.netCodeServerPort } },
         function(event, _, sender, port, message)
             if message == "reset" then
-                local shouldCancelReset = false
-                --- @diagnostic disable-next-line: undefined-global
-                if AMM_ON_NETBOOT_RESET then
-                    --- @diagnostic disable-next-line: undefined-global
-                    shouldCancelReset = AMM_ON_NETBOOT_RESET()
-                end
-                if not shouldCancelReset then
-                    computer.reset()
-                end
+                computer.reset()
             end
         end
     )

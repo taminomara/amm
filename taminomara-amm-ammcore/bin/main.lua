@@ -1,3 +1,4 @@
+local atexit = require "ammcore.atexit"
 local bootloader = require "ammcore.bootloader"
 local nick = require "ammcore.nick"
 local log = require "ammcore.log"
@@ -28,4 +29,4 @@ end
 
 print("Booting " .. config.prog)
 
-require(config.prog)
+atexit.runAndExit(require, config.prog)
