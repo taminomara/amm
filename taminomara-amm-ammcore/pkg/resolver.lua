@@ -188,10 +188,10 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
                     if
                         candidate
                         and requirements[candidate.name]
-                        and not requirements[candidate.name]:matches(ver.version)
+                        and not requirements[candidate.name]:matches(candidate.version)
                     then
                         res = res .. sep .. string.format("%s %s", candidate.name, requirements[candidate.name])
-                        sep = ","
+                        sep = ", "
                     end
                 end
                 res = res .. "\n"
