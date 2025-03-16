@@ -767,7 +767,7 @@ local function main(...)
     end
 
     bootloaderApi.init(config)
-    require("ammcore.bin.main")
+    bootloaderApi.main()
 end
 
 local ok, err = _xpcall(main, _debug.traceback, ...)

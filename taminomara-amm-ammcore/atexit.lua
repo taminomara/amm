@@ -61,7 +61,7 @@ end
 --- .. warning::
 ---
 ---    You don't need to use this function directly,
----    `ammcore.bin.main` will set everything up for you.
+---    `bootloader.main` will set everything up for you.
 ---
 --- @param fn fun(...)
 --- @param ... any

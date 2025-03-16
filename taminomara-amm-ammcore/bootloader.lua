@@ -373,6 +373,44 @@ function ns.init(config)
     end
 end
 
+--- Start user script configured via computer's nick
+--- or `config.prog <ammcore.bootloader.BootloaderConfig.prog>`.
+---
+--- Main entry point, should be called after `init`.
+function ns.main()
+    local atexit = require "ammcore.atexit"
+    local nick = require "ammcore.nick"
+    local log = require "ammcore.log"
+
+    local config = ns.getBootloaderConfig()
+
+    local parsedNick = nick.parse(computer.getInstance().nick)
+
+    if not config.prog then
+        config.prog = parsedNick:getPos(1, tostring)
+    end
+    if type(config.prog) ~= "string" then
+        error("config.prog is not a string")
+    elseif config.prog:len() == 0 then
+        error("config.prog is not defined")
+    end
+
+    do
+        local level = parsedNick:getOne("logLevel", tostring)
+        if level then
+            local levelInt = log.levelFromName(level)
+            if not levelInt then
+                error(string.format("unknown log level %s", level))
+            end
+            log.Logger:New(""):setLevel(levelInt)
+        end
+    end
+
+    print("Booting " .. config.prog)
+
+    atexit.runAndExit(require, config.prog)
+end
+
 --- Find and return a file by its path.
 ---
 --- If given an array of strings, then the first found file is returned.

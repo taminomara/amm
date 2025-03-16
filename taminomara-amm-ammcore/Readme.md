@@ -28,7 +28,7 @@ It can be thought of as consisting of several components:
    the `require` function can fetch files from a hard drive, over a network,
    or from a bundled package that was included in the bootstrap script.
 
-4. _Entrypoint_ is located in `ammcore.bin.main`. It is a script that locates
+4. _Entrypoint_ is located in `bootloader.main`. It is a script that locates
    and runs the main file.
 
 5. _Code server_ is a component that serves packages and `lua` files

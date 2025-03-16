@@ -35,4 +35,4 @@ config.prog = "ammcore.bin.installServer"
 bootloaderApi.init(config)
 
 -- Run the program.
-require("ammcore.bin.main")
+bootloaderApi.main()

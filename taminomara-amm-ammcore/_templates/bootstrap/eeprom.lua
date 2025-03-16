@@ -179,5 +179,5 @@ else
     bootloaderApi.init(config)
 
     -- Run the program.
-    require("ammcore.bin.main")
+    bootloaderApi.main()
 end
