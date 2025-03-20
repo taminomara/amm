@@ -432,18 +432,21 @@ function VersionSpecCompiler:addEq(ver)
     if not cur then
         self._exactLimit = ver
     else
-        self._exactLimit = ns.Version:New()
         for i = 1, math.max(#ver._components, #cur._components) do
             local v = ver._components[i] or 0
             local c = cur._components[i] or 0
 
             if v == c then
-                table.insert(self._exactLimit._components, v)
+                -- Prefixes are equal so far, do nothing
             elseif v == "*" then
-                table.insert(self._exactLimit._components, c)
+                -- New version is more relaxed, keep current version.
+                return
             elseif c == "*" then
-                table.insert(self._exactLimit._components, v)
+                -- Current version is more relaxed, keep new version.
+                self._exactLimit = ver
+                return
             else
+                -- Prefixes are not equal, versions are imcompatible.
                 self._isNa = true
                 return
             end
