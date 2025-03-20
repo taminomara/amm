@@ -4,8 +4,8 @@ local config = {
     -- prog = ".help",  -- Print help and exit.
 
     --- Where to find installed AMM packages.
-    target = [[{ target }]]
-    --[[{ configExtras }]] }
+    target = [[{ target }]],
+--[[{ configExtras }]]}
 
 -- BEGIN AMM INIT --
 config.mountPoint = filesystem.path(1, config.mountPoint or [[{ defaultMountPoint }]])
