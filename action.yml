@@ -37,7 +37,7 @@ runs:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
     - name: Setup AMM
       run: |
-        lua $GITHUB_ACTION_PATH/fin_env/loader.lua $FLAGS -- "ammcore.bin.installPackages repo=$GITHUB_REPO tag=$GITHUB_REF logLevel=Trace"
+        lua $GITHUB_ACTION_PATH/fin_env/loader.lua $FLAGS -- ".install repo=$GITHUB_REPO tag=$GITHUB_REF logLevel=Trace"
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
@@ -48,7 +48,7 @@ runs:
     - name: Run tests
       if: inputs.test == 'true' || inputs.test == true
       run: |
-        lua $GITHUB_ACTION_PATH/fin_env/loader.lua -- "ammtest.bin.main logLevel=Trace"
+        lua $GITHUB_ACTION_PATH/fin_env/loader.lua -- ".test logLevel=Trace"
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
@@ -56,7 +56,7 @@ runs:
     - name: Build package
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        lua $GITHUB_ACTION_PATH/fin_env/loader.lua -- "ammcore.bin.buildPackage repo=$GITHUB_REPO package=$GITHUB_REF $ARGS logLevel=Trace"
+        lua $GITHUB_ACTION_PATH/fin_env/loader.lua -- ".build repo=$GITHUB_REPO package=$GITHUB_REF $ARGS logLevel=Trace"
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
