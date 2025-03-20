@@ -75,7 +75,7 @@ end
 --- @param port integer
 function handlers.getAmmCoreCode(_, _, sender, port)
     local ver, code = serverApi:getAmmCoreCode()
-    networkCard:send(sender, port, "rcvBootstrapCode", tostring(ver), code)
+    networkCard:send(sender, port, "rcvAmmCoreCode", tostring(ver), code)
 end
 
 function handlers.reset()
