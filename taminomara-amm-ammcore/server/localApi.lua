@@ -39,6 +39,10 @@ function ns.ServerApi:New(packages, coreModuleResolver)
     --- @type fun(path: string[]): code: string | nil, realPath: string | nil
     self._coreModuleResolver = coreModuleResolver
 
+    --- @private
+    --- @type string?
+    self._prebuiltCode = nil
+
     return self
 end
 
@@ -87,7 +91,10 @@ end
 
 function ns.ServerApi:getAmmCoreCode()
     local pkg = assert(self.packages["taminomara-amm-ammcore"], "can't find ammcore package")
-    return pkg.version, pkg:build()
+    if not self._prebuiltCode then
+        self._prebuiltCode = pkg:build()
+    end
+    return pkg.version, self._prebuiltCode
 end
 
 return ns
