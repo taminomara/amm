@@ -349,6 +349,9 @@ local function updateAmmCore(coreCodeLocation)
             local archiver = builder.PackageArchiver:FromArchive("taminomara-amm-ammcore", version, archive)
             filesystem.remove(coreCodeLocation, true)
             archiver:unpack(coreCodeLocation)
+
+            logger:info("Update successful, restarting")
+            computer.reset()
         end
     else
         logger:trace("Using ammcore version %s", localVersion)
@@ -399,7 +402,7 @@ local function initNet()
         networkCard:open(bootloaderConfig.bootPort)
         networkCard:broadcast(bootloaderConfig.bootPort, "getAmmCoreVersion")
 
-        local deadline = computer.millis() + 1000
+        local deadline = computer.millis() + 2000
         local name, sender, port, receivedMessage
         while true do
             local now = computer.millis()
@@ -423,7 +426,7 @@ local function initNet()
         networkCard,
         bootloaderConfig.bootAddr,
         bootloaderConfig.bootPort,
-        500,
+        2000,
         coreModuleResolver
     )
     installedPackages = serverApi:lsPkg()
