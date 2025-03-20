@@ -52,7 +52,7 @@ local Defer = {
             logger:warning(
                 "value returned from 'defer' was not properly closed; closing it now"
             )
-            self:__close()
+            getmetatable(self).__close(self)
         end
     end,
 }

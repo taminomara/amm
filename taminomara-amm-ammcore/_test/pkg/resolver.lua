@@ -25,7 +25,7 @@ function TestProvider:New(packages)
         self.packages[name] = {}
         for ver, requirements in pairs(versions) do
             local pkg = localProvider.LocalPackageVersion:New(
-                name, version.parse(ver), self, { name = name, version = ver }, "/", "/"
+                name, version.parse(ver), { name = name, version = ver }, "/", "/"
             )
             pkg.isInstalled = requirements._local and true or false
             if requirements._broken then

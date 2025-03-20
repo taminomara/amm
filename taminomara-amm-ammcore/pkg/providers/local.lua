@@ -5,6 +5,7 @@ local packageName = require "ammcore.pkg.packageName"
 local package = require "ammcore.pkg.package"
 local builder = require "ammcore.pkg.builder"
 local json = require "ammcore._contrib.json"
+local fsh = require "ammcore._util.fsh"
 
 --- !doctype module
 --- @class ammcore.pkg.providers.local
@@ -17,7 +18,6 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
---- @param provider ammcore.pkg.providers.local.LocalProvider
 --- @param data ammcore.pkg.packageJson.PackageJson
 --- @param installationRoot string
 --- @param packageRoot string
@@ -25,8 +25,8 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 --- @generic T: ammcore.pkg.providers.local.LocalPackageVersion
 --- @param self T
 --- @return T
-function ns.LocalPackageVersion:New(name, version, provider, data, installationRoot, packageRoot)
-    self = package.PackageVersion.New(self, name, version, provider)
+function ns.LocalPackageVersion:New(name, version, data, installationRoot, packageRoot)
+    self = package.PackageVersion.New(self, name, version)
 
     self.isInstalled = true
 
@@ -66,6 +66,10 @@ function ns.LocalPackageVersion:overrideVersion(ver)
     self.data.version = tostring(ver)
 end
 
+function ns.LocalPackageVersion:getMetadata()
+    return self.data
+end
+
 function ns.LocalPackageVersion:getRequirements()
     return self.requirements
 end
@@ -81,6 +85,11 @@ function ns.LocalPackageVersion:build()
 
     builder:copyDir(self.packageRoot, ".", true)
     if self.isDevMode then
+        ---@diagnostic disable-next-line: invisible
+        local buildScript = self.data._buildScript
+        if buildScript then
+            builder:runBuildScript(buildScript)
+        end
         builder:addFile(".ammpackage.json", json.encode(self.data), true)
     end
 
@@ -120,7 +129,7 @@ function ns.LocalProvider:New(root, isDev)
                 if data.name ~= name then
                     error(string.format("package name from %s doesn't match the directory name", pkgPath), 0)
                 end
-                local pkg = ns.LocalPackageVersion:New(name, ver, self, data, root, path)
+                local pkg = ns.LocalPackageVersion:New(name, ver, data, root, path)
                 pkg.requirements = requirements
                 pkg.devRequirements = devRequirements
                 pkg.isDevMode = isDev

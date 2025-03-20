@@ -1,11 +1,15 @@
 --- This code will fetch AMM package loader over the internet and setup this computer.
 
 local config = {
-    --- Packages to install in addition to the loader system.
-    packages = {
-        -- "taminomara-amm-amm ~= 1.0",
-    },
+    --- This option will configure this computer to use a code server
+    --- to find all required packages.
+    target = "net",
+
+    --- This option will install packages from github and configure this computer
+    --- to become a code server.
+    -- target = "drive",
 }
+
 
 -- Implementation
 
@@ -24,15 +28,11 @@ elseif res ~= 200 then
 end
 
 -- Compile bootstrap code.
-local fn, err = load(code, "<bootstrap>")
+local fn, err = load(code, "@https://taminomara.github.io/amm/bootstrap.lua")
 if not fn then
     error(string.format("failed parsing AMM loader: %s", err))
 end
 
--- Init loader.
-local bootloaderApi = fn()
-config.prog = "ammcore.bin.installServer"
-bootloaderApi.init(config)
-
--- Run the program.
-bootloaderApi.main()
+-- Run the loader.
+config.prog = ".provision"
+fn().main(config)

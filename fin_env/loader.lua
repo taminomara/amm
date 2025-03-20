@@ -736,38 +736,35 @@ local function main(...)
         end
 
         -- Init loader.
-        bootloaderApi = fn(config)
+        bootloaderApi = fn()
+        bootloaderApi.main(config)
     else
         config.target = "drive"
-
-        local path
-        local candidates = {
-            filesystem.path(config.devRoot, "taminomara-amm-ammcore/bootloader.lua"),
-            filesystem.path(config.srvRoot, "lib/taminomara-amm-ammcore/bootloader.lua"),
-        }
-        for _, candidate in ipairs(candidates) do
-            if filesystem.exists(candidate) then
-                path = candidate
+        local root
+        for _, candidate in ipairs({
+            filesystem.path(config.devRoot or "/", "taminomara-amm-ammcore"),
+            filesystem.path(config.srvRoot or "/.amm", "lib/taminomara-amm-ammcore"),
+        }) do
+            if filesystem.exists(candidate .. "/.ammpackage.json") then
+                root = candidate
                 break
             end
         end
 
-        if not path then
-            error("Can't find loader")
+        if not root then
+            error("can't find ammcore.bootloader")
         end
 
-        local code = filesystem.open(path, "r"):read("a")
+        local code = filesystem.open(root .. "/bootloader.lua", "r"):read("a")
 
-        local fn, err = load(code, "@" .. path, "bt", _ENV)
+        local fn, err = load(code, "@" .. root .. "/bootloader.lua", "bt", _ENV)
         if not fn then
-            error(string.format("ImportError: failed to parse %s: %s", path, err))
+            error(string.format("ImportError: failed to parse %s: %s", root, err))
         end
 
         bootloaderApi = fn()
+        bootloaderApi.main(config, root)
     end
-
-    bootloaderApi.init(config)
-    bootloaderApi.main()
 end
 
 local ok, err = _xpcall(main, _debug.traceback, ...)

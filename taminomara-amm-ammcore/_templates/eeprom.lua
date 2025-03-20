@@ -8,17 +8,21 @@ local ns = {}
 
 --- Generate standard EEPROM for an AMM computer.
 ---
---- @param prog string
-function ns.formatServerEeprom(prog)
+--- @param prog string?
+function ns.formatEeprom(prog)
     local eepromTemplate = bootloader.findModuleCode("ammcore/_templates/bootstrap/eeprom.lua")
     assert(eepromTemplate, "can't find the EEPROM template")
 
     local config = bootloader.getBootloaderConfig()
 
+    if not prog and config.target == "drive" then
+        prog = ".server"
+    end
+
     local vars = {
         prog = prog,
-        target = config.target == "bootstrap" and "drive" or config.target,
-        defaultDriveMountPoint = "/",
+        target = config.target,
+        defaultMountPoint = "/",
         defaultDevRoot = "/",
         defaultSrvRoot = "/.amm",
         defaultNetCodeServerPort = 0x1CD,
@@ -31,59 +35,50 @@ function ns.formatServerEeprom(prog)
         configExtras = configExtras .. string.format("\n    %s = %q,\n", name, value)
     end
 
-    if config.target == "drive" or config.target == "bootstrap" then
-        addConfigExtra(
-            "driveId",
-            "Id of the hard drive that contains the AMM installation.",
-            config.driveId
-        )
-        if config.packages then
-            configExtras = configExtras .. "\n    --- Additional packages that the server should install."
-            configExtras = configExtras .. "\n    packages = {\n"
-            for _, package in ipairs(config.packages) do
-                configExtras = configExtras .. string.format("        %q,\n", package)
-            end
-            configExtras = configExtras .. "    },\n"
+    if config.packages and next(config.packages) then
+        configExtras = configExtras .. "\n    --- Additional packages that the server should install."
+        configExtras = configExtras .. "\n    packages = {\n"
+        for _, package in ipairs(config.packages) do
+            configExtras = configExtras .. string.format("        %q,\n", package)
         end
-        if config.driveMountPoint ~= vars.defaultDriveMountPoint then
-            addConfigExtra(
-                "driveMountPoint",
-                "Where to mount the hard drive.",
-                config.driveMountPoint
-            )
-        end
-        if config.devRoot ~= vars.defaultDevRoot then
-            addConfigExtra(
-                "devRoot",
-                "Directory with AMM packages installed in development mode.",
-                config.devRoot
-            )
-        end
-        if config.srvRoot ~= vars.defaultSrvRoot then
-            addConfigExtra(
-                "srvRoot",
-                "Directory with AMM packages and internal files.",
-                config.srvRoot
-            )
-        end
-    elseif config.target == "net" or config.target == "bootstrap" then
-        if config.netCodeServerAddr then
-            addConfigExtra(
-                "netCodeServerAddr",
-                "Address of the code server. By default, AMM discovers code servers via a broadcast.",
-                config.netCodeServerAddr
-            )
-        end
-        if config.netCodeServerPort ~= vars.defaultNetCodeServerPort then
-            addConfigExtra(
-                "netCodeServerPort",
-                "Port of the code server.",
-                config.netCodeServerPort
-            )
-        end
+        configExtras = configExtras .. "    },\n"
     end
 
-    logger:trace("Replacing EEPROM with the standard template for '%s' bootloader", config.target)
+    addConfigExtra(
+        "driveId",
+        "Id of a hard drive with AMM files.",
+        config.driveId
+    )
+    if config.mountPoint and config.mountPoint ~= vars.defaultMountPoint then
+        addConfigExtra(
+            "mountPoint",
+            "Directory where hard drive will be mounted.",
+            config.mountPoint
+        )
+    end
+    if config.devRoot and config.devRoot ~= vars.defaultDevRoot then
+        addConfigExtra(
+            "devRoot",
+            "Directory with user code",
+            config.devRoot
+        )
+    end
+    if config.srvRoot and config.srvRoot ~= vars.defaultSrvRoot then
+        addConfigExtra(
+            "srvRoot",
+            "Directory with internal AMM files.",
+            config.srvRoot
+        )
+    end
+    if config.bootPort and config.bootPort ~= vars.defaultNetCodeServerPort then
+        addConfigExtra(
+            "bootPort",
+            "Port of the code server.",
+            config.bootPort
+        )
+    end
+
+    logger:trace("Replacing EEPROM with the standard template for '%s' target", config.target)
 
     return eepromTemplate
         :gsub("%-%-%[%[{%s*configExtras%s*}%]%]", configExtras)

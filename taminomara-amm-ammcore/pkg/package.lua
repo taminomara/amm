@@ -15,12 +15,11 @@ ns.PackageVersion = class.create("PackageVersion")
 
 --- @param name string package name.
 --- @param version ammcore.pkg.version.Version package version.
---- @param provider ammcore.pkg.provider.Provider where this package comes from.
 ---
 --- @generic T: ammcore.pkg.package.PackageVersion
 --- @param self T
 --- @return T
-function ns.PackageVersion:New(name, version, provider)
+function ns.PackageVersion:New(name, version)
     self = class.Base.New(self)
 
     --- Name of the package.
@@ -32,11 +31,6 @@ function ns.PackageVersion:New(name, version, provider)
     ---
     --- @type ammcore.pkg.version.Version
     self.version = version
-
-    --- Provider which found this version.
-    ---
-    --- @type ammcore.pkg.provider.Provider
-    self.provider = provider
 
     --- True if this package is already installed.
     ---
@@ -61,6 +55,13 @@ function ns.PackageVersion:New(name, version, provider)
     self._allRequirements = nil
 
     return self
+end
+
+--- Get or fetch package metadata.
+---
+--- @return ammcore.pkg.packageJson.PackageJson package metadata.
+function ns.PackageVersion:getMetadata()
+    error("not implemented")
 end
 
 --- Get or fetch requirements for this version.

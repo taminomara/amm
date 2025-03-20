@@ -1,0 +1,1 @@
+require "ammtest.bin.main"

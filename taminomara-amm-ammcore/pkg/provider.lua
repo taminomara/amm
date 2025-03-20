@@ -13,7 +13,7 @@ ns.Provider = class.create("Provider")
 
 --- Get all locally installed packages.
 ---
---- @return ammcore.pkg.package.PackageVersion[] versions locally installed packages.
+--- @return ammcore.pkg.providers.local.LocalPackageVersion[] versions locally installed packages.
 function ns.Provider:getLocalPackages()
     return {}
 end

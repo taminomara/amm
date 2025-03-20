@@ -980,8 +980,7 @@ local function loadTests(root, devRoot)
         local devPath = filesystem.path(devRoot, filename)
         local modpath = devPath:match("^(.*)%.lua$")
         if modpath then
-            ---@diagnostic disable-next-line: invisible
-            bootloader._require(modpath:gsub("/_index%.lua", ""):gsub("/", "."), false)
+            require(modpath:gsub("/_index%.lua", ""):gsub("/", "."))
         elseif filesystem.isDir(path) then
             loadTests(path, devPath)
         end
@@ -993,13 +992,10 @@ end
 --- @param name string?
 function ns.loadTests(name)
     if bootloader.getLoaderKind() ~= "drive" then
-        error("test library only works with drive loader")
+        computer.panic("Program \".test\" only works with drive loader")
     end
 
     local devRoot = bootloader.getDevRoot()
-    if not devRoot then
-        error("config.devRoot is not set")
-    end
     local loader = provider.LocalProvider:New(devRoot, true)
 
     for _, pkg in ipairs(loader:getLocalPackages()) do
@@ -1167,7 +1163,7 @@ function ns.main(name)
     sleep(0.1)
     computer.beep(beepB)
     if exitcode ~= 0 then
-        computer.panic(string.format("Tests failed: %s", exitcode))
+        computer.panic("Test failed")
     end
 end
 

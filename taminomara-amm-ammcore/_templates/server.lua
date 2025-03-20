@@ -9,7 +9,7 @@ local ns = {}
 local logger = log.Logger:New()
 
 function ns.writeServerTemplate(devRoot)
-    local templateDataJson = bootloader.findModuleCode("taminomara-amm-ammcore/_templates/server.json")
+    local templateDataJson = bootloader.findModuleCode("taminomara-amm-ammcore/_templates/bootstrap/server.json")
     --- @type table<string, string>
     local templateData = json.decode(templateDataJson)
 

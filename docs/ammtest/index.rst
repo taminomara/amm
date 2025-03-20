@@ -1,11 +1,11 @@
 AMM testing library
--------------------
+===================
 
 AMM provides a simple library for running unit tests.
 
 
 Quickstart
-~~~~~~~~~~
+----------
 
 To begin, create a directory named ``_test`` in your package. In it, create lua files
 that use `ammtest` library do declare testing suites.
@@ -50,7 +50,7 @@ Finally, run all tests by starting a computer with ``ammtest.bin.main`` program.
 
 
 Capturing computer log
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 When AMM runs tests, everything that you print (including calls to `print`
 and `computer.log`) gets captured and reported in case of test failure.
@@ -61,7 +61,7 @@ to the console.
 
 
 Set up and tear down handlers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 You can specify what happens before beginning and after end of every test and suite.
 For this, override `~ammtest.Suite.setupTest`, `~ammtest.Suite.teardownTest`,
@@ -69,7 +69,7 @@ For this, override `~ammtest.Suite.setupTest`, `~ammtest.Suite.teardownTest`,
 
 
 Further reading
-~~~~~~~~~~~~~~~
+---------------
 
 .. toctree::
    :maxdepth: 1

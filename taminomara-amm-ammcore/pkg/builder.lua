@@ -2,6 +2,7 @@ local fsh = require "ammcore._util.fsh"
 local class = require "ammcore.class"
 local log = require "ammcore.log"
 local packageJson = require "ammcore.pkg.packageJson"
+local json = require "ammcore._contrib.json"
 
 --- Build script API.
 ---
@@ -63,6 +64,8 @@ end
 --- @param pkgRoot string where to write package files.
 function ns.PackageArchiver:unpack(pkgRoot)
     self:_verify()
+
+    logger:trace("Unpacking %s == %s to %s", self.name, self.version, pkgRoot)
 
     local filenames = {}
     for path in pairs(self._outputFiles) do
@@ -150,6 +153,8 @@ end
 ---
 --- @return string archive data of the package archive.
 function ns.PackageArchiver:build()
+    logger:trace("Building archive")
+
     self:_verify()
 
     local archiveContents = {}
@@ -266,6 +271,31 @@ function ns.PackageBuilder:addFile(dst, contents, override)
     end
 end
 
+--- Remove all files from archive.
+function ns.PackageBuilder:clearAllFiles()
+    logger:trace("Cleaning archive")
+    self._outputFiles = {}
+end
+
+--- Add a json file containing a table with all paths located in a certain directory.
+---
+--- @param dst string file destination, relative to the package root.
+--- @param dir string indexed directory root, relative to the package root.
+--- @override boolean?
+function ns.PackageBuilder:addDirectoryIndex(dst, dir, override)
+    local prefix = filesystem.path(2, dir) .. "/"
+    local contents = {}
+    for path, _ in pairs(self._outputFiles) do
+        if path:sub(1, prefix:len()) == prefix then
+            table.insert(contents, {
+                path = path,
+                relPath = path:sub(prefix:len() + 1),
+            })
+        end
+    end
+    self:addFile(dst, json.encode(contents), override)
+end
+
 --- @private
 --- @param src string
 --- @param dst string
@@ -282,6 +312,21 @@ function ns.PackageBuilder:_travelDir(src, dst, override)
         elseif filesystem.isDir(src) then
             self:_travelDir(src, dst, override)
         end
+    end
+end
+
+function ns.PackageBuilder:runBuildScript(path)
+    path = filesystem.path(self.pkgRoot, path)
+
+    if filesystem.exists(path) then
+        local codeFn, err = load(fsh.readFile(path), "@" .. path, "bt", _ENV)
+        if not codeFn then
+            error(string.format("failed parsing %s: %s", path, err))
+        end
+        logger:trace("Running build script %s", path)
+        codeFn()(self)
+    else
+        error(string.format("can't find build script %s", path))
     end
 end
 

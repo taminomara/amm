@@ -26,227 +26,202 @@ do
     end
 end
 
---- @type table<string, ammcore.pkg.package.PackageVersion>[]?
-local localPackages = nil
-
---- A function that resolves file contents.
----
---- !doc private
---- @alias ammcore.bootloader._Bootloader fun(pathCandidates: string[]): string?, string?
-
---- @type ammcore.bootloader._Bootloader
-local loader
-
 --- A bootloader config.
 ---
 --- @class ammcore.bootloader.BootloaderConfig: { [string]: unknown }
---- @field prog string? Program to run, parsed from computer's nick by default.
---- @field target "drive"|"net"|"bootstrap"|string Name of the loader that was used to load the code.
---- @field devRoot string? Directory for dev packages if one is configured, used when `target` is ``drive``.
---- @field srvRoot string? Directory for internal AMM files, used when `target` is ``drive``.
---- @field driveId string? Id of the hard drive that contains AMM files, used by EEPROM when `target` is ``drive``.
---- @field driveMountPoint string? Point where the hard drive with AMM files will be mounted, used by EEPROM when `target` is ``drive``.
---- @field netCodeServerAddr string? Address of the code server, used when `target` is ``net``.
---- @field netCodeServerPort integer? Port of the code server, used when `target` is ``net``.
---- @field packages string[]? List of dependencies that should be installed before the code server starts.
---- @field logLevels table<string, ammcore.log.Level> configuration for loggers.
+local BootloaderConfig = {}
 
---- @type ammcore.bootloader.BootloaderConfig
+--- Which program to run after the system is fully booted.
+--- This can be any Lua package installed on your AMM code server.
+---
+--- Some standard programs include:
+---
+--- - ".help" -- print this message and stop the computer;
+--- - ".eeprom" -- do nothing and continue executing EEPROM;
+---
+--- On code server, these are also available:
+---
+--- - ".provision" -- install "ammcore" locally and replace EEPROM
+---   with a default one. This will be the first program that you run
+---   on a new computer.
+--- - ".server" -- start code server;
+--- - ".lspkg" -- list all locally installed packages;
+--- - ".check" -- check integrity of installed packages;
+--- - ".install" -- install packages from `config.packages`;
+--- - ".upgrade" -- upgrade all packages to the latest version;
+--- - "ammtest.bin.main" -- run unit tests on local dev packages.
+---
+--- If "prog" is not specified in the config, it is parsed from computer's nick.
+--- If computer's nick is empty, ".eeprom" is implied.
+---
+--- .. note::
+---
+---    Starting program name with a dot is a shortcut for "ammcore.bin.<program>".
+---
+--- @type string?
+BootloaderConfig.prog = nil
+
+--- Where to find installed AMM packages. Available values are:
+---
+--- - "drive" will load AMM code from this computer's hard drive.
+--- - "net" will fetch AMM code from another computer (a code server)
+---   using NetBoot protocol.
+---
+--- Target is configured by EEPROM depending on specific computer's purpose.
+--- It is required to initialize the bootloader.
+---
+--- @type "drive"|"net"
+BootloaderConfig.target = nil
+
+--- Only meaningful on code server. Directory with user code
+--- (a.k.a. dev packages). Default is "/".
+---
+--- Dev root is always configured by EEPROM. It is required to initialize
+--- the bootloader.
+---
+--- @type string Directory for dev packages if one is configured, used when `target` is ``drive``.
+BootloaderConfig.devRoot = nil
+
+--- Directory with internal AMM files. Default is "/.amm".
+---
+--- Srv root is always configured by EEPROM. It is required to initialize
+--- the bootloader.
+---
+--- @type string
+BootloaderConfig.srvRoot = nil
+
+--- Id of a hard drive with AMM files.
+---
+--- This setting is used by EEPROM to mount a hard drive
+--- and locate the bootstrap script. However, it might not be set if user
+--- implemented a custom EEPROM version.
+---
+--- @type string?
+BootloaderConfig.driveId = nil
+
+--- Directory where hard drive will be mounted. Default is "/".
+---
+--- This setting is used by EEPROM to mount a hard drive
+--- and locate the bootstrap script. However, it might not be set if user
+--- implemented a custom EEPROM version.
+---
+--- @type string?
+BootloaderConfig.mountPoint = nil
+
+--- Address of the code server, used when tartet is "net".
+---
+--- By default it is discovered through a broadcast request.
+---
+--- @type string? Address of the code server, used when `target` is ``net``.
+BootloaderConfig.bootAddr = nil
+
+--- Port of the code server, used when tartet is "net". Default is "0x1CD".
+---
+--- @type integer? Port of the code server, used when `target` is ``net``.
+BootloaderConfig.bootPort = nil
+
+--- Only meaningful on code server. This setting lists all packages
+--- that should be installed.
+---
+--- @type string[]?
+BootloaderConfig.packages = nil
+
+--- Configuration for loggers.
+---
+--- @type table<string, ammcore.log.Level> configuration for loggers.
+BootloaderConfig.logLevels = nil
+
+--- @type ammcore.server.ServerApi?
+local serverApi
+--- @type ammcore.bootloader.BootloaderConfig?
 local bootloaderConfig
-
---- @type table<string, fun(config: ammcore.bootloader.BootloaderConfig): ammcore.bootloader._Bootloader>
-local _loaders = {}
-
---- @param config ammcore.bootloader.BootloaderConfig
---- @return ammcore.bootloader._Bootloader
-function _loaders.drive(config)
-    if type(config.devRoot) ~= "string" then
-        error(string.format("config.devRoot has invalid value %s", config.devRoot))
-    elseif not filesystem.exists(config.devRoot) or not filesystem.isDir(config.devRoot) then
-        error(string.format("config.devRoot does not exist or not a directory: %s", config.devRoot))
-    end
-
-    if not config.srvRoot then
-        error(string.format("config.srvRoot has invalid value %s", config.srvRoot))
-    elseif type(config.srvRoot) ~= "string" then
-        error("config.srvRoot is not a string")
-    elseif not filesystem.exists(config.srvRoot) or not filesystem.isDir(config.srvRoot) then
-        error(string.format("config.srvRoot does not exist or not a directory: %s", config.srvRoot))
-    end
-
-    local pathTemplates = {
-        filesystem.path(config.devRoot, "taminomara-amm-%s"),
-        filesystem.path(config.devRoot, "%s"),
-        filesystem.path(config.srvRoot, "lib/taminomara-amm-%s"),
-        filesystem.path(config.srvRoot, "lib/%s"),
-    }
-
-    --- @type table<string, string|false>
-    local pkgIndex = {}
-
-    --- @type fun(path: string): string
-    local function readFile(path)
-        local fd = filesystem.open(path, "r")
-        local _ <close> = setmetatable({}, { __close = function() fd:close() end })
-        local content = ""
-        while true do
-            local chunk = fd:read(1024)
-            if not chunk or chunk:len() == 0 then
-                break
-            end
-            content = content .. chunk
-        end
-        return content
-    end
-
-    --- @type fun(pkg: string): string?
-    local function resolvePackagePath(pkg)
-        local pkgPath = pkgIndex[pkg]
-        if pkgPath then
-            return pkgPath
-        elseif pkgPath == false then
-            return nil
-        end
-
-        for _, template in ipairs(pathTemplates) do
-            local candidatePkgPath = string.format(template, pkg)
-            if filesystem.exists(candidatePkgPath) then
-                pkgIndex[pkg] = candidatePkgPath
-                return candidatePkgPath
-            end
-        end
-
-        pkgIndex[pkg] = false
-        return nil
-    end
-
-    --- @type ammcore.bootloader._Bootloader
-    return function(pathCandidates)
-        for _, pathCandidate in ipairs(pathCandidates) do
-            pathCandidate = filesystem.path(2, pathCandidate)
-
-            -- Locate package.
-            local pkg, path = pathCandidate:match("^([^/]*)/(.*)$")
-
-            if not pkg or pkg:len() == 0 then
-                goto continue
-            end
-
-            local pkgPath = resolvePackagePath(pkg)
-            if not pkgPath then
-                goto continue
-            end
-
-            local realPath = filesystem.path(pkgPath, path)
-            if filesystem.exists(realPath) and filesystem.isFile(realPath) then
-                return readFile(realPath), realPath
-            end
-
-            ::continue::
-        end
-
-        return nil, nil
-    end
-end
-
---- @param config ammcore.bootloader.BootloaderConfig
---- @return ammcore.bootloader._Bootloader
-function _loaders.net(config)
-    -- Find a network card.
-    local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
-    if not networkCard then
-        error("no network card detected")
-    end
-
-    -- Check config.
-    if type(config.netCodeServerAddr) ~= "string" then
-        error(string.format("config.netCodeServerAddr has invalid value %s", config.netCodeServerAddr))
-    end
-    if type(config.netCodeServerPort) ~= "number" then
-        error(string.format("config.netCodeServerPort has invalid value %s", config.netCodeServerPort))
-    end
-
-    -- Prepare a network card.
-    event.listen(networkCard)
-    networkCard:open(config.netCodeServerPort)
-
-    event.registerListener(
-        event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.netCodeServerPort } },
-        function(event, _, sender, port, message)
-            if message == "reset" then
-                -- Sleep between 0 and 1 second, this avoids
-                -- all computers restarting at once, bringing game performance down.
-                sleep(math.random(0, 1000) / 1000)
-                computer.reset()
-            end
-        end
-    )
-
-    --- @type ammcore.bootloader._Bootloader
-    return function(pathCandidates)
-        local pathCandidatesStr = table.concat(pathCandidates, ":")
-
-        networkCard:send(
-            config.netCodeServerAddr,
-            config.netCodeServerPort,
-            "getCode",
-            pathCandidatesStr
-        )
-
-        -- Wait for response.
-        local deadline = computer.millis() + 500
-        local e, sender, port, msg, responseCandidates, code, realPath
-        while true do
-            local now = computer.millis()
-            if now > deadline then
-                error("timeout while waiting for response from a code server")
-            end
-            e, _, sender, port, msg, responseCandidates, code, realPath = event.pull(now - deadline)
-            if
-                e == "NetworkMessage"
-                and sender == config.netCodeServerAddr
-                and port == config.netCodeServerPort
-                and msg == "rcvCode"
-                and responseCandidates == pathCandidatesStr
-            then
-                break
-            end
-        end
-
-        return code, realPath
-    end
-end
+--- @type (fun(path: string[]): code: string | nil, realPath: string | nil)?
+local coreModuleResolver = nil
+--- @type table<string, ammcore.pkg.package.PackageVersion>?
+local installedPackages
+--- @type ammcore.log.Logger?
+local logger
 
 if require then
     computer.log(2, "[ammcore.bootloader] WARNING: 'require' function is already present")
 end
 
+--- @param coreCodeLocation table<string, string> | string
+--- @return fun(path: string[]): code: string | nil, realPath: string | nil
+local function makeCoreModuleResolver(coreCodeLocation)
+    if type(coreCodeLocation) == "string" then
+        return function(pathCandidates)
+            for _, candidate in ipairs(pathCandidates) do
+                candidate = filesystem.path(2, candidate)
+                local realPath
+                if candidate == "ammcore" or candidate:match("^ammcore/") then
+                    realPath = candidate:gsub("^ammcore/?", "")
+                elseif candidate == "taminomara-amm-ammcore" or candidate:match("^taminomara%-amm%-ammcore/") then
+                    realPath = candidate:gsub("^taminomara%-amm%-ammcore/?", "")
+                end
+                if realPath then
+                    realPath = filesystem.path(coreCodeLocation, realPath)
+                    if filesystem.exists(realPath) then
+                        local fd = filesystem.open(realPath, "r")
+                        local _ <close> = setmetatable({}, { __close = function() fd:close() end })
+
+                        local content = ""
+                        while true do
+                            local chunk = fd:read(120 * 1024)
+                            if not chunk or chunk:len() == 0 then
+                                break
+                            end
+                            content = content .. chunk
+                        end
+
+                        return content, realPath
+                    end
+                end
+            end
+        end
+    else
+        return function(pathCandidates)
+            for _, candidate in ipairs(pathCandidates) do
+                candidate = filesystem.path(2, candidate)
+                local realPath
+                if candidate == "ammcore" or candidate:match("^ammcore/") then
+                    realPath = candidate:gsub("^ammcore/?", "")
+                elseif candidate == "taminomara-amm-ammcore" or candidate:match("^taminomara%-amm%-ammcore/") then
+                    realPath = candidate:gsub("^taminomara%-amm%-ammcore/?", "")
+                end
+                if realPath then
+                    if coreCodeLocation[realPath] then
+                        return coreCodeLocation[realPath], "bootstrap://" .. realPath
+                    end
+                end
+            end
+        end
+    end
+end
+
 --- @param mod string
---- @return string? canonical module name
---- @return string[] candidates for file search
+--- @return string
+--- @return string[]
 local function canonizeModName(mod)
     if type(mod) ~= "string" then
         error(string.format("expected a string, got %s", type(mod)), 3)
     end
-    if mod:match("/") then
-        return nil, { filesystem.path(2, mod) }
-    else
-        mod = mod:gsub("%.+", "."):gsub("%.+$", "")
-        if mod:match("^%.") then
-            error("relative imports are not supported", 3)
-        elseif mod:len() == 0 then
-            error("got an empty module path", 3)
-        end
-        local shortAmmMod = mod:match("^taminomara%-amm%-(.*)$")
-        if shortAmmMod then
-            mod = shortAmmMod
-        end
-        local path = mod:gsub("%.", "/")
-        return mod, { path .. ".lua", path .. "/_index.lua" }
+
+    mod = mod:gsub("%.+", "."):gsub("%.+$", "")
+    if mod:match("^%.") then
+        error("relative imports are not supported", 3)
+    elseif mod:len() == 0 then
+        error("got an empty module path", 3)
     end
+    local shortAmmMod = mod:match("^taminomara%-amm%-(.*)$")
+    if shortAmmMod then
+        mod = shortAmmMod
+    end
+    local path = mod:gsub("%.", "/")
+    return mod, { path .. ".lua", path .. "/_index.lua" }
 end
 
---- Load the given module, return any value returned by it.
+--- Load the given module, run it, and forward any returned value.
 ---
 --- If module returns `nil`, it is replaced with `true`.
 ---
@@ -259,68 +234,51 @@ end
 --- @return unknown # module contents.
 --- @return unknown realPath where this module comes from (usually a `string`).
 function require(modname) --- @diagnostic disable-line: lowercase-global
-    return ns._require(modname)
-end
-
---- @package
---- @param modname string module path.
---- @param noWarnings boolean? disable warnings about requiring modules from foreign packages.
---- @return unknown # module contents.
---- @return unknown realPath where this module comes from (usually a `string`).
-function ns._require(modname, noWarnings)
-    if not loader then
-        error("'require' called before 'init'", 2)
-    end
-
     local mod, pathCandidates = canonizeModName(modname)
-
-    if not mod then
-        error(string.format("can't require a module by its full path name %s", modname), 2)
-    end
 
     if not _modules[mod] then
         local code, realPath
-        code, realPath = loader(pathCandidates)
+        if serverApi then
+            code, realPath = serverApi:getCode(pathCandidates)
+        elseif coreModuleResolver then
+            code, realPath = coreModuleResolver(pathCandidates)
+        else
+            error("'require' called before 'main'")
+        end
         if not code or not realPath then
             error(string.format("no module named %s", mod), 2)
         end
 
-        if localPackages and not noWarnings then
+        if installedPackages and logger then
             local requiringMod = ns.getMod(2):match("^[^.]*")
-            local requiredMod = mod:match("^[^.]*")
+            local requiringPkg = installedPackages["taminomara-amm-" .. requiringMod] or installedPackages[requiringMod]
 
-            if requiringMod ~= requiredMod then
-                local requiringPkg = nil
-                if localPackages["taminomara-amm-" .. requiringMod] then
-                    requiringPkg = localPackages["taminomara-amm-" .. requiringMod]
-                elseif localPackages[requiringMod] then
-                    requiringPkg = localPackages[requiringMod]
-                end
-                if requiringPkg then
-                    local requirements = requiringPkg:getAllRequirements()
-                    if not requirements[requiredMod] and not requirements["taminomara-amm-" .. requiredMod] then
-                        computer.log(
-                            2,
-                            string.format(
-                                "[ammcore.bootloader] WARNING: Module %s requires modules from %s, but %s is not listed as its dependency",
-                                requiringMod,
-                                requiredMod,
-                                requiredMod
-                            )
-                        )
-                    end
+            local requiredMod = mod:match("^[^.]*")
+            local requiredPkg = installedPackages["taminomara-amm-" .. requiredMod] or installedPackages[requiredMod]
+
+            if
+                requiringPkg
+                and requiredPkg
+                and requiringPkg.name ~= requiredPkg.name
+                and requiringPkg.name ~= "taminomara-amm-ammtest"
+            then
+                local requirements = requiringPkg:getAllRequirements()
+                if not requirements[requiredPkg.name] then
+                    logger:warning(
+                        "Module %s requires modules from %s, but %s is not listed as its dependency",
+                        requiringMod,
+                        requiredMod,
+                        requiredMod
+                    )
                 end
             end
         end
 
-        if _paths[realPath] then
-            computer.log(
-                2,
-                string.format(
-                    "[ammcore.bootloader] WARNING: The same lua file is required with different names: %s and %s",
-                    mod,
-                    _paths[realPath]
-                )
+        if logger and _paths[realPath] then
+            logger:warning(
+                "The same lua file is required with different names: %s and %s",
+                mod,
+                _paths[realPath]
             )
         end
 
@@ -340,12 +298,149 @@ function ns._require(modname, noWarnings)
     return _modules[mod].value, _modules[mod].realPath
 end
 
---- Initialize and install the global `require` function.
+--- @param coreCodeLocation table<string, string> | string
+local function updateAmmCore(coreCodeLocation)
+    assert(bootloaderConfig)
+    assert(serverApi)
+    assert(logger)
+
+    if type(coreCodeLocation) ~= "string" then
+        logger:trace("Not checking ammcore version because bootstrap is used")
+        return
+    end
+
+    local pkg = require "ammcore.pkg"
+    local builder = require "ammcore.pkg.builder"
+
+    logger:trace("Checking ammcore version")
+
+    local provider = pkg.getPackageProvider(true)
+    local localCorePackage
+    for _, package in ipairs(provider:getLocalPackages()) do
+        if package.name == "taminomara-amm-ammcore" then
+            localCorePackage = package
+        end
+    end
+    if not localCorePackage or localCorePackage.packageRoot ~= coreCodeLocation then
+        logger:warning(
+            "Unable to update local ammcore version: directory %s does not belong to any package",
+            coreCodeLocation
+        )
+        return
+    end
+
+    local remoteVersion = serverApi:getAmmCoreVersion()
+    local localVersion = localCorePackage.version
+
+    if remoteVersion ~= localVersion then
+        if localCorePackage.isDevMode then
+            logger:warning(
+                "Unable to update local ammcore version: ammcore installed in dev mode",
+                coreCodeLocation
+            )
+        else
+            logger:info(
+                "Updating local ammcore version: %s -> %s",
+                localVersion,
+                remoteVersion
+            )
+
+            local version, archive = serverApi:getAmmCoreCode()
+            local archiver = builder.PackageArchiver:FromArchive("taminomara-amm-ammcore", version, archive)
+            filesystem.remove(coreCodeLocation, true)
+            archiver:unpack(coreCodeLocation)
+        end
+    else
+        logger:trace("Using ammcore version %s", localVersion)
+    end
+end
+
+local function initDrive()
+    assert(coreModuleResolver)
+    assert(bootloaderConfig)
+    assert(logger)
+
+    local localApi = require "ammcore.server.localApi"
+    local pkg = require "ammcore.pkg"
+    local provider = pkg.getPackageProvider(true)
+    local packages = provider:getLocalPackages()
+
+    logger:trace("Initializing local code server")
+
+    serverApi = localApi.ServerApi:New(packages, coreModuleResolver)
+    installedPackages = serverApi:lsPkg()
+
+    logger:trace("Local code server initialized")
+end
+
+local function initNet()
+    assert(coreModuleResolver)
+    assert(bootloaderConfig)
+    assert(logger)
+
+    local remoteApi = require "ammcore.server.remoteApi"
+
+    logger:trace("Initializing remote code server")
+
+    local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard? ]]
+    if not networkCard then
+        error("config.target is net, but no network card present")
+    end
+
+    bootloaderConfig.bootPort = bootloaderConfig.bootPort or 0x1CD
+    if type(bootloaderConfig.bootPort) ~= "number" then
+        error(string.format("config.bootPort has invalid value %s", bootloaderConfig.bootPort))
+    end
+
+    if not bootloaderConfig.bootAddr then
+        logger:trace("Discovering available code servers")
+
+        event.listen(networkCard)
+        networkCard:open(bootloaderConfig.bootPort)
+        networkCard:broadcast(bootloaderConfig.bootPort, "getAmmCoreVersion")
+
+        local deadline = computer.millis() + 1000
+        local name, sender, port, receivedMessage
+        while true do
+            local now = computer.millis()
+            if now > deadline then
+                error("timeout while waiting for response from a code server")
+            end
+
+            name, _, sender, port, receivedMessage = event.pull(now - deadline)
+            if
+                name == "NetworkMessage"
+                and port == bootloaderConfig.bootPort
+                and receivedMessage == "rcvAmmCoreVersion"
+            then
+                bootloaderConfig.bootAddr = sender
+                break
+            end
+        end
+    end
+
+    serverApi = remoteApi.ServerApi:New(
+        networkCard,
+        bootloaderConfig.bootAddr,
+        bootloaderConfig.bootPort,
+        500,
+        coreModuleResolver
+    )
+    installedPackages = serverApi:lsPkg()
+
+    logger:trace("Remote code server initialized")
+    logger:info("Using amm code server %s", bootloaderConfig.bootAddr)
+end
+
+--- Initialize and install the global `require` function,
+--- then start a user script configured via computer's nick
+--- or `config.prog <ammcore.bootloader.BootloaderConfig.prog>`.
 ---
 --- @param config ammcore.bootloader.BootloaderConfig bootloader config.
-function ns.init(config)
-    if loader then
-        error("loader is already installed")
+--- @param coreCodeLocation table<string, string> | string code table from the bootstrap script.
+function ns.main(config, coreCodeLocation)
+    if serverApi then
+        error("bootloader is already initialized")
     end
 
     if not config then
@@ -354,16 +449,18 @@ function ns.init(config)
         error("config.target is not defined")
     end
 
-    if type(config.target) == "function" then
-        loader = config.target --[[ @as ammcore.bootloader._Bootloader ]]
-        config.target = "bootstrap"
-    elseif type(config.target) == "string" then
-        if not _loaders[config.target] then
-            error(string.format("config.target has invalid value %s", config.target))
-        end
-        loader = _loaders[config.target](config)
-    else
-        error("config.target should be a string")
+    config.devRoot = filesystem.path(1, config.devRoot or "/")
+    if type(config.devRoot) ~= "string" then
+        error(string.format("config.devRoot has invalid value %s", config.devRoot))
+    elseif not filesystem.exists(config.devRoot) or not filesystem.isDir(config.devRoot) then
+        error(string.format("config.devRoot does not exist or not a directory: %s", config.devRoot))
+    end
+
+    config.srvRoot = filesystem.path(1, config.srvRoot or "/.amm")
+    if type(config.srvRoot) ~= "string" then
+        error(string.format("config.srvRoot has invalid value %s", config.srvRoot))
+    elseif not filesystem.exists(config.srvRoot) or not filesystem.isDir(config.srvRoot) then
+        error(string.format("config.srvRoot does not exist or not a directory: %s", config.srvRoot))
     end
 
     if not config.logLevels then
@@ -371,39 +468,21 @@ function ns.init(config)
     elseif type(config.logLevels) ~= "table" then
         error("config.logLevels should be a table")
     end
+    for k, v in pairs(config.logLevels) do
+        if type(k) ~= "string" or type(v) ~= "number" then
+            error(string.format("invalid log level %s: %s", k, v))
+        end
+    end
 
     bootloaderConfig = config
+    coreModuleResolver = makeCoreModuleResolver(coreCodeLocation)
 
-    local pkg = require "ammcore.pkg"
-    local provider = pkg.getPackageProvider(true)
-    localPackages = {}
-    for _, package in ipairs(provider:getLocalPackages()) do
-        localPackages[package.name] = package
-    end
-end
-
---- Start user script configured via computer's nick
---- or `config.prog <ammcore.bootloader.BootloaderConfig.prog>`.
----
---- Main entry point, should be called after `init`.
-function ns.main()
-    local atexit = require "ammcore.atexit"
     local nick = require "ammcore.nick"
     local log = require "ammcore.log"
 
-    local config = ns.getBootloaderConfig()
+    logger = log.Logger:New()
 
     local parsedNick = nick.parse(computer.getInstance().nick)
-
-    if not config.prog then
-        config.prog = parsedNick:getPos(1, tostring)
-    end
-    if type(config.prog) ~= "string" then
-        error("config.prog is not a string")
-    elseif config.prog:len() == 0 then
-        error("config.prog is not defined")
-    end
-
     do
         local level = parsedNick:getOne("logLevel", tostring)
         if level then
@@ -411,13 +490,47 @@ function ns.main()
             if not levelInt then
                 error(string.format("unknown log level %s", level))
             end
-            config.logLevels[""] = levelInt
+            config.logLevels[""] = config.logLevels[""] or levelInt
+        else
+            config.logLevels[""] = config.logLevels[""] or log.Level.Info
         end
     end
 
-    print("Booting " .. config.prog)
+    if not config.prog then
+        config.prog = parsedNick:getPos(1, tostring)
+    end
+    if not config.prog then
+        logger:error(
+            "AMM is unable to determine which program "
+            .. "to run, and will hand execution back to EEPROM. If this is "
+            .. "intended, set `config.prog=\".eeprom\"`."
+        )
+    elseif type(config.prog) ~= "string" then
+        error("config.prog is not a string")
+    elseif config.prog:len() == 0 then
+        error("config.prog is empty")
+    end
+    if config.prog and config.prog:sub(1, 1) == "." then
+        config.prog = "ammcore.bin" .. config.prog
+    end
 
-    atexit.runAndExit(require, config.prog)
+    if type(coreCodeLocation) == "string" then
+        logger:debug("Using ammcore from %s", coreCodeLocation)
+    else
+        logger:debug("Using ammcore from bootstrap")
+    end
+
+    if config.target == "drive" then
+        initDrive()
+    elseif config.target == "net" then
+        initNet()
+        updateAmmCore(coreCodeLocation)
+    end
+
+    if config.prog then
+        logger:debug("Booting %s", config.prog)
+        require(config.prog)
+    end
 end
 
 --- Find and return a file by its path.
@@ -433,23 +546,23 @@ end
 ---
 --- @param path string|string[] file path, including its extension.
 --- @return string? code module code.
---- @string string? realPath actual path to the `.lua` file that contains the code.
+--- @return string? realPath actual path to the `.lua` file that contains the code.
 function ns.findModuleCode(path)
-    if type(path) == "string" then
-        local pathCandidatesStr = path
-        path = {}
-        for candidate in pathCandidatesStr:gmatch("[^:]+") do
-            table.insert(path, candidate)
-        end
-    end
-    return loader(path)
+    assert(bootloaderConfig and serverApi, "'findModuleCode' called before 'main'", 2)
+    return serverApi:getCode(path)
+end
+
+--- @return ammcore.server.ServerApi
+function ns.getServerApi()
+    assert(bootloaderConfig and serverApi, "'getServerApi' called before 'main'", 2)
+    return serverApi
 end
 
 --- Get name of the loader that was used to load the code.
 ---
---- @return "drive"|"net"|"bootstrap"|string
+--- @return "drive"|"net"
 function ns.getLoaderKind()
-    assert(loader, "'getLoaderKind' called before 'init'", 2)
+    assert(bootloaderConfig, "'getLoaderKind' called before 'main'", 2)
     return bootloaderConfig.target
 end
 
@@ -457,7 +570,7 @@ end
 ---
 --- @return ammcore.bootloader.BootloaderConfig config config that was used to init the bootloader.
 function ns.getBootloaderConfig()
-    assert(loader, "'getBootloaderConfig' called before 'init'", 2)
+    assert(bootloaderConfig, "'getBootloaderConfig' called before 'main'", 2)
     return bootloaderConfig
 end
 
@@ -465,9 +578,9 @@ end
 ---
 --- Return `nil` if bootloader target is not `drive`.
 ---
---- @return string? devRoot directory where dev packages are installed.
+--- @return string devRoot directory where dev packages are installed.
 function ns.getDevRoot()
-    assert(loader, "'getDevRoot' called before 'init'", 2)
+    assert(bootloaderConfig, "'getDevRoot' called before 'main'", 2)
     return bootloaderConfig.devRoot
 end
 
@@ -475,9 +588,9 @@ end
 ---
 --- Return `nil` if bootloader target is not `drive`.
 ---
---- @return string? srvRoot directory where AMM stores its internal data, including installed modules.
+--- @return string srvRoot directory where AMM stores its internal data, including installed modules.
 function ns.getSrvRoot()
-    assert(loader, "'getSrvRoot' called before 'init'", 2)
+    assert(bootloaderConfig, "'getSrvRoot' called before 'main'", 2)
     return bootloaderConfig.srvRoot
 end
 
@@ -486,7 +599,7 @@ end
 --- @param realPath string real path to a file, as returned by `findModuleCode` or `ammcore._util.debug.getFile`.
 --- @return string?
 function ns.getModuleByRealPath(realPath)
-    assert(loader, "'getModuleByRealPath' called before 'init'", 2)
+    assert(bootloaderConfig, "'getModuleByRealPath' called before 'main'", 2)
     return _paths[realPath]
 end
 

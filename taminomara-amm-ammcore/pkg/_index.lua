@@ -103,6 +103,12 @@ function ns.gatherRootRequirements(provider)
     if not rootRequirements["taminomara-amm-ammcore"] then
         rootRequirements["taminomara-amm-ammcore"] = version.parseSpec("*")
     end
+    -- if not rootRequirements["taminomara-amm-ammtest"] then
+    --     rootRequirements["taminomara-amm-ammtest"] = version.parseSpec("*")
+    -- end
+    -- if not rootRequirements["taminomara-amm-ammgui"] then
+    --     rootRequirements["taminomara-amm-ammgui"] = version.parseSpec("*")
+    -- end
 
     return rootRequirements
 end

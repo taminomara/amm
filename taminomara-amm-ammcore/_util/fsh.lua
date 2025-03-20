@@ -23,7 +23,7 @@ function ns.readFile(path)
 
     local content = ""
     while true do
-        local chunk = fd:read(1024)
+        local chunk = fd:read(120 * 1024)
         if not chunk or chunk:len() == 0 then
             break
         end

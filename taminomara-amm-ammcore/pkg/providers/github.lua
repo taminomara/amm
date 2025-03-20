@@ -23,13 +23,12 @@ ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVe
 --- @param name string
 --- @param version ammcore.pkg.version.Version
 --- @param cacheData ammcore.pkg.providers.github._CacheVersion
---- @param provider ammcore.pkg.providers.github.GithubProvider
 ---
 --- @generic T: ammcore.pkg.providers.github.GithubPackageVersion
 --- @param self T
 --- @return T
-function ns.GithubPackageVersion:New(name, version, cacheData, provider)
-    self = package.PackageVersion.New(self, name, version, provider)
+function ns.GithubPackageVersion:New(name, version, cacheData)
+    self = package.PackageVersion.New(self, name, version)
 
     --- @private
     --- @type ammcore.pkg.providers.github._CacheVersion
@@ -40,6 +39,13 @@ function ns.GithubPackageVersion:New(name, version, cacheData, provider)
     self._requirements = nil
 
     return self
+end
+
+function ns.GithubPackageVersion:getMetadata()
+    if not self._cacheData.data then
+        self:_loadData()
+    end
+    return self._cacheData.data
 end
 
 function ns.GithubPackageVersion:getRequirements()
@@ -295,7 +301,7 @@ function ns.GithubProvider:findPackageVersions(name, includeRemotePackages)
     local result = {}
 
     for ver, data in pairs(self._packages[ghName].packages[pkg]) do
-        table.insert(result, ns.GithubPackageVersion:New(name, version.parse(ver), data, self))
+        table.insert(result, ns.GithubPackageVersion:New(name, version.parse(ver), data))
     end
 
     return result, true

@@ -1,0 +1,134 @@
+[
+  {
+    "title": "AMM EEPROM V1",
+    "text": [
+      "This EEPROM will find and initialize AMM, a runtime extension for FIN.",
+      "",
+      "AMM allows loading Lua packages over the net and enables FIN code",
+      "to use `require` function."
+    ]
+  },
+  {
+    "title": "CONFIG",
+    "options": [
+      {
+        "title": "target",
+        "text": [
+          "Where to find AMM bootloader. Available values are:",
+          "",
+          "- \"drive\" will load AMM code from this computer's hard drive.",
+          "",
+          "- \"net\" will fetch AMM code from another computer (a code server)",
+          "    using NetBoot protocol."
+        ]
+      },
+      {
+        "title": "prog",
+        "text": [
+          "Which program to run after the system is fully booted.",
+          "This can be any Lua package installed on your AMM code server.",
+          "",
+          "Some standard programs include:",
+          "",
+          "- \".help\" -- print this message and stop the computer;",
+          "- \".eeprom\" -- do nothing and continue executing EEPROM;",
+          "",
+          "On code server, these are also available:",
+          "",
+          "- \".provision\" -- install \"ammcore\" locally and replace EEPROM",
+          "  with a default one. This will be the first program that you run",
+          "  on a new computer.",
+          "- \".server\" -- start code server;",
+          "- \".lspkg\" -- list all locally installed packages;",
+          "- \".check\" -- check integrity of installed packages;",
+          "- \".install\" -- install packages from `config.packages`;",
+          "- \".upgrade\" -- upgrade all packages to the latest version;",
+          "- \"ammtest.bin.main\" -- run unit tests on local dev packages.",
+          "",
+          "If \"prog\" is not specified in the config, it is parsed",
+          "from computer's nick. If computer's nick is empty,",
+          "\".eeprom\" is implied.",
+          "",
+          "Note: starting program name with a dot is a shortcut",
+          "for \"ammcore.bin.<program>\"."
+        ]
+      },
+      {
+        "title": "packages",
+        "text": [
+          "Only meaningful on code server. This setting lists all packages",
+          "that should be installed."
+        ]
+      },
+      {
+        "title": "devRoot",
+        "text": [
+          "Only meaningful on code server. Directory with user code",
+          "(a.k.a. dev packages). Default is \"/\"."
+        ]
+      },
+      {
+        "title": "srvRoot",
+        "text": [
+          "Directory with internal AMM files. Default is \"/.amm\"."
+        ]
+      },
+      { "title": "driveId", "text": ["Id of a hard drive with AMM files."] },
+      {
+        "title": "mountPoint",
+        "text": [
+          "Directory where hard drive will be mounted. Default is \"/\"."
+        ]
+      },
+      {
+        "title": "bootAddr",
+        "text": [
+          "Address of the code server, used when tartet is \"net\".",
+          "By default it is discovered through a broadcast request."
+        ]
+      },
+      {
+        "title": "bootPort",
+        "text": [
+          "Port of the code server, used when tartet is \"net\".",
+          "Default is \"0x1CD\"."
+        ]
+      },
+      {
+        "title": "logLevels",
+        "text": [
+          "Configuration for loggers."
+        ]
+      }
+    ],
+    "textAfter": [
+      "Other config variables might be available depending on \"prog\"."
+    ]
+  },
+  {
+    "title": "COMPUTER NICK",
+    "text": [
+      "You can specify \"prog\" and \"logLevel\" settings through",
+      "computer's nick. This is useful when placing computers in blueprints.",
+      "",
+      "To specify \"prog\", simply add it to the beginning of the nick.",
+      "",
+      "To specify \"logLevel\", add the following line to the nick:",
+      "\"logLevel=<value>\". Available values are \"trace\", \"debug\",",
+      " \"info\", \"warning\", \"error\", and \"critical\".",
+      "",
+      "Example:",
+      "",
+      "        nick = \".server logLevel=debug\"",
+      "",
+      "This nick means that \"prog\" is \".server\", ",
+      "and \"logLevel\" is \"debug\"."
+    ]
+  },
+  {
+    "title": "FURTHER READING",
+    "text": [
+      "See more information at https://taminomara.github.io/amm."
+    ]
+  }
+]

@@ -7,6 +7,10 @@ local version = require "ammcore.pkg.version"
 local log = require "ammcore.log"
 local bootloader = require "ammcore.bootloader"
 
+if bootloader.getLoaderKind() ~= "drive" then
+    computer.panic("Program \".build\" only works with drive loader")
+end
+
 local logger = log.Logger:New()
 
 local devRoot = assert(bootloader.getDevRoot(), "config.devRoot is not set")

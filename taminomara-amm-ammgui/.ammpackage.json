@@ -1,7 +1,7 @@
 {
-  "name": "taminomara-amm-ammcore",
+  "name": "taminomara-amm-ammgui",
   "version": "0.1.0",
-  "description": "Implements packaging system, import system and universal bootloader for AMM.",
+  "description": "GUI for Fics-It networks",
   "author": "Tamika Nomara <taminomara@gmail.com>",
   "license": "MIT",
   "urls": {
@@ -11,6 +11,5 @@
   },
   "devRequirements": {
     "taminomara-amm-ammtest": "~0.1"
-  },
-  "_buildScript": "_build.lua"
+  }
 }

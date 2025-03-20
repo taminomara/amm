@@ -22,6 +22,7 @@ local ns = {}
 --- @field urls? table<string, string> links to pages related to the package.
 --- @field requirements? table<string, string> list of production requirements.
 --- @field devRequirements? table<string, string> list of development requirements.
+--- @field private _buildScript? string script that will run during package build.
 
 --- Schema for `ammcore.pkg.ammPackageJson.AmmPackageJson`.
 local schema = {
@@ -36,6 +37,7 @@ local schema = {
     urls = { _k = "string", _v = "string" },
     requirements = { _k = "string", _v = "string" },
     devRequirements = { _k = "string", _v = "string" },
+    _buildScript = "string?",
 }
 
 --- Checks that `data` matches `schema`, returns error or nil.
