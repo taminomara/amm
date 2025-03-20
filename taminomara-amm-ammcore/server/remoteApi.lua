@@ -94,7 +94,7 @@ function ns.ServerApi:New(networkCard, addr, port, timeout, coreModuleResolver)
     --- Request timeout in millisecinds. Default is ``500``.
     ---
     --- @type integer
-    self.timeout = timeout or 500
+    self.timeout = timeout or 2000
 
     --- @private
     --- @type fun(path: string[]): code: string | nil, realPath: string | nil
@@ -163,7 +163,7 @@ function ns.ServerApi:getCode(path)
             "rcvCode", deadline
         )
         if responseCandidates == pathStr then
-            return code, "ammboot://" .. realPath
+            return code, realPath and ("ammboot://" .. realPath)
         end
     end
 end
