@@ -93,20 +93,8 @@ end
 
 --- @param lhs ammcore.pkg.resolver._Candidate
 --- @param rhs ammcore.pkg.resolver._Candidate
-function Candidate.__lte(lhs, rhs)
-    return not rhs < lhs
-end
-
---- @param lhs ammcore.pkg.resolver._Candidate
---- @param rhs ammcore.pkg.resolver._Candidate
 function Candidate.__gt(lhs, rhs)
     return rhs < lhs
-end
-
---- @param lhs ammcore.pkg.resolver._Candidate
---- @param rhs ammcore.pkg.resolver._Candidate
-function Candidate.__gte(lhs, rhs)
-    return not lhs < rhs
 end
 
 --- @param candidates table<string, ammcore.pkg.resolver._Candidate>

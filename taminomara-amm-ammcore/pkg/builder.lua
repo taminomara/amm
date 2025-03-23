@@ -3,6 +3,7 @@ local class = require "ammcore.class"
 local log = require "ammcore.log"
 local packageJson = require "ammcore.pkg.packageJson"
 local json = require "ammcore._contrib.json"
+local array= require "ammcore._util.array"
 
 --- Build script API.
 ---
@@ -82,7 +83,7 @@ function ns.PackageArchiver:unpack(pkgRoot)
             assert(filesystem.createDir(fileDir, true))
         end
         logger:trace("Writing %s", filePath)
-        fsh.writeFile(filePath, content)
+        fsh.writeFile(filePath, content, true)
     end
 end
 

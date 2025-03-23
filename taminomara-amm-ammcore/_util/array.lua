@@ -64,7 +64,7 @@ end
 --- @param merger nil | fun(l: U, r: U): U function used to merge values from left and right table.
 --- @return table<T, U> to to reference to the ``to`` table.
 function ns.insertTable(to, from, merger)
-    merger = merger or function (l, r) return r end
+    merger = merger or function(l, r) return r end
     for k, v in pairs(from) do
         if to[k] then
             to[k] = merger(to[k], v)

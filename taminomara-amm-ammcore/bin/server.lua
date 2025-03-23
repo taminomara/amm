@@ -85,7 +85,7 @@ end
 event.registerListener(
     event.filter { sender = networkCard, event = "NetworkMessage", values = { port = config.bootPort } },
     function(event, _, sender, port, message, ...)
-        logger:debug("Request %s:%s %q", sender, port, message)
+        logger:debug("Request from %s:%s %q %s", sender, port, message, { ... })
         local handler = handlers[message]
         if handler then
             local ok, err = defer.xpcall(handler, event, _, sender, port, message, ...)

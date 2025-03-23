@@ -37,6 +37,8 @@ local function _pprintImpl(x, long, depth)
         local sep = ""
         local i = 0
         local seenKeys = {}
+
+        -- Print array keys.
         for k, v in ipairs(x) do
             i = i + 1
             if not long and i > 5 then
@@ -44,9 +46,29 @@ local function _pprintImpl(x, long, depth)
             end
 
             res = string.format("%s%s%s", res, sep, _pprintImpl(v, long, depth))
-            sep = ","
+            sep = long and ", " or ","
             seenKeys[k] = true
         end
+
+        -- Print identifier keys.
+        local stringKeys = {}
+        for k in pairs(x) do
+            if type(k) == "string" and string.match(k, "^[_%a][_%w]*$") then
+                table.insert(stringKeys, k)
+            end
+        end
+        table.sort(stringKeys)
+        for _, k in ipairs(stringKeys) do
+            i = i + 1
+            if not long and i > 5 then
+                break
+            end
+
+            res = string.format("%s%s%s=%s", res, sep, k, _pprintImpl(x[k], long, depth))
+            sep = long and ", " or ","
+            seenKeys[k] = true
+        end
+
         for k, v in pairs(x) do
             if seenKeys[k] then
                 goto continue
@@ -56,12 +78,8 @@ local function _pprintImpl(x, long, depth)
                 break
             end
 
-            if type(k) == "string" and string.match(k, "^[_%a][_%w]*$") then
-                res = string.format("%s%s%s=%s", res, sep, k, _pprintImpl(v, long, depth))
-            else
-                res = string.format("%s%s[%s]=%s", res, sep, _pprintImpl(k, long, depth), _pprintImpl(v, long, depth))
-            end
-            sep = ","
+            res = string.format("%s%s[%s]=%s", res, sep, _pprintImpl(k, long, depth), _pprintImpl(v, long, depth))
+            sep = long and ", " or ","
 
             ::continue::
         end
@@ -117,18 +135,18 @@ local function Ts(...)
     return setmetatable({ ... }, _TsMeta)
 end
 
-local _AssertErrorMeta = { __tostring = function (self) return "AssertError: " .. tostring(self.msg) end }
+local _AssertErrorMeta = { __tostring = function(self) return "AssertError: " .. tostring(self.msg) end }
 local function AssertError(msg, vars, fmt, ...)
     return setmetatable({ msg = msg, vars = vars, fmt = fmt, args = { ... }, loc = bootloader.getLoc(4) },
         _AssertErrorMeta)
 end
 
-local _FailMeta = { __tostring = function (self) return "Fail: " .. tostring(self.msg) end }
+local _FailMeta = { __tostring = function(self) return "Fail: " .. tostring(self.msg) end }
 local function Fail(msg)
     return setmetatable({ msg = msg }, _FailMeta)
 end
 
-local _SkipMeta = { __tostring = function (self) return "Skip: " .. tostring(self.msg) end }
+local _SkipMeta = { __tostring = function(self) return "Skip: " .. tostring(self.msg) end }
 local function Skip(msg)
     return setmetatable({ msg = msg }, _SkipMeta)
 end
@@ -225,7 +243,7 @@ end
 --- @param msg string?
 function ns.assertError(fn, args, pat, msg)
     local ret
-    local ok, err = defer.xpcall(function () ret = { fn(table.unpack(args or {})) } end)
+    local ok, err = defer.xpcall(function() ret = { fn(table.unpack(args or {})) } end)
     check(
         not ok, msg, { ret = ret },
         "Function didn't throw an error")
@@ -307,17 +325,37 @@ function ns.assertNotEq(g, e, msg)
 end
 
 local function deepEq(a, b)
-    if type(a) == "table" and type(b) == "table" then
-        for k, v in pairs(a) do
-            if not deepEq(v, b[k]) then return false end
+    local function walk(a, b, fails, ctx)
+        if type(a) == "table" and type(b) == "table" then
+            for k, v in pairs(a) do
+                table.insert(ctx, k)
+                walk(v, b[k], fails, ctx)
+                table.remove(ctx)
+            end
+            for k, v in pairs(b) do
+                if not a[k] then
+                    table.insert(ctx, k)
+                    walk(a[k], v, fails, ctx)
+                    table.remove(ctx)
+                end
+            end
+        else
+            if a ~= b then
+                local loc, sep = "", ""
+                for _, key in ipairs(ctx) do
+                    loc = loc .. sep .. ns.pprint(key, false)
+                    sep = "."
+                end
+                table.insert(fails, loc)
+            end
         end
-        for k in pairs(b) do
-            if not a[k] then return false end
-        end
-        return true
-    else
-        return a == b
     end
+
+    local fails, ctx = {}, {}
+    walk(a, b, fails, ctx)
+    table.sort(fails)
+
+    return #fails == 0, fails
 end
 
 --- Assert that two values are deep-equal.
@@ -331,8 +369,10 @@ end
 --- @param e T
 --- @param msg string?
 function ns.assertDeepEq(g, e, msg)
+    local ok, fails = deepEq(g, e)
+    local n = string.format("keys differ: %s", table.concat(fails, ", "))
     check(
-        deepEq(g, e), msg, { g = { g }, e = { e } },
+        ok, msg, { g = { g }, e = { e }, n = n },
         "Expected deep equality", Ts(g), Ts(e))
 end
 
@@ -616,7 +656,7 @@ end
 --- @param fn fun(...) test implementation, must accept parameters as its arguments.
 function ns.Suite:caseParams(name, params, fn)
     if #params == 0 then
-        self:case(name, function () ns.skip("Parameter list is empty.") end)
+        self:case(name, function() ns.skip("Parameter list is empty.") end)
         return
     end
     for i, param in ipairs(params) do
@@ -719,7 +759,7 @@ end
 local function pushPatchContext()
     table.insert(patchStack, {})
     return setmetatable({}, {
-        __close = function (err)
+        __close = function(err)
             if #patchStack == 0 then
                 computer.panic(string.format(
                     "Error when popping test patch context. Previous error: %s", err
@@ -931,14 +971,17 @@ local function run(what, fn, ...)
                 { "ret", "Returned value" },
                 { "e", "Exp" },
                 { "g", "Got" },
-                { "tb", "Original trace", true },
+                { "n", "Note", "as-is" },
+                { "tb", "Original trace", "tb" },
             }
             for _, var in ipairs(vars) do
-                local k, name, isTb = table.unpack(var)
+                local k, name, mode = table.unpack(var)
                 if err.message.vars[k] then
                     local v
-                    if isTb then
+                    if mode == "tb" then
                         v = "\n" .. indent(cleanTraceback(tostring(err.message.vars[k])))
+                    elseif mode == "as-is" then
+                        v = " " .. err.message.vars[k]
                     else
                         v = " " .. ns.pprintVa(err.message.vars[k], true)
                     end
@@ -1102,15 +1145,37 @@ end
 --- @param name string?
 function ns.main(name)
     ns.loadTests(name)
+
+    computer.log(
+        1,
+        string.format(
+            "Running tests in %s suite%s...",
+            #suites,
+            #suites == 1 and "" or "s"
+        )
+    )
+
     local results = ns.run()
+
+    if #results > 0 then
+        computer.log(1, "========================================")
+    end
 
     local nTests = {
         [ns.Status.OK] = 0,
         [ns.Status.SKIP] = 0,
         [ns.Status.FAIL] = 0,
     }
+    local mods = {}
+    local nTestsByMod = {}
 
     for _, suite in ipairs(results) do
+        local mod = suite.name:match("^[^.]*")
+        if not nTestsByMod[mod] then
+            table.insert(mods, mod)
+            nTestsByMod[mod] = { [ns.Status.OK] = 0, [ns.Status.SKIP] = 0, [ns.Status.FAIL] = 0 }
+        end
+
         if suite.status ~= ns.Status.OK then
             local suiteDesc = string.format("%s: %s", suite.name, suite.status)
             if suite.loc then suiteDesc = suiteDesc .. "\n" .. string.format("  At %s", suite.loc) end
@@ -1120,6 +1185,7 @@ function ns.main(name)
 
         for _, case in ipairs(suite.cases) do
             nTests[case.status] = nTests[case.status] + 1
+            nTestsByMod[mod][case.status] = nTestsByMod[mod][case.status] + 1
             if case.status ~= ns.Status.OK then
                 local caseDesc = string.format("%s/%s: %s", suite.name, case.name, case.status)
                 if case.testLoc then caseDesc = caseDesc .. "\n" .. string.format("  At %s", case.testLoc) end
@@ -1127,6 +1193,33 @@ function ns.main(name)
                 if case.msg then caseDesc = caseDesc .. "\n" .. indent(case.msg) end
                 logWithStatus(case.status, caseDesc)
             end
+        end
+    end
+
+    if #mods > 0 then
+        table.sort(mods)
+        computer.log(1, "========================================")
+        for _, mod in ipairs(mods) do
+            local nTests = nTestsByMod[mod] or {}
+            local logLevel
+            if nTests[ns.Status.FAIL] > 0 then
+                logLevel = 3
+            elseif nTests[ns.Status.SKIP] > 0 or nTests[ns.Status.OK] > 0 then
+                logLevel = 1
+            else
+                logLevel = 2
+            end
+
+            computer.log(
+                logLevel,
+                string.format(
+                    "%-14s %s OK, %s SKIP, %s FAIL",
+                    mod,
+                    nTests[ns.Status.OK],
+                    nTests[ns.Status.SKIP],
+                    nTests[ns.Status.FAIL]
+                )
+            )
         end
     end
 
@@ -1148,16 +1241,19 @@ function ns.main(name)
         exitcode = 1
     end
 
+    computer.log(1, "----------------------------------------")
     computer.log(
         logLevel,
         string.format(
-            "========================================\n%s OK, %s SKIP, %s FAIL\n%s",
+            "%-14s %s OK, %s SKIP, %s FAIL",
+            "total",
             nTests[ns.Status.OK],
             nTests[ns.Status.SKIP],
-            nTests[ns.Status.FAIL],
-            msg
+            nTests[ns.Status.FAIL]
         )
     )
+    computer.log(1, "========================================")
+    computer.log(logLevel, msg)
 
     computer.beep(beepA)
     sleep(0.1)

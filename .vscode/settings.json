@@ -1,4 +1,25 @@
 {
   "jira-plugin.workingProject": "",
-  "cSpell.words": ["ammcore", "ammtest", "ammlib"],
+  "cSpell.words": [
+    "ammcore",
+    "ammgui",
+    "ammlib",
+    "ammtest"
+  ],
+  "deploy.reloaded": {
+    "packages": [
+      {
+        "files": ["**/*", "**/.*"],
+        "exclude": [".git/**"]
+      }
+    ],
+    "targets": [
+      {
+        "type": "local",
+        "name": "Code server",
+        "description": "Code server",
+        "dir": "C:\\Users\\tamin\\AppData\\Local\\FactoryGame\\Saved\\SaveGames\\Computers\\4598AB9043DEA977342E56886A491E12"
+      }
+    ]
+  }
 }

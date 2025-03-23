@@ -6,3 +6,4 @@ Advanced Machine Monitoring
 
    ammcore/index.rst
    ammtest/index.rst
+   ammgui/index.rst

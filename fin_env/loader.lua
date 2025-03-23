@@ -152,6 +152,30 @@ classes = {}
 
 classes.FINInternetCard = FINInternetCard
 
+-- structs --------------------------------------------------------------
+
+structs = {}
+
+local Color = { __amm_is_color = true }
+Color.__index = Color
+Color.__tostring = function(c) return string.format("Color(%s, %s, %s, %s)", c.r, c.g, c.b, c.a) end
+
+function structs.Color(props)
+    assert(type(props.r) == "number", "color.r should be a number")
+    assert(type(props.g) == "number", "color.g should be a number")
+    assert(type(props.b) == "number", "color.b should be a number")
+    assert(type(props.a) == "number", "color.a should be a number")
+    return setmetatable(props, Color)
+end
+
+function structs.Vector2D(props)
+    assert(type(props.x) == "number", "vector.x should be a number")
+    assert(type(props.y) == "number", "vector.y should be a number")
+    -- assert(type(props.b) == "number", "color.b should be a number")
+    -- assert(type(props.a) == "number", "color.a should be a number")
+    return props
+end
+
 -- component ------------------------------------------------------------
 
 component = {}
@@ -191,7 +215,7 @@ end
 computer.media = nil
 
 function computer.millis()
-    return _os.clock() / 1000
+    return _os.time() * 1000
 end
 
 function computer.reset()

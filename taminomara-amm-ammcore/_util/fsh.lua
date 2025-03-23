@@ -9,8 +9,9 @@ local ns = {}
 --- Read file at the given path or raise an error.
 ---
 --- @param path string path to the file.
+--- @param binary boolean? read file in binary format.
 --- @return string content file contents.
-function ns.readFile(path)
+function ns.readFile(path, binary)
     if not filesystem.exists(path) then
         error(string.format("failed reading file %s: no such file", path))
     end
@@ -18,7 +19,7 @@ function ns.readFile(path)
         error(string.format("failed reading file %s: not a file", path))
     end
 
-    local fd = filesystem.open(path, "r")
+    local fd = filesystem.open(path, binary and "rb" or "r")
     local _ <close> = defer.defer(fd.close, fd)
 
     local content = ""
@@ -37,12 +38,13 @@ end
 ---
 --- @param path string path to the file.
 --- @param content string content to be written.
-function ns.writeFile(path, content)
+--- @param binary boolean? write file in binary format.
+function ns.writeFile(path, content, binary)
     local dir = ns.parent(path)
     if not filesystem.exists(dir) then
         error(string.format("failed writing file %s: no directory named %s", path, dir))
     end
-    local fd, err = filesystem.open(path, "w")
+    local fd, err = filesystem.open(path, binary and "wb" or "w")
     if not fd then
         error(string.format("failed writing file %s: %s", path, err or "unknown error"))
     end
@@ -59,7 +61,7 @@ function ns.copyFile(from, to)
     from = filesystem.path(1, from)
     to = filesystem.path(1, to)
     if to ~= from then
-        ns.writeFile(to, ns.readFile(from))
+        ns.writeFile(to, ns.readFile(from, true), true)
     end
 end
 

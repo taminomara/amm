@@ -569,7 +569,7 @@ function VersionSpecCompiler:compile()
         table.concat(pa, ";"), table.concat(cmp, ";")
     )
 
-    return assert(load(code, "<version comparator>", "t", env))(), isExact
+    return assert(load(code, "<version comparator>", "bt", env))(), isExact
 end
 
 return ns

@@ -260,6 +260,7 @@ function require(modname) --- @diagnostic disable-line: lowercase-global
                 requiringPkg
                 and requiredPkg
                 and requiringPkg.name ~= requiredPkg.name
+                and requiringPkg.name ~= "taminomara-amm-ammcore"
                 and requiringPkg.name ~= "taminomara-amm-ammtest"
             then
                 local requirements = requiringPkg:getAllRequirements()
@@ -268,6 +269,19 @@ function require(modname) --- @diagnostic disable-line: lowercase-global
                         "Module %s requires modules from %s, but %s is not listed as its dependency",
                         requiringMod,
                         requiredMod,
+                        requiredMod
+                    )
+                end
+            elseif
+                requiringPkg
+                and requiredPkg
+                and requiringPkg.name ~= requiredPkg.name
+                and requiringPkg.name == "taminomara-amm-ammtest"
+            then
+                local requirements = requiredPkg:getDevRequirements()
+                if not requirements["taminomara-amm-ammtest"] then
+                    logger:warning(
+                        "Module %s should add taminomara-amm-ammtest to its dev dependencies",
                         requiredMod
                     )
                 end
@@ -285,7 +299,7 @@ function require(modname) --- @diagnostic disable-line: lowercase-global
         _modules[mod] = { loaded = false }
         _paths[realPath] = mod
 
-        local codeFn, err = load(code, "@" .. realPath, "t", _ENV)
+        local codeFn, err = load(code, "@" .. realPath, "bt", _ENV)
         if not codeFn then
             error(string.format("syntax error in %s: %s", realPath, err), 2)
         end
@@ -529,6 +543,8 @@ function ns.main(config, coreCodeLocation)
         initNet()
         updateAmmCore(coreCodeLocation)
     end
+
+    logger:trace("Bootloader config = %s", log.p(config))
 
     if config.prog then
         logger:debug("Booting %s", config.prog)

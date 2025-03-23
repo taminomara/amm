@@ -307,4 +307,142 @@ function ns.Logger:critical(msg, ...)
     self:log(ns.Level.Critical, msg, ...)
 end
 
+--- @param x any
+--- @param long boolean
+--- @param depth integer
+--- @return string
+local function _pprintImpl(x, long, depth)
+    long = long or false
+    depth = (depth or 0) + 1
+    if not long and depth > 3 then
+        return "..."
+    end
+    if type(x) == "table" then
+        if (getmetatable(x) or {}).__tostring then
+            return tostring(x)
+        end
+
+        local res = "{"
+        local sep = ""
+        local i = 0
+        local seenKeys = {}
+
+        -- Print array keys.
+        for k, v in ipairs(x) do
+            i = i + 1
+            if not long and i > 5 then
+                break
+            end
+
+            res = string.format("%s%s%s", res, sep, _pprintImpl(v, long, depth))
+            sep = long and ", " or ","
+            seenKeys[k] = true
+        end
+
+        -- Print identifier keys.
+        local stringKeys = {}
+        for k in pairs(x) do
+            if type(k) == "string" and string.match(k, "^[_%a][_%w]*$") then
+                table.insert(stringKeys, k)
+            end
+        end
+        table.sort(stringKeys)
+        for _, k in ipairs(stringKeys) do
+            i = i + 1
+            if not long and i > 5 then
+                break
+            end
+
+            res = string.format("%s%s%s=%s", res, sep, k, _pprintImpl(x[k], long, depth))
+            sep = long and ", " or ","
+            seenKeys[k] = true
+        end
+
+        for k, v in pairs(x) do
+            if seenKeys[k] then
+                goto continue
+            end
+            i = i + 1
+            if not long and i > 5 then
+                break
+            end
+
+            res = string.format("%s%s[%s]=%s", res, sep, _pprintImpl(k, long, depth), _pprintImpl(v, long, depth))
+            sep = long and ", " or ","
+
+            ::continue::
+        end
+        if not long and i > 5 then
+            res = res .. sep .. "..."
+        end
+        return res .. "}"
+    end
+
+    if type(x) == "string" then
+        x = string.format("%q", x):gsub("\\\n", "\\n"):gsub("\\9", "\\t"):gsub("\\009", "\\t")
+    else
+        x = tostring(x)
+    end
+
+    if long then
+        return x
+    else
+        return x:len() > 33 and (x:sub(1, 15) .. "..." .. x:sub(x:len() - 14)) or x
+    end
+end
+
+--- Pretty print a table/variable.
+---
+--- @param x any value to be pretty printed.
+--- @param long boolean? whether to shorten the value or not, default is `false`.
+--- @return string # pretty printed value.
+function ns.pprint(x, long)
+    return _pprintImpl(x, long or false, 0)
+end
+
+--- Pretty print function arguments, one on each line.
+---
+--- @param params any[] array of function arguments.
+--- @param long boolean? whether to shorten the value or not, default is `false`.
+--- @return string # pretty printed value.
+function ns.pprintVa(params, long)
+    if #params == 0 then
+        return "nil"
+    elseif #params == 1 then
+        return ns.pprint(params[1], long)
+    else
+        local res = ""
+        for i, param in ipairs(params) do
+            res = string.format("%s\n  %s: %s", res, i, ns.pprint(param, long))
+        end
+        return res
+    end
+end
+
+--- !doc private
+--- @class ammcore.log._Pretty
+local Pretty = { __tostring = ns.pprintVa }
+
+--- Return a wrapper that pretty prints function's arguments when converted to string.
+---
+--- If given one argument, this function will use `pprint`, otherwise
+--- it will use `pprintVa`.
+---
+--- Example usage:
+---
+--- .. code-block::
+---
+---    local log = require "ammcore.log"
+---    local logger = log.Logger:New()
+---    logger:info("Starting a server with config=%s", log.p(config))
+---
+--- This example will pretty-print config. It will not run printing if log level
+--- is above `~log.Level.Info`, though, because `p` does pretty printing lazily.
+---
+--- @param ... any values to be pretty printed.
+--- @return ammcore.log._Pretty an opaque value that pretty-prints given arguments.
+function ns.p(...)
+    return setmetatable({ ... }, Pretty)
+end
+
 return ns

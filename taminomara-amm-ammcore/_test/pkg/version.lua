@@ -279,6 +279,11 @@ suite:caseParams(
         test.param(">=1, !=1", "1", false),
         test.param("<=1, !=1", "0", true),
         test.param("<=1, !=1", "1", false),
+
+        test.param("0.0, 0.*", "0.0", true),
+        test.param("0.0, 0.*", "0.1", false),
+        test.param("*, 0.0", "0.0", true),
+        test.param("*, 0.0", "0.1", false),
     },
     function(specs, ver, expected)
         print(specs, ver, expected)

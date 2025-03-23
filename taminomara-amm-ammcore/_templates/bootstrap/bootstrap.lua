@@ -69,7 +69,7 @@ function api.main(config)
         "this AMM distribution is broken: can't find ammcore.bootloader"
     ), "bootstrap://bootloader.lua"
 
-    local codeFn, err = load(code, "@" .. realPath, "t", _ENV)
+    local codeFn, err = load(code, "@" .. realPath, "bt", _ENV)
     if not codeFn then
         error(string.format("failed parsing %s: %s", realPath, err))
     end

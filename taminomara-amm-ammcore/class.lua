@@ -218,6 +218,8 @@ end
 --- will not have any properties or methods present.
 ---
 --- !doctype classmethod
+--- @generic T: ammcore.class.Base
+--- @param self T
 --- @param ... any all extra arguments passed to `create`.
 --- @protected
 function ns.Base:__initSubclass(...)
