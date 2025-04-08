@@ -10,6 +10,7 @@ local ns = {}
 --- @param b table
 --- @return boolean
 function ns.eq(a, b)
+    if rawequal(a, b) then return true end
     if #a ~= #b then return false end
     for i, v in pairs(a) do
         if v ~= b[i] then return false end
@@ -18,6 +19,38 @@ function ns.eq(a, b)
         if not a[i] then return false end
     end
     return true
+end
+
+--- Check that two tables are deep-equal.
+---
+--- That is, if two values are tables, and the first table's metatable does not defined
+--- a custom equality operator, then they should contain the same set of keys,
+--- and their values should themselves be deep-equal; otherwise, they should be equal
+--- when compared by the ``==`` operator.
+---
+--- @param a table
+--- @param b table
+--- @return boolean
+function ns.deepEq(a, b)
+    if type(a) == "table" and type(b) == "table" then
+        if rawequal(a, b) then
+            return true
+        end
+        local mt = getmetatable(a)
+        if mt and mt.__eq then
+            return mt.__eq(a, b)
+        end
+        if #a ~= #b then return false end
+        for i, v in pairs(a) do
+            if not ns.deepEq(v, b[i]) then return false end
+        end
+        for i, _ in pairs(b) do
+            if not a[i] then return false end
+        end
+        return true
+    else
+        return a == b
+    end
 end
 
 --- Check that all values in the table are not `nil`.
