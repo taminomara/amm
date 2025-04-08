@@ -25,7 +25,7 @@ local CodeServerPackageVersion = class.create("CodeServerPackageVersion", packag
 --- @param self T
 --- @return T
 function CodeServerPackageVersion:New(metadataRaw)
-    local version, requirements, devResuirements, metadata = packageJson.parse(
+    local version, requirements, devRequirements, metadata = packageJson.parse(
         metadataRaw, "code server response"
     )
 
@@ -35,7 +35,7 @@ function CodeServerPackageVersion:New(metadataRaw)
     self.requirements = requirements
 
     --- @type table<string, ammcore.pkg.version.VersionSpec>
-    self.devRequirements = devResuirements
+    self.devRequirements = devRequirements
 
     --- @type ammcore.pkg.packageJson.PackageJson
     self.data = metadata
@@ -91,7 +91,7 @@ function ns.ServerApi:New(networkCard, addr, port, timeout, coreModuleResolver)
     --- @type integer
     self.port = port
 
-    --- Request timeout in millisecinds. Default is ``500``.
+    --- Request timeout in milliseconds. Default is ``500``.
     ---
     --- @type integer
     self.timeout = timeout or 2000

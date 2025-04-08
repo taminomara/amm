@@ -414,7 +414,7 @@ function ns.assertNotClose(g, e, tol, msg)
         "Expected not close numbers")
 end
 
---- Assert that the geven value is a boolean.
+--- Assert that the given value is a boolean.
 ---
 --- @param g any
 --- @param msg string?
@@ -424,7 +424,7 @@ function ns.assertBoolean(g, msg)
         "Expected boolean, got %s", type(g))
 end
 
---- Assert that the geven value is not a boolean.
+--- Assert that the given value is not a boolean.
 ---
 --- @param g any
 --- @param msg string?
@@ -434,7 +434,7 @@ function ns.assertNotBoolean(g, msg)
         "Expected not boolean, got %s", type(g))
 end
 
---- Assert that the geven value is a nil.
+--- Assert that the given value is a nil.
 ---
 --- @param g any
 --- @param msg string?
@@ -444,7 +444,7 @@ function ns.assertNil(g, msg)
         "Expected nil, got %s", type(g))
 end
 
---- Assert that the geven value is not a nil.
+--- Assert that the given value is not a nil.
 ---
 --- @param g any
 --- @param msg string?
@@ -454,7 +454,7 @@ function ns.assertNotNil(g, msg)
         "Expected not nil, got %s", type(g))
 end
 
---- Assert that the geven value is a string.
+--- Assert that the given value is a string.
 ---
 --- @param g any
 --- @param msg string?
@@ -464,7 +464,7 @@ function ns.assertString(g, msg)
         "Expected string, got %s", type(g))
 end
 
---- Assert that the geven value is not a string.
+--- Assert that the given value is not a string.
 ---
 --- @param g any
 --- @param msg string?
@@ -474,7 +474,7 @@ function ns.assertNotString(g, msg)
         "Expected not string, got %s", type(g))
 end
 
---- Assert that the geven value is a table.
+--- Assert that the given value is a table.
 ---
 --- @param g any
 --- @param msg string?
@@ -484,7 +484,7 @@ function ns.assertTable(g, msg)
         "Expected table, got %s", type(g))
 end
 
---- Assert that the geven value is not a table.
+--- Assert that the given value is not a table.
 ---
 --- @param g any
 --- @param msg string?
@@ -494,7 +494,7 @@ function ns.assertNotTable(g, msg)
         "Expected not table, got %s", type(g))
 end
 
---- Assert that the geven value is a number.
+--- Assert that the given value is a number.
 ---
 --- @param g any
 --- @param msg string?
@@ -504,7 +504,7 @@ function ns.assertNumber(g, msg)
         "Expected number, got %s", type(g))
 end
 
---- Assert that the geven value is not a number.
+--- Assert that the given value is not a number.
 ---
 --- @param g any
 --- @param msg string?

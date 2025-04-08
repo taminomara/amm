@@ -42,7 +42,7 @@ local ns = {}
 --- @class ammcore.log.Level: integer
 ns.Level = {}
 
---- For detailed log that you only need to see when investigating behaviour
+--- For detailed log that you only need to see when investigating behavior
 --- of a certain system. It doesn't make sense to enable trace logging
 --- for the root logger, there's just too many of them.
 ---
@@ -62,7 +62,7 @@ ns.Level.Info = 200
 
 --- Something that the user should be aware of.
 ---
---- Warnings indicate that system's behaviour may differ from what the user might
+--- Warnings indicate that system's behavior may differ from what the user might
 --- be expecting, but otherwise they don't require user attention.
 ---
 --- @type ammcore.log.Level

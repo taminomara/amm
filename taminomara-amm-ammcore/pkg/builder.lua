@@ -87,7 +87,7 @@ function ns.PackageArchiver:unpack(pkgRoot)
     end
 end
 
---- Verify package integrity and throw an error if it's beroken.
+--- Verify package integrity and throw an error if it's broken.
 ---
 --- @protected
 function ns.PackageArchiver:_verify()

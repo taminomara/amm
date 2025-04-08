@@ -1,10 +1,22 @@
 {
   "jira-plugin.workingProject": "",
   "cSpell.words": [
+    "ammboot",
     "ammcore",
     "ammgui",
     "ammlib",
-    "ammtest"
+    "ammpackage",
+    "ammtest",
+    "autoobject",
+    "bootloader",
+    "classmethod",
+    "EEPROM",
+    "FicsIt",
+    "metatable",
+    "millis",
+    "nodiscard",
+    "testlib",
+    "userdata"
   ],
   "deploy.reloaded": {
     "packages": [

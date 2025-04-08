@@ -1,5 +1,5 @@
 --- This code was downloaded from `https://taminomara.github.io/amm/bootstrap.lua`.
---- It contains AMM package manager for Fixit Networks.
+--- It contains AMM package manager for FixIt Networks.
 
 --- Contains all files of the `ammcore` package.
 --- @type table<string, string>

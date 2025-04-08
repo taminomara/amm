@@ -446,7 +446,7 @@ function VersionSpecCompiler:addEq(ver)
                 self._exactLimit = ver
                 return
             else
-                -- Prefixes are not equal, versions are imcompatible.
+                -- Prefixes are not equal, versions are incompatible.
                 self._isNa = true
                 return
             end

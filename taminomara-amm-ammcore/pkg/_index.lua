@@ -179,13 +179,13 @@ end
 --- @param provider ammcore.pkg.provider.Provider a package provider.
 --- @param updateAll boolean update local packages even if current versions don't conflict with requirements.
 --- @param includeRemotePackages boolean allow package to fetch packages from github or other remote source.
---- @return number nUpgraded number of updraded packages.
+--- @return number nUpgraded number of upgraded packages.
 --- @return number nDowngraded number of downgraded packages.
 --- @return number nInstalled number of freshly installed packages.
 --- @return number nUninstalled number uninstalled packages that were no longer needed.
 --- @return number nRebuilt number of dev packages that were rebuilt.
 function ns.install(rootRequirements, provider, updateAll, includeRemotePackages)
-    local srvRoot = assert(bootloader.getSrvRoot(), "can't install paclages because config.srvRoot is not set")
+    local srvRoot = assert(bootloader.getSrvRoot(), "can't install packages because config.srvRoot is not set")
 
     local resolvedPackages = resolver.resolve(rootRequirements, provider, updateAll, includeRemotePackages)
 
@@ -206,16 +206,16 @@ function ns.install(rootRequirements, provider, updateAll, includeRemotePackages
         if not pkg.isInstalled then
             -- Check if another version is installed?
             local installedVersions, foundInstalled = provider:findPackageVersions(pkg.name, false)
-            local opetaion = ""
+            local operation = ""
             if foundInstalled and #installedVersions == 1 then
                 if pkg.version > installedVersions[1].version then
-                    opetaion = string.format(" (upgrade from %s)", installedVersions[1].version)
+                    operation = string.format(" (upgrade from %s)", installedVersions[1].version)
                     nUpgraded = nUpgraded + 1
                 elseif pkg.version == installedVersions[1].version then
-                    opetaion = " (rebuild)"
+                    operation = " (rebuild)"
                     nRebuilt = nRebuilt + 1
                 else
-                    opetaion = string.format(" (downgrade from %s)", installedVersions[1].version)
+                    operation = string.format(" (downgrade from %s)", installedVersions[1].version)
                     nDowngraded = nDowngraded + 1
                 end
             else
@@ -229,7 +229,7 @@ function ns.install(rootRequirements, provider, updateAll, includeRemotePackages
                 assert(filesystem.remove(pkgStagingPath, true))
             end
 
-            logger:info("Installing package %s == %s%s", pkg.name, pkg.version, opetaion)
+            logger:info("Installing package %s == %s%s", pkg.name, pkg.version, operation)
             pkg:install(pkgStagingPath)
 
             if filesystem.exists(pkgDestinationPath) then

@@ -108,14 +108,14 @@ BootloaderConfig.driveId = nil
 --- @type string?
 BootloaderConfig.mountPoint = nil
 
---- Address of the code server, used when tartet is "net".
+--- Address of the code server, used when target is "net".
 ---
 --- By default it is discovered through a broadcast request.
 ---
 --- @type string? Address of the code server, used when `target` is ``net``.
 BootloaderConfig.bootAddr = nil
 
---- Port of the code server, used when tartet is "net". Default is "0x1CD".
+--- Port of the code server, used when target is "net". Default is "0x1CD".
 ---
 --- @type integer? Port of the code server, used when `target` is ``net``.
 BootloaderConfig.bootPort = nil

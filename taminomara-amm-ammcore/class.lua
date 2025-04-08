@@ -183,7 +183,7 @@ function ns.Base:__tostring() return string.format("%s()", self.__name) end
 --- @type table<string, any> | fun(self: ammcore.class.Base, k: string): any
 ns.Base.__index = ns.Base
 
---- Always points to the class itseld.
+--- Always points to the class itself.
 ---
 --- Do not redefine, otherwise inheritance will break.
 ---
