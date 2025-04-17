@@ -1,79 +1,120 @@
--- local gpu = computer.getPCIDevices(classes.FINComputerGPUT2)[1] --[[ @as FINComputerGPUT2 ]]
--- local screen = computer.getPCIDevices(classes.FINComputerScreen)[1] --[[ @as FINComputerScreen ]]
--- gpu:bindScreen(screen)
+local log = require "ammcore.log"
+local gui = require "ammgui"
+local dom = require "ammgui.dom"
+local stylesheet = require "ammgui.css.stylesheet"
 
-local dom = require "ammgui.dom.block"
-local idom = require "ammgui.dom.inline"
-local com = require "ammgui.component.block"
-local icom = require "ammgui.component.inline"
+event.ignoreAll()
+event.clear()
 
-local component = nil
+log.Logger:New("ammgui"):setLevel(0)
+
+local gpu = assert(computer.getPCIDevices(classes.FINComputerGPUT2)[1]) --[[ @as FINComputerGPUT2 ]]
+-- local screen = assert(component.proxy("B600CC964F94C5F1FB63C3A7F1BEF281")) --[[ @as FINComputerScreen ]]
+local screen = assert(computer.getPCIDevices(classes.Build_ScreenDriver_C)[1]) --[[ @as Build_ScreenDriver_C ]]
+local _ = gpu:bindScreen(screen)
 
 computer.promote()
-print("start")
 
-local start = computer.millis()
-local i = 0
-while true do
-    i = i + 1
-    if i > 10000 then
-        i = 0
-        local now = computer.millis()
-        print((now - start) / 10000)
-        start = now
+local counter = dom.functional(function(ctx, params)
+    local x, setX = ctx:useState(params.initial or 1)
+
+    local flex = dom.flex { class = "drag-area" }
+    for i = 1, 15 do
+        local div = dom.flex { class = { "drag-target" }, dom.p { tostring(i) } }
+        if i == x then
+            table.insert(div.class --[[ @as string[] ]], "drag-target-active")
+            div.isDraggable = true
+            div.onDrag = function (pos, origin, modifiers, target)
+                if target == 1 then
+                    return "err"
+                elseif target == 2 then
+                    return "warn"
+                elseif target then
+                    return "ok"
+                end
+            end
+            div.onDragEnd = function (pos, origin, modifiers, target)
+                if target then
+                    setX(target)
+                end
+            end
+        else
+            div.dragTarget = i
+        end
+        table.insert(flex, div)
     end
 
-    local div = dom.p {
-        " is simply dummy text of the printing and typesetting industry. ",
-        "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
-        "when an unknown printer took a galley of type and scrambled it to make a type ",
-        "specimen book. It has survived not only five centuries, but also the leap into ",
-        "electronic typesetting, remaining essentially unchanged. It was popularised ",
-        "in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, ",
-        "and more recently with desktop publishing software like Aldus PageMaker ",
-        "including versions of ",
-        " is simply dummy text of the printing and typesetting industry. ",
-        "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
-        "when an unknown printer took a galley of type and scrambled it to make a type ",
-        "specimen book. It has survived not only five centuries, but also the leap into ",
-        "electronic typesetting, remaining essentially unchanged. It was popularised ",
-        "in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, ",
-        "and more recently with desktop publishing software like Aldus PageMaker ",
-        "including versions of ",
-        " is simply dummy text of the printing and typesetting industry. ",
-        "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
-        "when an unknown printer took a galley of type and scrambled it to make a type ",
-        "specimen book. It has survived not only five centuries, but also the leap into ",
-        "electronic typesetting, remaining essentially unchanged. It was popularised ",
-        "in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, ",
-        "and more recently with desktop publishing software like Aldus PageMaker ",
-        "including versions of ",
-        " is simply dummy text of the printing and typesetting industry. ",
-        "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
-        "when an unknown printer took a galley of type and scrambled it to make a type ",
-        "specimen book. It has survived not only five centuries, but also the leap into ",
-        "electronic typesetting, remaining essentially unchanged. It was popularised ",
-        "in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, ",
-        "and more recently with desktop publishing software like Aldus PageMaker ",
-        "including versions of ",
-        " is simply dummy text of the printing and typesetting industry. ",
-        "Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
-        "when an unknown printer took a galley of type and scrambled it to make a type ",
-        "specimen book. It has survived not only five centuries, but also the leap into ",
-        "electronic typesetting, remaining essentially unchanged. It was popularised ",
-        "in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, ",
-        "and more recently with desktop publishing software like Aldus PageMaker ",
-        "including versions of ",
+    return dom.flex { style = { justifyContent = "center", alignItems = "center", width = "100vw", height = "100vh", backgroundColor = "#224", padding = 10, }, flex }
+end)
+
+local app = gui.App:New(gpu, counter, {})
+
+app:addStyle(
+    stylesheet.Stylesheet:New()
+    :addRule {
+        ".drag-area",
+        gap = 10,
+        flexWrap = "wrap",
+        backgroundColor = "#228",
     }
-    component = com.Component.syncOne(component, div)
-    if component.outdated then
-        local tms = icom.TextMeasuringService:New()
-        component:prepareLayout(gpu, tms)
-        tms:run(gpu)
-        component:calculateIntrinsicLayout(gpu)
-        component:calculateLayout(gpu, { x = 1000, y = 500 })
-        -- component.outdated = false
-    end
-    -- component:draw(gpu)
-    -- gpu:flush()
+    :addRule {
+        ".drag-target",
+        width = 100,
+        height = 100,
+        outlineWidth = 1,
+        backgroundColor = "#303030",
+        justifyContent = "center",
+        alignItems = "center",
+    }
+    :addRule {
+        ".drag-target:hover",
+        backgroundColor = "#404040",
+    }
+    :addRule {
+        ".drag-target.drag-target-active",
+        backgroundColor = "#309930"
+    }
+    -- :addRule {
+    --     "h1",
+    --     fontSize = "32pt",
+    -- }
+    -- :addRule {
+    --     "button",
+    --     width = 100,
+    --     padding = 10,
+    --     backgroundColor = "#303030",
+    --     outlineWidth = 1,
+    --     outlineRadius = "0.4em",
+    -- }
+    -- :addRule {
+    --     "button:hover",
+    --     backgroundColor = "#505050",
+    -- }
+    :addRule {
+        ":drop:drop",
+        backgroundColor = "#505050",
+    }
+    :addRule {
+        ":drop:drop-ok",
+        backgroundColor = "#506550",
+    }
+    :addRule {
+        ":drop:drop-warn",
+        backgroundColor = "#656550",
+    }
+    :addRule {
+        ":drop:drop-err",
+        backgroundColor = "#655050",
+    })
+
+-- app.stressMode = true
+
+local defer = require "ammcore.defer"
+local ok, err = defer.xpcall(function ()
+app:start()
+future.loop()
+end)
+
+if not ok then
+    print(err.message, err.trace)
 end

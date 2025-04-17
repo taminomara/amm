@@ -2,7 +2,7 @@ local test = require "ammtest"
 local log = require "ammcore.log"
 local bootloader = require "ammcore.bootloader"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 function suite:setupTest()
     local config = bootloader.getBootloaderConfig()

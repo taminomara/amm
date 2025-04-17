@@ -1,7 +1,7 @@
 local version = require "ammcore.pkg.version"
 local test = require "ammtest"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 suite:caseParams("parse", {}, function()
 end)

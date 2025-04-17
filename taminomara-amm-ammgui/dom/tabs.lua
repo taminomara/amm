@@ -1,7 +1,7 @@
---- Manages GPUs.
+--- Tabs.
 ---
 --- !doctype module
---- @class ammgui.gpu
+--- @class ammgui.dom.tabs
 local ns = {}
 
 return ns

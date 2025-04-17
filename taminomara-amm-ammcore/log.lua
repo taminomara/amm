@@ -307,6 +307,18 @@ function ns.Logger:critical(msg, ...)
     self:log(ns.Level.Critical, msg, ...)
 end
 
+local userdataKeys = {
+    ["Struct<Vector>"] = { "x", "y", "z" },
+    ["Struct<Vector2D>"] = { "x", "y" },
+    ["Struct<Color>"] = { "r", "g", "b", "a" },
+    ["Struct<Rotator>"] = { "pitch", "yaw", "roll" },
+    ["Struct<Vector4>"] = { "x", "y", "z", "w" },
+    ["Struct<Margin>"] = { "left", "right", "top", "bottom" },
+    ["Struct<Item>"] = { "type" },
+    ["Struct<ItemStack>"] = { "count", "item" },
+    ["Struct<ItemAmount>"] = { "amount", "type" },
+}
+
 --- @param x any
 --- @param long boolean
 --- @param depth integer
@@ -316,6 +328,18 @@ local function _pprintImpl(x, long, depth)
     depth = (depth or 0) + 1
     if not long and depth > 3 then
         return "..."
+    end
+    if type(x) == "userdata" then
+        local name = tostring(x)
+        if userdataKeys[name] then
+            local res = name .. "{"
+            local sep = ""
+            for _, k in ipairs(userdataKeys[name]) do
+                res = string.format("%s%s%s=%s", res, sep, k, _pprintImpl(x[k], long, depth))
+                sep = long and ", " or ","
+            end
+            return res .. "}"
+        end
     end
     if type(x) == "table" then
         if (getmetatable(x) or {}).__tostring then
@@ -421,7 +445,7 @@ end
 
 --- !doc private
 --- @class ammcore.log._Pretty
-local Pretty = { __tostring = ns.pprintVa }
+local Pretty = { __tostring = function(self) return ns.pprintVa(self, self.long) end }
 
 --- Return a wrapper that pretty prints function's arguments when converted to string.
 ---
@@ -442,7 +466,12 @@ local Pretty = { __tostring = ns.pprintVa }
 --- @param ... any values to be pretty printed.
 --- @return ammcore.log._Pretty an opaque value that pretty-prints given arguments.
 function ns.p(...)
-    return setmetatable({ ... }, Pretty)
+    return setmetatable({ long = false, ... }, Pretty)
+end
+
+--- Like `p`, but set ``long`` to `true`.
+function ns.pp(...)
+    return setmetatable({ long = true, ... }, Pretty)
 end
 
 return ns

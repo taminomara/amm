@@ -1,7 +1,7 @@
 local test = require "ammtest"
 local nick = require "ammcore.nick"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 suite:caseParams(
     "basic",

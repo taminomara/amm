@@ -1,6 +1,6 @@
 local test = require "ammtest"
 
-local asserts = test.suite("test.asserts")
+local asserts = test.safeSuite("asserts")
 
 asserts:case("assertError throws matches", function()
     test.assertError(function() error("!!!") end, {}, "!!!")
@@ -125,7 +125,7 @@ asserts:caseParams(
 TEST_GLOBAL_VAR = 1
 TEST_GLOBAL_NAMESPACE = { x = 2, y = { z = 3 } }
 
-local patch = test.suite("test.patch")
+local patch = test.safeSuite("patch")
 
 function patch:setupSuite()
     test.assertEq(TEST_GLOBAL_VAR, 1)
@@ -188,7 +188,7 @@ function patch:teardownSuite()
     test.assertEq(TEST_GLOBAL_NAMESPACE.y.z, 6)
 end
 
-local postPatch = test.suite("test.patch")
+local postPatch = test.safeSuite("patch.post")
 
 postPatch:case("cleanup", function()
     test.assertEq(TEST_GLOBAL_VAR, 1)
@@ -196,7 +196,7 @@ postPatch:case("cleanup", function()
     test.assertEq(TEST_GLOBAL_NAMESPACE.y.z, 3)
 end)
 
-local getLog = test.suite("test.getLog")
+local getLog = test.safeSuite("getLog")
 
 getLog:case("getLog", function()
     test.assertDeepEq(test.getLog(), {})
@@ -212,7 +212,7 @@ getLog:case("getLogStr", function()
     test.assertEq(test.getLogStr(), "123\t1\t2\nfoo\n\nbar!\n")
 end)
 
-local helpers = test.suite("test.helpers")
+local helpers = test.safeSuite("helpers")
 
 helpers:caseParams(
     "pprint long",

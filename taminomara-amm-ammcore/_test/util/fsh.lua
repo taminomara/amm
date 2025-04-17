@@ -1,7 +1,7 @@
 local test = require "ammtest"
 local fsh = require "ammcore._util.fsh"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 suite:caseParams(
     "parent",

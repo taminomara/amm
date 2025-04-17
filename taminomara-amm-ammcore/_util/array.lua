@@ -113,15 +113,28 @@ end
 --- @generic T
 --- @generic U
 --- @param arr T[] array to be mapped.
---- @param fn fun(..., x: T): U mapper.
---- @param ... any additional arguments to mapper.
+--- @param fn fun(x: T): U mapper.
 --- @return U[] mapped new array containing result of applying ``fn`` to every element in ``arr``.
-function ns.map(arr, fn, ...)
+function ns.map(arr, fn)
     local res = {}
     for _, v in ipairs(arr) do
-        table.insert(res, fn(..., v))
+        table.insert(res, fn(v))
     end
     return res
+end
+
+--- Apply function to every element of an array, placing results back to the same array.
+---
+--- @generic T
+--- @param arr T[] array to be mapped.
+--- @param fn fun(..., x: T): T mapper.
+--- @param ... any additional arguments to mapper.
+--- @return T[] mapped new array containing result of applying ``fn`` to every element in ``arr``.
+function ns.mapInPlace(arr, fn, ...)
+    for i, v in ipairs(arr) do
+        arr[i] = fn(..., v)
+    end
+    return arr
 end
 
 --- Apply function to every element of an array and filter out all `nil` values.
@@ -139,6 +152,44 @@ function ns.filterMap(arr, fn, ...)
         if m then table.insert(res, m) end
     end
     return res
+end
+
+--- Fold an array using the given operator.
+---
+--- @generic T
+--- @generic U
+--- @param arr T[] array to be folded.
+--- @param fn fun(lhs: U, rhs: T): U binary operator.
+--- @param initial U left value for the first operation.
+--- @return U result of the operation.
+function ns.fold(arr, fn, initial)
+    for _, x in ipairs(arr) do
+        initial = fn(initial, x)
+    end
+    return initial
+end
+
+--- Right-fold an array using the given operator.
+---
+--- @generic T
+--- @generic U
+--- @param arr T[] array to be right-folded.
+--- @param fn fun(lhs: T, rhs: U): U binary operator.
+--- @param initial U right value for the first operation.
+--- @return U[] result of the operation.
+function ns.rfold(arr, fn, initial)
+    for i = #arr, 1, -1 do
+        initial = fn(arr[i], initial)
+    end
+    return initial
+end
+
+--- Sum numbers in an array.
+---
+--- @param arr number[]
+--- @return number
+function ns.sum(arr)
+    return ns.fold(arr, function(a, b) return a + b end, 0)
 end
 
 return ns

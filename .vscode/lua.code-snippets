@@ -7,6 +7,7 @@
 			"--- @class ${RELATIVE_FILEPATH/([\\/\\\\])|(^taminomara.amm.)|(.lua$)/${1:+.}/g}.${1:${TM_FILENAME_BASE/^(.*)$/${1:/pascalcase}/}}: ${3/^(.*)$/${1:ammcore.class.Base}/}",
 			"${2/^$/local /}${1} = class.create(\"${1}\"${3/^(.*)$/${1:+, }$1/})",
 			"",
+			"--- !doctype classmethod",
 			"--- @generic T: ${RELATIVE_FILEPATH/([\\/\\\\])|(^taminomara.amm.)|(.lua$)/${1:+.}/g}.$1",
 			"--- @param self T",
 			"--- @return T",

@@ -22,6 +22,7 @@ ns.Selector = class.create("Selector")
 --- @param repr string
 --- @param matchers (fun (elem: string, classes: table<string, true>, pseudo: table<string, true>): integer?)[]
 ---
+--- !doctype classmethod
 --- @generic T: ammgui.css.selector.Selector
 --- @param self T
 --- @return T
@@ -40,9 +41,15 @@ function ns.Selector:New(elemSpecificity, classSpecificity, layer, appeared, rep
     --- @type integer
     self.classSpecificity = classSpecificity
 
+    --- CSS layer this selector appeared in.
+    ---
+    --- !doctype const
     --- @type integer
     self.layer = layer
 
+    --- Index at which this rule was added to an app.
+    ---
+    --- !doctype const
     --- @type integer
     self.appeared = appeared
 
@@ -118,6 +125,7 @@ end
 --- @param selector string string representing a CSS selector.
 --- @param layer integer CSS layer, used to calculate selector's priority. User-agent layer is ``-1``.
 --- @param appeared integer index of this selector in a stylesheet, used to calculate selector's priority.
+--- @return ammgui.css.selector.Selector compiledSelector parsed and compiled selector.
 function ns.parse(selector, layer, appeared)
     local elemSpecificity = 0
     local classSpecificity = 0

@@ -583,11 +583,12 @@ ns.Suite = class.create("Suite")
 ---    Use `ammtest.suite` to properly construct test suites.
 ---
 --- @param name string? name of the test suite.
+--- @param isSafe boolean
 ---
 --- @generic T: ammtest.Suite
 --- @param self T
 --- @return T
-function ns.Suite:New(name)
+function ns.Suite:New(name, isSafe)
     self = class.Base.New(self)
 
     --- Name of the suite, used for error messages.
@@ -595,6 +596,12 @@ function ns.Suite:New(name)
     --- !doctype const
     --- @type string
     self.name = name or bootloader.getMod(2)
+
+    --- Indicates that this suite is safe to run in GitHub actions.
+    ---
+    --- !doctype const
+    --- @type boolean
+    self.isSafe = isSafe
 
     --- @package
     --- @type { name: string, loc: string, fn: fun(...), param: ammtest.Param? }[]
@@ -656,7 +663,8 @@ end
 --- @param fn fun(...) test implementation, must accept parameters as its arguments.
 function ns.Suite:caseParams(name, params, fn)
     if #params == 0 then
-        self:case(name, function() ns.skip("Parameter list is empty.") end)
+        fn = function() ns.skip("Parameter list is empty.") end
+        table.insert(self._cases, { name = name, loc = bootloader.getLoc(2), fn = fn })
         return
     end
     for i, param in ipairs(params) do
@@ -667,9 +675,20 @@ end
 --- Create a new test suite.
 ---
 --- @param name string?
+--- @param isSafe boolean?
 --- @return ammtest.Suite
-function ns.suite(name)
-    return ns.Suite:New(name or bootloader.getMod(2))
+function ns.suite(name, isSafe)
+    name = name and (":" .. name) or ""
+    return ns.Suite:New(bootloader.getMod(2) .. name, isSafe or false)
+end
+
+--- Create a new test suite and mark it as safe to run in GitHub actions.
+---
+--- @param name string?
+--- @return ammtest.Suite
+function ns.safeSuite(name)
+    name = name and ("." .. name) or ""
+    return ns.Suite:New(bootloader.getMod(2) .. name, true)
 end
 
 local testData = {
@@ -1061,6 +1080,13 @@ function ns.run()
 
         local suiteResult = ns.Result:New(suite.name)
         table.insert(results, suiteResult)
+
+        ---@diagnostic disable-next-line: undefined-global
+        if __AMM_EXTERNAL_ENV and not suite.isSafe then
+            suiteResult.status = "SKIP"
+            suiteResult.msg = "Suite can't run in this environment."
+            goto continue
+        end
 
         do
             local status, msg, loc = run("suite setup", suite.setupSuite, suite)

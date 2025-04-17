@@ -1,7 +1,7 @@
 local test = require "ammtest"
 local defer = require "ammcore.defer"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 suite:case("xpcall success", function()
     local args

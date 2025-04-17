@@ -25,9 +25,9 @@ default_role = "lua:obj"
 
 lua_ls_project_root = ".."
 lua_ls_project_directories = [
-    "taminomara-amm-ammcore",
+    # "taminomara-amm-ammcore",
     "taminomara-amm-ammtest",
-    "taminomara-amm-ammgui",
+    # "taminomara-amm-ammgui",
 ]
 lua_ls_default_options = {
     "members": "",
@@ -37,9 +37,9 @@ lua_ls_default_options = {
     "module-member-order": "groupwise",
 }
 lua_ls_apidoc_roots = {
-    "ammcore": "ammcore/api",
+    # "ammcore": "ammcore/api",
     "ammtest": "ammtest/api",
-    "ammgui": "ammgui/api",
+    # "ammgui": "ammgui/api",
 }
 lua_ls_apidoc_ignored_modules = [
     "taminomara-amm-*/_*",

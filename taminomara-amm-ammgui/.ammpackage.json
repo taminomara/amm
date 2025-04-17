@@ -1,13 +1,16 @@
 {
   "name": "taminomara-amm-ammgui",
   "version": "0.1.0",
-  "description": "GUI for Fics-It networks",
+  "description": "GUI for FicsIt networks",
   "author": "Tamika Nomara <taminomara@gmail.com>",
   "license": "MIT",
   "urls": {
     "code": "https://github.com/taminomara/amm",
     "issues": "https://github.com/taminomara/amm/issues",
     "docs": "https://taminomara.github.io/amm"
+  },
+  "requirements": {
+    "taminomara-amm-ammcore": "~0.1"
   },
   "devRequirements": {
     "taminomara-amm-ammtest": "~0.1"

@@ -5,7 +5,7 @@ local class = require "ammcore.class"
 local localProvider = require "ammcore.pkg.providers.local"
 local version = require "ammcore.pkg.version"
 
-local suite = test.suite()
+local suite = test.safeSuite()
 
 --- @class ammcore._test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
 local TestProvider = class.create("TestProvider", provider.Provider)

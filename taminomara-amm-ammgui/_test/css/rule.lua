@@ -175,7 +175,7 @@ suite:caseParams(
         for _, matches in ipairs(path) do
             local processedMatches = {}
             for _, ruleData in ipairs(matches) do
-                table.insert(processedMatches, rule.makeRule(ruleData))
+                table.insert(processedMatches, rule.compile(ruleData))
             end
             parent = rule.Resolved:New(processedMatches, parent, theme)
         end

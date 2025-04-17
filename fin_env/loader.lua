@@ -36,6 +36,8 @@ local _ENV = {
 
 _G = _ENV
 
+__AMM_EXTERNAL_ENV = true
+
 function xpcall(fn, ...)
     local args = { ... }
     local res
