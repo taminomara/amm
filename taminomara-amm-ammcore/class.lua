@@ -1,4 +1,4 @@
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local bootloader = require "ammcore.bootloader"
 
 --- Allows creating classes using metatable mechanism.
@@ -229,7 +229,7 @@ function ns.Base:__initSubclass(...)
             "__initSubclass got %s unexpected argument%s: %s",
             l,
             l == 1 and "" or "s",
-            table.concat(array.map({ ... }, tostring), ", ")
+            table.concat(fun.a.map({ ... }, tostring), ", ")
         ))
     end
 end

@@ -30,10 +30,7 @@ end
 ---
 --- @param pos Vector2D mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
-function ns.EventListener:onMouseEnter(pos, modifiers, propagate)
-    return propagate
+function ns.EventListener:onMouseEnter(pos, modifiers)
 end
 
 --- Triggered when mouse moves over the receiver's area.
@@ -50,10 +47,7 @@ end
 ---
 --- @param pos Vector2D mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
-function ns.EventListener:onMouseExit(pos, modifiers, propagate)
-    return propagate
+function ns.EventListener:onMouseExit(pos, modifiers)
 end
 
 --- Triggered when mouse button is pressed over the receiver's area.
@@ -86,19 +80,6 @@ end
 --- @param propagate boolean
 --- @return boolean propagate
 function ns.EventListener:onClick(pos, modifiers, propagate)
-    return propagate
-end
-
---- Triggered when the right mouse button is clicked over the receiver's area.
----
---- For this event to be triggered, both `onMouseDown` and `onMouseUp` must happen
---- over the same target.
----
---- @param pos Vector2D mouse position relative to the area's top-left corner.
---- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
-function ns.EventListener:onRightClick(pos, modifiers, propagate)
     return propagate
 end
 
@@ -211,12 +192,10 @@ function ns.WeakEventListener:isActive()
     end
 end
 
-function ns.WeakEventListener:onMouseEnter(pos, modifiers, propagate)
+function ns.WeakEventListener:onMouseEnter(pos, modifiers)
     local inner = self:_getEventListener()
     if inner then
-        return inner:onMouseEnter(pos, modifiers, propagate)
-    else
-        return propagate
+        return inner:onMouseEnter(pos, modifiers)
     end
 end
 
@@ -229,12 +208,10 @@ function ns.WeakEventListener:onMouseMove(pos, modifiers, propagate)
     end
 end
 
-function ns.WeakEventListener:onMouseExit(pos, modifiers, propagate)
+function ns.WeakEventListener:onMouseExit(pos, modifiers)
     local inner = self:_getEventListener()
     if inner then
-        return inner:onMouseExit(pos, modifiers, propagate)
-    else
-        return propagate
+        return inner:onMouseExit(pos, modifiers)
     end
 end
 
@@ -260,15 +237,6 @@ function ns.WeakEventListener:onClick(pos, modifiers, propagate)
     local inner = self:_getEventListener()
     if inner then
         return inner:onClick(pos, modifiers, propagate)
-    else
-        return propagate
-    end
-end
-
-function ns.WeakEventListener:onRightClick(pos, modifiers, propagate)
-    local inner = self:_getEventListener()
-    if inner then
-        return inner:onRightClick(pos, modifiers, propagate)
     else
         return propagate
     end
@@ -544,11 +512,7 @@ function ns.EventManager:OnMouseUp(mainWindow, mainContext, pos, modifiers)
             while currentEventListener do
                 local receiverPos = affectedEventListeners[currentEventListener]
                 if receiverPos and self._lastAffectedMouseDownEventListeners[currentEventListener] and currentEventListener:isActive() then
-                    if modifiers & 2 > 0 then
-                        propagate = currentEventListener:onRightClick(pos - receiverPos, modifiers, propagate)
-                    else
-                        propagate = currentEventListener:onClick(pos - receiverPos, modifiers, propagate)
-                    end
+                    propagate = currentEventListener:onClick(pos - receiverPos, modifiers, propagate)
                 end
                 currentEventListener = currentEventListener.parent
             end
@@ -685,11 +649,10 @@ end
 --- @param affectedEventListeners table<ammgui.eventManager.EventListener, Vector2D> | nil
 function ns.EventManager:_sendMouseExit(pos, modifiers, affectedEventListeners)
     local lastEventListener = self._lastHoverEventListener
-    local propagate = true
     while lastEventListener do
         local receiverPos = self._lastAffectedHoverEventListeners[lastEventListener]
         if receiverPos and (not affectedEventListeners or not affectedEventListeners[lastEventListener]) and lastEventListener:isActive() then
-            propagate = lastEventListener:onMouseExit(pos - receiverPos, modifiers, propagate)
+            lastEventListener:onMouseExit(pos - receiverPos, modifiers)
         end
         lastEventListener = lastEventListener.parent
     end
@@ -701,20 +664,34 @@ end
 --- @param affectedEventListeners table<ammgui.eventManager.EventListener, Vector2D>
 --- @param sendMove boolean
 function ns.EventManager:_sendMouseEnterOrMove(pos, modifiers, topEventListener, affectedEventListeners, sendMove)
-    local currentEventListener = topEventListener
-    local propagate = true
-    while currentEventListener do
-        local receiverPos = affectedEventListeners[currentEventListener]
-        if receiverPos and currentEventListener:isActive() then
-            if self._lastAffectedHoverEventListeners[currentEventListener] then
-                if sendMove then
+    do
+        local chain = {}
+        local currentEventListener = topEventListener
+        while currentEventListener do
+            local receiverPos = affectedEventListeners[currentEventListener]
+            if receiverPos and currentEventListener:isActive() then
+                if not self._lastAffectedHoverEventListeners[currentEventListener] then
+                    table.insert(chain, currentEventListener)
+                end
+            end
+            currentEventListener = currentEventListener.parent
+        end
+        for _, eventListener in ipairs(chain) do
+            eventListener:onMouseEnter(pos - affectedEventListeners[eventListener], modifiers)
+        end
+    end
+    if sendMove then
+        local currentEventListener = topEventListener
+        local propagate = true
+        while currentEventListener do
+            local receiverPos = affectedEventListeners[currentEventListener]
+            if receiverPos and currentEventListener:isActive() then
+                if self._lastAffectedHoverEventListeners[currentEventListener] then
                     propagate = currentEventListener:onMouseMove(pos - receiverPos, modifiers, propagate)
                 end
-            else
-                propagate = currentEventListener:onMouseEnter(pos - receiverPos, modifiers, propagate)
             end
+            currentEventListener = currentEventListener.parent
         end
-        currentEventListener = currentEventListener.parent
     end
 end
 

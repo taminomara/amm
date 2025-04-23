@@ -1,5 +1,5 @@
-local class = require "ammcore.clas"
-local array = require "ammcore._util.array"
+local class = require "ammcore.class"
+local fun = require "ammcore.fun"
 
 --- Helpers for passing recipes around the network.
 local recipeHelpers = {}
@@ -26,7 +26,7 @@ end
 
 --- @param recipes Recipe-Class[]
 function recipeHelpers.Recipe:NewArray(recipes)
-    return array.map(recipes, self.New, self)
+    return fun.a.map(recipes, self.New, self)
 end
 
 return recipeHelpers

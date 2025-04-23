@@ -1,6 +1,6 @@
 local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 --- !doctype module
 --- @class ammcore.pkg.providers.aggregate
@@ -30,7 +30,7 @@ end
 function ns.AggregateProvider:getLocalPackages()
     local pkgs = {}
     for _, provider in ipairs(self._providers) do
-        array.insertMany(pkgs, provider:getLocalPackages())
+        fun.a.extend(pkgs, provider:getLocalPackages())
     end
     return pkgs
 end

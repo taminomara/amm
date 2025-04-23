@@ -1,8 +1,7 @@
 local dom = require "ammgui.dom"
-local array = require "ammcore._util.array"
-local log = require "ammcore.log"
+local fun = require "ammcore.fun"
 
---- Resize boxes.
+--- Allows creating resize-able split-panels.
 ---
 --- !doctype module
 --- @class ammgui.dom.resize
@@ -42,9 +41,13 @@ local function calculateMaxDelta(i, delta, dragState)
     return maxPossibleDelta
 end
 
+--- @class ammgui.dom.resize.ResizeParams: ammgui.dom.FunctionalParamsWithChildren
+--- @field direction ammgui.css.rule.FlexDirectionValue?
+--- @field class string|string[]?
+
 --- @param ctx ammgui.dom.Context
---- @param params { direction: ammgui.css.rule.FlexDirectionValue?, class: string|string[]?, [integer]: ammgui.dom.block.Node }
---- @return ammgui.dom.block.Node
+--- @param params ammgui.dom.resize.ResizeParams
+--- @return ammgui.dom.AnyNode
 local function _split(ctx, params)
     local dragState = ctx:useRef(nil)
 
@@ -54,7 +57,7 @@ local function _split(ctx, params)
     elseif type(class) == "string" then
         class = { class, "__amm_resize__split" }
     else
-        class = array.insertMany({ "__amm_resize__split" }, class)
+        class = fun.a.extend({ "__amm_resize__split" }, class)
     end
 
     local flex = dom.flex {
@@ -62,13 +65,13 @@ local function _split(ctx, params)
         style = { flexDirection = params.direction },
     }
 
-    --- @type ammgui.component.block.func.Ref<ammgui.component.block.Component?>[]
+    --- @type ammgui.component.block.func.Ref<ammgui.component.api.ComponentApi?>[]
     local refs = {}
 
     for i, node in ipairs(params) do
-        node.ref = ctx:useRef(nil)
-        table.insert(refs, node.ref)
-        table.insert(flex, node)
+        local ref = ctx:useRef(nil)
+        table.insert(refs, ref)
+        table.insert(flex, dom.list { node, key = node.key, ref = ref })
         if i < #params then
             table.insert(
                 flex,
@@ -77,13 +80,10 @@ local function _split(ctx, params)
                     onDragStart = function()
                         dragState.current = {}
                         for _, ref in ipairs(refs) do
-                            local borderBoxAdjustment =
-                                assert(ref.current).usedLayout.resolvedBorderBoxSize.y
-                                - assert(ref.current).usedLayout.resolvedContentSize.y
                             table.insert(dragState.current, {
-                                size = assert(ref.current).usedLayout.resolvedContentSize.y + borderBoxAdjustment,
-                                minSize = assert(ref.current).verticalLayout.resolvedContentMinSize + borderBoxAdjustment,
-                                maxSize = assert(ref.current).verticalLayout.resolvedContentMaxSize + borderBoxAdjustment,
+                                size = assert(ref.current):getBorderBoxSize().y,
+                                minSize = assert(ref.current):getBorderBoxMinSize().y,
+                                maxSize = assert(ref.current):getBorderBoxMaxSize().y,
                             })
                         end
                     end,
@@ -121,6 +121,28 @@ local function _split(ctx, params)
 
     return flex
 end
+
+--- Make a resize-able split-panel.
+---
+--- Pass an array of block nodes as a parameter. Each node becomes
+--- a panel that can be resized. Technically, all panels are added into a flex
+--- element, and resizing controls their ``flexBasis``. You can control how much
+--- each panel can be resized by setting its ``min-height``, ``max-height``,
+--- ``min-width``, and ``max-width``.
+---
+--- By default, panels are stacked vertically; pass ``direction`` to control split's
+--- direction. Pass ``class`` to add a class to the outer-most flex element.
+---
+--- **Example:**
+---
+--- .. code-block:: lua
+---
+---    local split = dom.Split {
+---        direction = "row",
+---        class = "my-split",
+---        dom.scroll { ... }, -- panel 1
+---        dom.scroll { ... }, -- panel 2
+---    }
 ns.Split = dom.functional(_split)
 
 return ns

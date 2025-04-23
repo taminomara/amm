@@ -1,6 +1,6 @@
 local class = require "ammcore.class"
 local builder = require "ammcore.pkg.builder"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 --- Data about available packages and their versions.
 ---
@@ -88,12 +88,12 @@ function ns.PackageVersion:getAllRequirements()
     if not self._allRequirements then
         self._allRequirements = {}
 
-        array.insertTable(self._allRequirements, self:getRequirements(), function(l, r)
+        fun.t.updateWith(self._allRequirements, self:getRequirements(), function(l, r)
             return l .. r
         end)
 
         if self.isDevMode then
-            array.insertTable(self._allRequirements, self:getDevRequirements(), function(l, r)
+            fun.t.updateWith(self._allRequirements, self:getDevRequirements(), function(l, r)
                 return l .. r
             end)
         end

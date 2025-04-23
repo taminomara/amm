@@ -6,7 +6,7 @@ local localProvider = require "ammcore.pkg.providers.local"
 local githubProvider = require "ammcore.pkg.providers.github"
 local aggregateProvider = require "ammcore.pkg.providers.aggregate"
 local bootloader = require "ammcore.bootloader"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 --- API for AMM package manager.
 ---
@@ -151,7 +151,7 @@ function ns.verify(rootRequirements, provider)
             allPkgs[name] = pkg
 
             do
-                array.insertTable(allRequirements, pkg:getAllRequirements(), function(l, r)
+                fun.t.updateWith(allRequirements, pkg:getAllRequirements(), function(l, r)
                     return l .. r
                 end)
             end

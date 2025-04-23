@@ -1,6 +1,6 @@
 local class = require "ammcore.clas"
 local severity = require "amm.lib.severity"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 local errorReporter = {}
 
@@ -232,8 +232,8 @@ function errorReporter.ErrorReporter:finishCollectingMessages()
             if not data.persistent then
                 computer.log(math.max(0, data.sv - 1), data.msg or Messages[code].msg)
             end
-            array.insertMany(self._pendingPings, data.locations)
-            array.insertMany(self._pendingPings, data.persistentLocations)
+            fun.a.extend(self._pendingPings, data.locations)
+            fun.a.extend(self._pendingPings, data.persistentLocations)
         elseif data.lastSeen < self._generation and not data.persistent then
             -- not seen in this generation
             self._messagesChanged = true

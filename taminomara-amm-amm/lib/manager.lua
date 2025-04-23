@@ -4,7 +4,7 @@ local class = require "ammcore.clas"
 local pickle = require "amm.lib.pickle"
 local indicatorManager = require "amm.lib.indicatorManager"
 local nick = require "ammcore.nick"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local log = require "ammcore.log"
 local filesystemHelpers = require "ammcore._util.fsh"
 local fin = require "ammcore._util.fin"
@@ -368,7 +368,7 @@ function manager.Manager:_loop()
                 for _, controller in ipairs(self._controllers) do
                     local controllerPings = controller.errRep:extractPendingPingLocations()
                     if self._pingsEnabled then
-                        array.insertMany(pendingPings, controllerPings)
+                        fun.a.extend(pendingPings, controllerPings)
                     end
                 end
                 for _, location in ipairs(pendingPings) do

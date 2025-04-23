@@ -1,5 +1,6 @@
 local stylesheet = require "ammgui.css.stylesheet"
 local class = require "ammcore.class"
+local u = require "ammgui.css.units"
 
 --- Pre-defined themes.
 ---
@@ -31,6 +32,21 @@ function ns.Theme:New(theme)
     return self
 end
 
+--- System styles.
+ns.SYSTEM = stylesheet.Stylesheet:New(1000)
+    :addRule {
+        ":root",
+        color = "canvastext",
+        backgroundColor = "canvas",
+        width = u.vw(100),
+        height = u.vh(100),
+        overflow = "hidden",
+    }
+    :addRule {
+        "scroll",
+        overflow = "hidden",
+    }
+
 --- Default theme.
 ns.DEFAULT = ns.Theme
     :New {
@@ -52,18 +68,6 @@ ns.DEFAULT = ns.Theme
         nodata = "#707070",
         nodatatext = "#e0e0e0",
     }
-    -- System
-    :addRule {
-        ":root",
-        color = "canvastext",
-        backgroundColor = "canvas",
-        width = "100vw",
-        height = "100vh",
-    }
-    :addRule {
-        "scroll",
-        overflow = "hidden",
-    }
     -- Inline typography
     :addRule {
         "em",
@@ -73,36 +77,36 @@ ns.DEFAULT = ns.Theme
         "code",
         backgroundColor = "#303030",
         color = "accentcolortext",
-        outlineRadius = "0.5em",
+        outlineRadius = u.em(0.5),
         outlineWidth = 1,
-        padding = { 0, "0.2em" },
+        padding = { 0, u.em(0.2) },
     }
     -- Block typography
     :addRule {
         "p", "section", "blockquote", "figure", "figcaption",
-        margin = { "0.5em", 0 },
+        margin = { u.em(0.5), 0 },
     }
     :addRule {
         "h1",
         color = "accentcolortext",
-        fontSize = "140%",
-        marginTop = "0.7em",
+        fontSize = u.percent(140),
+        marginTop = u.em(0.7),
     }
     :addRule {
         "h2",
         color = "accentcolortext",
-        fontSize = "130%",
-        marginTop = "0.7em",
+        fontSize = u.percent(130),
+        marginTop = u.em(0.7),
     }
     :addRule {
         "h3",
         color = "accentcolortext",
-        fontSize = "120%",
-        marginTop = "0.7em",
+        fontSize = u.percent(120),
+        marginTop = u.em(0.7),
     }
     :addRule {
         "figcaption",
-        fontSize = "80%",
+        fontSize = u.percent(80),
     }
     :addRule {
         "article",
@@ -113,19 +117,19 @@ ns.DEFAULT = ns.Theme
         ".__amm_resize__container",
         flexWrap = "nowrap",
         alignItems = "stretch",
-        maxWidth = "100%",
-        maxHeight = "100%",
+        maxWidth = u.percent(100),
+        maxHeight = u.percent(100),
     }
     :addRule {
         ".__amm_resize__split",
         flexWrap = "nowrap",
         alignItems = "stretch",
-        width = "100%",
-        height = "100%",
+        width = u.percent(100),
+        height = u.percent(100),
     }
     :addRule {
         ".__amm_resize__handle",
-        flex = { 0, 0, "5px" },
+        flex = { 0, 0, u.px(5) },
         backgroundColor = structs.Color { 1, 1, 1, 0.1 },
     }
     :addRule {

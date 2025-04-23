@@ -1,13 +1,12 @@
-local bdom = require "ammgui.dom.block"
-local idom = require "ammgui.dom.inline"
-local p = require "ammgui.component.block.p"
 local div = require "ammgui.component.block.div"
 local flex = require "ammgui.component.block.flex"
-local func = require "ammgui.component.block.func"
-local span = require "ammgui.component.inline.span"
-local list = require "ammgui.component.block.list"
-local ilist = require "ammgui.component.inline.list"
+local func = require "ammgui.component.func"
+local span = require "ammgui.component.inline.text"
+local list = require "ammgui.component.list"
 local scrollbox = require "ammgui.component.block.scrollbox"
+local fun = require "ammcore.fun"
+local canvas = require "ammgui.component.block.canvas"
+local bootloader = require "ammcore.bootloader"
 
 --- Lightweight DOM structure.
 ---
@@ -23,180 +22,124 @@ local scrollbox = require "ammgui.component.block.scrollbox"
 --- @class ammgui.dom
 local ns = {}
 
---- Insert key into the given node in-place.
+--- Base for DOM node parameters.
 ---
---- This function modifies a node by adding a key. It returns the same node
---- to enable method chaining.
+--- @class ammgui.dom.NodeParams
+--- @field key? any Key for synchronizing arrays of nodes.
+--- @field class? string | (string | false)[] Array of CSS classes.
+--- @field style? ammgui.css.rule.Rule Inline CSS style for this node.
+--- @field [integer] ammgui.dom.AnyNode Children.
+--- @field ref? ammgui.component.block.func.Ref<ammgui.component.api.ComponentApi?>
+--- @field onMouseEnter? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onMouseMove? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onMouseExit? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onMouseDown? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onMouseUp? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onClick? fun(pos: Vector2D, modifiers: integer): boolean?
+--- @field onMouseWheel? fun(pos: Vector2D, delta: number, modifiers: integer): boolean?
+--- @field dragTarget? any
+--- @field isDraggable? boolean
+--- @field onDragStart? fun(pos: Vector2D, origin: Vector2D, modifiers: integer, target: unknown?): boolean|"normal"|"ok"|"warn"|"err"|"none"|nil
+--- @field onDrag? fun(pos: Vector2D, origin: Vector2D, modifiers: integer, target: unknown?): boolean|"normal"|"ok"|"warn"|"err"|"none"|nil
+--- @field onDragEnd? fun(pos: Vector2D, origin: Vector2D, modifiers: integer, target: unknown?)
+
+--- Base for DOM nodes.
 ---
---- This is useful when you don't have control over how a node is created,
---- but need to modify it.
----
---- **Example:**
----
---- Here, we get nodes from a function ``formatRecipe``, and we need to insert it into
---- an array. To make sure that elements are properly synchronized regardless
---- of their order, we add keys to them:
----
---- .. code-block:: lua
----
----    function formatRecipes(recipes)
----        local div = dom.div { class="recipe-list" }
----        for _, recipe in ipairs(recipes) do
----            table.insert(
----                div,
----                dom.withKey(
----                    recipe.internalName,
----                    formatRecipe(recipe)
----                )
----            )
----        end
----        return div
----    end
----
---- @overload fun(key: any, node: ammgui.dom.block.Node): ammgui.dom.block.Node
---- @overload fun(key: any, node: ammgui.dom.inline.Node): ammgui.dom.inline.Node
-function ns.withKey(key, node)
-    node.key = key
-    return node
+--- @class ammgui.dom.Node: ammgui.dom.NodeParams
+--- @field package _isNode true Cookie flag present on every node, helps with downcasting from `any`.
+--- @field package _component ammgui._impl.component.Component Component provider that implements this node.
+
+--- @alias ammgui.dom.AnyNode ammgui.dom.Node | string
+
+--- @param params ammgui.dom.NodeParams node parameters.
+--- @param component ammgui.component.base.ComponentProvider component class that implements this node.
+--- @return ammgui.dom.Node node node with its component set to ``component``.
+local function toNode(params, component)
+    --- @cast params ammgui.dom.Node
+    params._isNode = true
+    params._component = component
+    if params.style and not params.style.loc then
+        local loc = bootloader.getLoc(2)
+        if not string.match(loc, "taminomara%-amm%-ammgui/component/") then
+            params.style.loc = loc
+        end
+    end
+    return params
 end
 
---- @class ammgui.dom.ListNode: ammgui.dom.block.Node
---- @field nodes ammgui.dom.block.Node[] List contents.
---- @field class nil
---- @field style nil
---- @field ref nil
---- @field onMouseEnter nil
---- @field onMouseMove nil
---- @field onMouseExit nil
---- @field onMouseDown nil
---- @field onMouseUp nil
---- @field onClick nil
---- @field onRightClick nil
---- @field onMouseWheel nil
---- @field dragTarget nil
---- @field isDraggable nil
---- @field onDragStart nil
---- @field onDrag nil
---- @field onDragEnd nil
+--- @class ammgui.dom.ListParams
+--- @field [integer] ammgui.dom.AnyNode List contents.
+--- @field key? any Key for synchronizing arrays of nodes.
+--- @field ref? ammgui.component.block.func.Ref<ammgui.component.api.ComponentApi?>
+
+--- @class ammgui.dom.ListNode: ammgui.dom.Node, ammgui.dom.ListParams
 
 --- Concatenate an array of block-level nodes into a single node.
 ---
 --- This utility is helpful when you need to return multiple nodes from a function,
 --- but don't want to wrap them into a ``<div>``.
 ---
+--- It can also be used to add keys or refs to an existing node.
+---
 --- **Example:**
 ---
 --- .. code-block:: lua
 ---
----    function tabSet()
+---    local tabSet = dom.functional(function()
 ---        return dom.list {
 ---            dom.text { class = "tab", "Tab 1" },
 ---            dom.text { class = "tab", "Tab 2" },
 ---            dom.text { class = "tab", "Tab 3" },
 ---        }
----    end
+---    end)
 ---
---- @param nodes ammgui.dom.block.Node[]
---- @return ammgui.dom.ListNode
-function ns.list(nodes)
-    return bdom.paramsToNode({ nodes = nodes }, list.List) --[[ @as ammgui.dom.ListNode ]]
-end
-
---- @class ammgui.dom.TextParams: ammgui.dom.block.NodeParams
---- @field style? ammgui.css.rule.BlockProperties CSS styles applicable for this element.
---- @field [integer] string | ammgui.dom.inline.Node Paragraph contents.
-
---- @class ammgui.dom.TextNode: ammgui.dom.TextParams, ammgui.dom.block.Node
-
---- Create a paragraph.
+--- **Example: handling functional component's body**
 ---
---- This is equivalent to the ``<p>`` element in HTML.
----
---- Accepts a table with children and node parameters:
+--- Here, we create a functional component that accepts block nodes as its params
+--- and wraps them in a ``div``. We use `list` to extract passed nodes
+--- and group them into a single list.
 ---
 --- .. code-block:: lua
 ---
----    local p = dom.p { "Hello, world!" }
+---    local tab = dom.functional(function(ctx, params)
+---        return dom.div {
+---            dom.h1 { params.title },
+---            dom.list(params),
+---        }
+---    end)
 ---
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.p(params)
-    return bdom.paramsToNode(params, p.P) --[[ @as ammgui.dom.TextNode ]]
+--- We can now use our ``tab`` component like so:
+---
+--- .. code-block:: lua
+---
+---    tab {
+---        title = "Tab 1",
+---        dom.p { "This is tab's body." }
+---        dom.p { "We can pass multiple nodes here." }
+---        dom.p { "All of them will end up in a list." }
+---    }
+---
+--- **Example: adding key to a node**
+---
+--- Here, we have a function ``makeDescription`` that returns a block node.
+--- We need to add a key to this node, but we shouldn't modify an output
+--- of another function. To avoid mutation, we wrap the node into a list.
+---
+--- .. code-block:: lua
+---
+---    local description = dom.list {
+---        key = "desc",
+---        makeDescription(),
+---    }
+---
+--- Note that these situations are rare, because most AmmGui's functions
+--- allow customizing keys and refs.
+---
+--- @param params ammgui.dom.ListParams
+--- @return ammgui.dom.ListNode
+function ns.list(params)
+    return toNode(params --[[ @as ammgui.dom.NodeParams ]], list.List) --[[ @as ammgui.dom.ListNode ]]
 end
-
---- Create an ``<text>`` node.
----
---- This node works exactly like `p`, but it isn't styled by theme CSS.
---- It is useful when you need to add text content, but don't need margins
---- of the `p` node.
----
---- The only reason `text` exists in AmmGui is because you can't mix inline
---- and block elements, and thus can't add strings directly to `div`
---- and other blocks.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.text(params)
-    return bdom.paramsToNode(params, p.Text) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- Create an ``<h1>`` node. See `p` for more info.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.h1(params)
-    return bdom.paramsToNode(params, p.H1) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- Create an ``<h2>`` node. See `p` for more info.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.h2(params)
-    return bdom.paramsToNode(params, p.H2) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- Create an ``<h3>`` node. See `p` for more info.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.h3(params)
-    return bdom.paramsToNode(params, p.H3) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- Create a ``<button>`` node.
----
---- Button node works like other nodes such as `text` or `p`, except for CSS styling.
----
---- You can pass callbacks via the standard node parameters:
---- see `~ammgui.dom.block.NodeParams.onClick` and others.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.button(params)
-    return bdom.paramsToNode(params, p.Button) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- Create an ``<figcaption>`` node.
----
---- Figure caption node is used together with `figure` to add captions to images.
----
---- .. tip::
----
----    Instead of manually creating nodes for figure, image, and caption
----    use functional component `Figure`.
----
---- @param params ammgui.dom.TextParams
---- @return ammgui.dom.TextNode
-function ns.figcaption(params)
-    return bdom.paramsToNode(params, p.FigCaption) --[[ @as ammgui.dom.TextNode ]]
-end
-
---- @class ammgui.dom.DivParams: ammgui.dom.block.NodeParams
---- @field style? ammgui.css.rule.BlockProperties CSS styles applicable for this element.
---- @field [integer] ammgui.dom.block.Node Div contents.
-
---- @class ammgui.dom.DivNode: ammgui.dom.DivParams, ammgui.dom.block.Node
 
 --- Create a div.
 ---
@@ -213,50 +156,50 @@ end
 ---        dom.p { "I'm a child of this <div>." },
 ---    }
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.div(params)
-    return bdom.paramsToNode(params, div.Div) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Div)
 end
 
 --- Create a ``<header>`` node. See `div` for more info.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.header(params)
-    return bdom.paramsToNode(params, div.Header) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Header)
 end
 
 --- Create a ``<footer>`` node. See `div` for more info.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.footer(params)
-    return bdom.paramsToNode(params, div.Footer) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Footer)
 end
 
 --- Create a ``<main>`` node. See `div` for more info.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.main(params)
-    return bdom.paramsToNode(params, div.Main) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Main)
 end
 
 --- Create a ``<nav>`` node. See `div` for more info.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.nav(params)
-    return bdom.paramsToNode(params, div.Nav) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Nav)
 end
 
 --- Create a ``<search>`` node. See `div` for more info.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.search(params)
-    return bdom.paramsToNode(params, div.Search) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Search)
 end
 
 --- Create an ``<article>`` node.
@@ -266,10 +209,10 @@ end
 --- these elements; `article` trims vertical margins of the first and last
 --- child elements to avoid unnecessary gaps (see `~ammgui.css.rule.Rule.marginTrim`).
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.article(params)
-    return bdom.paramsToNode(params, div.Article) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Article)
 end
 
 --- Create a ``<section>`` node.
@@ -278,20 +221,20 @@ end
 --- a block version of `p`: like paragraph, it defines top and bottom margins
 --- to separate its siblings.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.section(params)
-    return bdom.paramsToNode(params, div.Section) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Section)
 end
 
 --- Create a ``<blockquote>`` node.
 ---
 --- Block quote is similar to `section`. It is used to add quotes or admonitions.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.blockquote(params)
-    return bdom.paramsToNode(params, div.BlockQuote) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.BlockQuote)
 end
 
 --- Create a ``<figure>`` node.
@@ -304,10 +247,10 @@ end
 ---    Instead of manually creating nodes for figure and image,
 ---    use functional component `Figure`.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.figure(params)
-    return bdom.paramsToNode(params, div.Figure) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Figure)
 end
 
 --- Create a ``<details>`` node.
@@ -319,10 +262,10 @@ end
 ---    By themselves, these nodes don't have any special behavior.
 ---    Use `Details` to create an element that expands on click.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.details(params)
-    return bdom.paramsToNode(params, div.Details) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Details)
 end
 
 --- Create a ``<summary>`` node.
@@ -334,17 +277,102 @@ end
 ---    By themselves, these nodes don't have any special behavior.
 ---    Use `Details` to create an element that expands on click.
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.summary(params)
-    return bdom.paramsToNode(params, div.Summary) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, div.Summary)
 end
 
---- @class ammgui.dom.FlexParams: ammgui.dom.block.NodeParams
---- @field style? ammgui.css.rule.FlexProperties CSS styles applicable for this element.
---- @field [integer] ammgui.dom.block.Node Flex contents.
+--- Create a paragraph.
+---
+--- This is equivalent to the ``<p>`` element in HTML.
+---
+--- Accepts a table with children and node parameters:
+---
+--- .. code-block:: lua
+---
+---    local p = dom.p { "Hello, world!" }
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.p(params)
+    return toNode(params, div.P)
+end
 
---- @class ammgui.dom.FlexNode: ammgui.dom.FlexParams, ammgui.dom.block.Node
+--- Create a ``<text>`` node.
+---
+--- This node works exactly like `p`, but it isn't styled by theme CSS.
+--- It is useful when you need to add text content, but don't need margins
+--- of the `p` node.
+---
+--- The only reason `text` exists in AmmGui is because you can't mix inline
+--- and block elements, and thus can't add strings directly to `div`
+--- and other blocks.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.text(params)
+    -- TODO: delete
+    return toNode(params, div.Div)
+end
+
+--- Create an ``<h1>`` node. See `p` for more info.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.h1(params)
+    return toNode(params, div.H1)
+end
+
+--- Create an ``<h2>`` node. See `p` for more info.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.h2(params)
+    return toNode(params, div.H2)
+end
+
+--- Create an ``<h3>`` node. See `p` for more info.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.h3(params)
+    return toNode(params, div.H3)
+end
+
+--- Create a ``<button>`` node.
+---
+--- Button node works like other nodes such as `text` or `p`, except for CSS styling.
+---
+--- You can pass callbacks via the standard node parameters:
+--- see `~ammgui.dom.NodeParams.onClick` and others.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.button(params)
+    return toNode(params, div.Button)
+end
+
+--- Create an ``<figcaption>`` node.
+---
+--- Figure caption node is used together with `figure` to add captions to images.
+---
+--- .. tip::
+---
+---    Instead of manually creating nodes for figure, image, and caption
+---    use functional component `Figure`.
+---
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
+function ns.figcaption(params)
+    return toNode(params, div.FigCaption)
+end
+
+--- @class ammgui.dom.FlexParams: ammgui.dom.NodeParams
+--- @field style? ammgui.css.rule.FlexProperties CSS styles applicable for this element.
+--- @field [integer] ammgui.dom.AnyNode Flex contents.
+
+--- @class ammgui.dom.FlexNode: ammgui.dom.FlexParams, ammgui.dom.Node
 
 --- Create a flexbox.
 ---
@@ -369,10 +397,10 @@ end
 --- @param params ammgui.dom.FlexParams
 --- @return ammgui.dom.FlexNode
 function ns.flex(params)
-    return bdom.paramsToNode(params, flex.Flex) --[[ @as ammgui.dom.FlexNode ]]
+    return toNode(params, flex.Flex) --[[ @as ammgui.dom.FlexNode ]]
 end
 
---- @class ammgui.dom.FlexNode: ammgui.dom.FlexParams, ammgui.dom.block.Node
+--- @class ammgui.dom.FlexNode: ammgui.dom.FlexParams, ammgui.dom.Node
 
 --- Create a scrollbox.
 ---
@@ -389,34 +417,26 @@ end
 ---        dom.p { "I'm a child of this <scroll>." },
 ---    }
 ---
---- @param params ammgui.dom.DivParams
---- @return ammgui.dom.DivNode
+--- @param params ammgui.dom.NodeParams
+--- @return ammgui.dom.Node
 function ns.scroll(params)
-    return bdom.paramsToNode(params, scrollbox.ScrollBox) --[[ @as ammgui.dom.DivNode ]]
+    return toNode(params, scrollbox.ScrollBox)
 end
 
 --- @alias ammgui.dom.Context ammgui.component.block.func.Hooks
 
---- @class ammgui.dom.FunctionalNode: ammgui.dom.block.Node
+--- @class ammgui.dom.FunctionalParams
+--- @field key? any Key for synchronizing arrays of nodes.
+--- @field ref? ammgui.component.block.func.Ref<ammgui.component.api.ComponentApi?>
+
+--- @class ammgui.dom.FunctionalParamsWithChildren: ammgui.dom.FunctionalParams, ammgui.dom.ListParams
+
+--- @class ammgui.dom.FunctionalNode: ammgui.dom.Node
 --- @field package _id {}
---- @field package _func fun(ctx: ammgui.dom.Context, params: unknown): ammgui.dom.block.Node
+--- @field package _func fun(ctx: ammgui.dom.Context, params: unknown): ammgui.dom.Node
 --- @field package _params any
---- @field class nil
---- @field style nil
---- @field ref nil
---- @field onMouseEnter nil
---- @field onMouseMove nil
---- @field onMouseExit nil
---- @field onMouseDown nil
---- @field onMouseUp nil
---- @field onClick nil
---- @field onRightClick nil
---- @field onMouseWheel nil
---- @field dragTarget nil
---- @field isDraggable nil
---- @field onDragStart nil
---- @field onDrag nil
---- @field onDragEnd nil
+--- @field package _memo boolean
+--- @field package _children ammgui.dom.ListNode
 
 --- Create a functional component.
 ---
@@ -427,20 +447,6 @@ end
 --- if these parameters had changed since the last interface update, and, if they did,
 --- invokes the component's function to generate an updated DOM.
 ---
---- Example:
----
---- .. code-block:: lua
----
----    -- Let's create a simple component that greets a user.
----    local greeting = dom.functional(function(ctx, params)
----        return dom.h1 { "Hello, ", params.name or "world", "!" }
----    end)
----
----    -- We can now reuse this component elsewhere.
----    local app = gui.App:New(function()
----        return greeting { name = "stranger" }
----    end)
----
 --- .. warning::
 ---
 ---    Functional component's result is cached. To ensure proper cache invalidation,
@@ -448,100 +454,235 @@ end
 ---    on the input parameters; it should stay the same as long as parameters
 ---    stay the same.
 ---
----    This, among other things, means that any mutable internal state
----    should be dealt with using the ``ctx`` parameter.
+---    Follow these rules to ensure that your component is pure:
+---
+---    - never modify ``params`` or any value within it:
+---
+---      .. code-block:: lua
+---
+---         local greeting = dom.functional(function(ctx, params)
+---             -- 🚫 Modifying `params`.
+---             params.name = params.name or "mysterious person" -- 🔴 modification is not allowed.
+---
+---             -- ✅ Creating a new variable.
+---             name = params.name or "mysterious person"
+---         end)
+---
+---    - if you've instantiated a functional component, don't modify its parameters
+---      afterwards:
+---
+---      .. code-block:: lua
+---
+---         -- 🚫 Modifying `params` after a functional component was instantiated.
+---         local greetingParams = { name = "Alice" }
+---         local greetingNode1 = greeting(greetingParams)
+---         greetingParams.name = "Bob" -- 🔴 modification is not allowed.
+---         local greetingNode2 = greeting(greetingParams)
+---
+---         -- ✅ Creating a new table for every functional component instantiation:
+---         local greetingNode1 = greeting { name = "Alice" }
+---         local greetingNode2 = greeting { name = "Bob" }
+---
+---    - don't modify DOM nodes that were passed to other functions, or were returned
+---      from other functions:
+---
+---      .. code-block:: lua
+---
+---         -- 🚫 Modifying a node that was returned from somewhere else.
+---         local node = someFunctionThatReturnsANode()
+---         node.ref = ctx:useRef() -- 🔴 modification is not allowed.
+---
+---         -- ✅ Wrapping a node without modifying it.
+---         local node = dom.list {
+---             ref = ctx:useRef(),
+---             someFunctionThatReturnsANode()
+---         }
+---
+---         -- 🚫 Modifying a node that you've created after passing it somewhere.
+---         local text = dom.text { "Hello!" }
+---         local div1 = dom.div { text }
+---         text[1] = "Goodbye." -- 🔴 modification is not allowed.
+---         local div2 = dom.div { text }
+---
+---         -- ✅ Modifying a node that you've created before using it somewhere else.
+---         local div = dom.div {}
+---         for _, item in ipairs(array) do
+---             table.insert(div, dom.text { item })
+---         end
+---
+---         -- 🚫 Modifying a node that you've created after returning it.
+---         local greeting = dom.functional(function(ctx, params)
+---             local heading = dom.h1 { "Hello, ", params.name or "world", "!" }
+---             local button = dom.button {
+---                 onClick = function() -- 🔴 `onClick` will run after `return`...
+---                     table.insert(heading, " clicked!") -- 🔴 ...therefore modification is not allowed.
+---                 end
+---                 "Click me!"
+---             }
+---
+---             return dom.div { heading, button }
+---         end)
+---
+---         -- ✅ Using functional context to modify state.
+---         local greeting = dom.functional(function(ctx, params)
+---             local clicked, setClicked = ctx:useState(false)
+---
+---             local heading = dom.h1 { "Hello, ", params.name or "world", "!" }
+---             if clicked then
+---                 -- 🟢 `heading` was created by us, we can modify it before returning
+---                 -- or passing it to another function.
+---                 table.insert(heading, " clicked!")
+---             end
+---
+---             local button = dom.button {
+---                 onClick = function()
+---                     setClicked(true) -- 🟢 using a special mutator returned from `useState`.
+---                 end
+---                 "Click me!"
+---             }
+---
+---             return dom.div { heading, button }
+---         end)
+---
+--- **Example:**
+---
+--- Let's create a simple component that greets a user:
+---
+--- .. code-block:: lua
+---
+---    local greeting = dom.functional(function(ctx, params)
+---        return dom.h1 { "Hello, ", params.name or "world", "!" }
+---    end)
+---
+--- We can now reuse this component elsewhere:
+---
+--- .. code-block:: lua
+---
+---    -- This is a simple block-level DOM node:
+---    local greetingNode = greeting { name = "stranger" }
+---
+---    -- We can nest it, like any other node:
+---    local div = dom.div { greetingNode }
+---
+--- **Example: using keys with functional components**
+---
+--- We can always use ``key`` and ``ref`` properties when using
+--- a functional component. Their values will not be passed
+--- to the component's function.
+---
+--- Here, we make a list of two ``greeting`` nodes. To make sure
+--- that the list can be properly synchronized regardless of the order of greetings,
+--- we add keys to our nodes.
+---
+--- .. code-block:: lua
+---
+---    local multipleGreetings = dom.functional(function(ctx, params)
+---        return dom.list {
+---            greeting { key = "alice", name = "Alice" },
+---            greeting { key = "bob", name = "Bob" },
+---        }
+---    end)
+---
+--- **Example: functional component with body**
+---
+--- We can make functional components that accept other nodes as parameters,
+--- and use them in their body.
+---
+--- For example, let's make a component that displays an admonition.
+--- We will accept an array of block nodes as admonition's body. We will also
+--- accept an optional parameter ``title``.
+---
+--- To extract nodes from parameters and group them into a single node,
+--- we will use a helper function called `list`.
+---
+--- .. code-block:: lua
+---
+---    local admonition = dom.functional(function(ctx, params)
+---        return dom.div {
+---            class = "admonition",
+---            dom.h1 { params.title or "Note" },
+---            dom.list(params),
+---        }
+---    end)
+---
+--- We can now use our ``admonition`` component like so:
+---
+--- .. code-block:: lua
+---
+---    admonition {
+---        title = "Warning",
+---        dom.p { "This is admonition's body." }
+---        dom.p { "We can pass multiple nodes here." }
+---        dom.p { "All of them will end up in a list." }
+---    }
+---
+--- Note that every node passed in as a child will be wrapped into a special
+--- wrapper node. This allows AmmGui to track where the children came from,
+--- and optimize DOM synchronization.
 ---
 --- .. tip::
 ---
 ---    To get better type inference with Lua Language Server, declare component's
----    implementation as a separate function, and annotate its parameter types:
+---    implementation as a separate function, and annotate its parameter types.
+---    To further improve things, you can split ``params`` annotation into
+---    a separate class inherited from `ammgui.dom.FunctionalParams`
+---    or `ammgui.dom.FunctionalParamsWithChildren`:
 ---
 ---    .. code-block:: lua
 ---
+---       --- @class _GreetingParams: ammgui.dom.FunctionalParams
+---       --- @field name string
+---
 ---       --- Implementation for the `greeting` component.
 ---       --- @param ctx ammgui.dom.Context
----       --- @param params { name: string? }
+---       --- @param params _GreetingParams
 ---       local function _greeting(ctx, params)
----           return dom.h1 { "Hello, ", params.name or "world", "!" }
+---           return dom.h1 { "Hello, ", params.name, "!" }
 ---       end
 ---
 ---       --- The component itself.
 ---       local greeting = dom.functional(_greeting)
 ---
---- @generic T
---- @param cb fun(ctx: ammgui.dom.Context, params: T): ammgui.dom.block.Node
+---    With these annotations, Lua Language Server will not allow calling ``greeting``
+---    without ``name``:
+---
+---    .. code-block:: lua
+---
+---       local node = greeting {} --> error: Missing required fields
+---                                --> in type `_GreetingParams`: `name`.
+---
+--- @generic T: ammgui.dom.FunctionalParams
+--- @param cb fun(ctx: ammgui.dom.Context, params: T): ammgui.dom.Node
 --- @return fun(params: T): ammgui.dom.FunctionalNode
 function ns.functional(cb)
     local id = {} -- Unique identifier for the component.
-    return function(...)
-        local n = select("#", ...)
-        local key, params
-        if n == 1 then
-            key, params = nil, select(1, ...)
-        elseif n == 2 then
-            key, params = select(1, ...), select(2, ...)
-        else
-            error(string.format("expected 1 or 2 arguments, got %s", n))
+    return function(params)
+        params = fun.t.copy(params)
+        local key = params["key"]
+        params["key"] = nil
+        local ref = params["ref"]
+        params["ref"] = nil
+
+        local children = ns.list {}
+        for i, v in ipairs(params) do
+            table.insert(children, toNode({ v }, func.Children))
+            params[i] = nil
         end
-        return bdom.paramsToNode(
+
+        return toNode(
             {
                 _func = cb,
                 _params = params,
                 _id = id,
-                key = key
+                _memo = false,
+                _children = children,
+                key = key,
+                ref = ref,
             },
             func.Functional
         ) --[[ @as ammgui.dom.FunctionalNode ]]
     end
 end
-
---- Node for `ammgui.dom.ilist`.
----
---- @class ammgui.dom.IListNode: ammgui.dom.inline.Node
---- @field nodes ammgui.dom.inline.Node[] List contents.
---- @field class nil
---- @field style nil
---- @field ref nil
---- @field onMouseEnter nil
---- @field onMouseMove nil
---- @field onMouseExit nil
---- @field onMouseDown nil
---- @field onMouseUp nil
---- @field onClick nil
---- @field onRightClick nil
---- @field onMouseWheel nil
---- @field dragTarget nil
---- @field isDraggable nil
---- @field onDragStart nil
---- @field onDrag nil
---- @field onDragEnd nil
-
---- Concatenate an array of inline-level nodes into a single node.
----
---- @overload fun(nodes: ammgui.dom.inline.Node[]): ammgui.dom.IListNode
---- @overload fun(key: any, nodes: ammgui.dom.inline.Node[]): ammgui.dom.IListNode
-function ns.ilist(...)
-    local n = select("#", ...)
-    local key, nodes
-    if n == 1 then
-        key, nodes = nil, select(1, ...)
-    elseif n == 2 then
-        key, nodes = select(1, ...), select(2, ...)
-    else
-        error(string.format("expected 1 or 2 arguments, got %s", n))
-    end
-    return idom.paramsToNode({ key = key, nodes = nodes }, ilist.List) --[[ @as ammgui.dom.IListNode ]]
-end
-
---- Parameters for `ammgui.dom.span` and alike.
----
---- @class ammgui.dom.SpanParams: ammgui.dom.inline.NodeParams
---- @field style? ammgui.css.rule.TextProperties CSS styles applicable for this element.
---- @field [integer] string String contents.
-
---- Node for `ammgui.dom.span` and alike.
----
---- @class ammgui.dom.SpanNode: ammgui.dom.SpanParams, ammgui.dom.inline.Node
 
 --- Create a string with additional parameters.
 ---
@@ -556,26 +697,97 @@ end
 ---        style = { size = 24, monospace = true }
 ---    }
 ---
---- @param params ammgui.dom.SpanParams string parameters.
---- @return ammgui.dom.SpanNode
+--- @param params ammgui.dom.NodeParams string parameters.
+--- @return ammgui.dom.Node
 function ns.span(params)
-    return idom.paramsToNode(params, span.Span) --[[ @as ammgui.dom.SpanNode ]]
+    return toNode(params, span.Span)
 end
 
 --- Create an emphasized text.
 ---
---- @param params ammgui.dom.SpanParams string parameters.
---- @return ammgui.dom.SpanNode
+--- @param params ammgui.dom.NodeParams string parameters.
+--- @return ammgui.dom.Node
 function ns.em(params)
-    return idom.paramsToNode(params, span.Em) --[[ @as ammgui.dom.SpanNode ]]
+    return toNode(params, span.Em)
 end
 
 --- Create an inline code listing.
 ---
---- @param params ammgui.dom.SpanParams string parameters.
---- @return ammgui.dom.SpanNode
+--- @param params ammgui.dom.NodeParams string parameters.
+--- @return ammgui.dom.Node
 function ns.code(params)
-    return idom.paramsToNode(params, span.Code) --[[ @as ammgui.dom.SpanNode ]]
+    return toNode(params, span.Code)
+end
+
+--- @alias ammgui.dom.CanvasBase ammgui.component.block.canvas.CanvasBase
+ns.CanvasBase = canvas.CanvasBase
+
+--- @alias ammgui.dom.CanvasFunctional ammgui.component.block.canvas.CanvasFunctional
+ns.CanvasFunctional = canvas.CanvasFunctional
+
+--- A factory for functional canvas implementations.
+---
+--- Used together with `canvas` to implement simple canvas elements. For more control
+--- over the canvas' life cycle, create a class derived from `ammgui.dom.CanvasBase`.
+---
+--- @param cb fun(params: any, ctx: ammgui.component.context.RenderingContext, size: Vector2D)
+--- @param preferredWidth number?
+--- @param preferredHeight number?
+--- @return ammgui.dom.CanvasFunctional
+function ns.CanvasFunctionalFactory(cb, preferredWidth, preferredHeight)
+    return ns.CanvasFunctional:New(cb, preferredWidth, preferredHeight)
+end
+
+--- @class ammgui.dom.CanvasNode: ammgui.dom.Node
+--- @field package _factory fun(...): ammgui.dom.CanvasBase
+--- @field package _args any[]
+
+--- Create a canvas component.
+---
+--- Canvas components allow implementing elements that require custom drawing.
+---
+--- Pass in a function that creates instances of `ammgui.dom.CanvasBase`,
+--- and any arguments for this function to create a new component. When this component
+--- is used, AmmGui will call your function to create an instance
+--- of `~ammgui.dom.CanvasBase`, then use this instance during rendering.
+---
+--- **Example: drawing a simple rectangle**
+---
+--- In this example we create the simplest canvas that draws a rectangle
+--- with the given color. We will use `ammgui.dom.CanvasFunctionalFactory`
+--- as our implementation.
+---
+--- .. code-block:: lua
+---
+---    local canvas = dom.canvas(dom.CanvasFunctionalFactory, function(params, ctx, size)
+---        ctx.gpu:drawRect(
+---            structs.Vector2D { 0, 0 },
+---            size,
+---            params.color or structs.Color { 1, 0.7, 0.7, 1 },
+---            "",
+---            0
+---        )
+---    end)
+---
+--- We can now use our component like so:
+---
+--- .. code-block:: lua
+---
+---    local node = ns.div {
+---        -- Make a green rectangle.
+---        canvas { color = structs.Color { 0.7, 1, 0.7, 1 } }
+---    }
+---
+--- @param factory fun(...): ammgui.dom.CanvasBase canvas factory.
+--- @param ... any arguments for canvas factory.
+--- @return fun(data: ammgui.dom.NodeParams): ammgui.dom.CanvasNode
+function ns.canvas(factory, ...)
+    local args = { ... }
+    return function(params)
+        params["_factory"] = factory
+        params["_args"] = args
+        return toNode(params, canvas.Canvas) --[[ @as ammgui.dom.CanvasNode ]]
+    end
 end
 
 return ns

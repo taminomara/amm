@@ -25,11 +25,10 @@ local logger = log.Logger:New()
 ns.App = class.create("App")
 
 --- !doctype classmethod
---- @generic T
---- @param page fun(data: T): ammgui.dom.block.Node
+--- @generic T: ammgui.dom.FunctionalParams
+--- @param page fun(data: T): ammgui.dom.AnyNode
 --- @param data `T`
 --- @return ammgui.App<T>
---- @overload fun(self: ammgui.App, gpu: FINComputerGPUT2, page: fun(): ammgui.dom.block.Node): ammgui.App<nil>
 function ns.App:New(gpu, page, data)
     self = class.Base.New(self)
 
@@ -38,7 +37,7 @@ function ns.App:New(gpu, page, data)
     self._gpu = gpu
 
     --- @private
-    --- @type fun(data): ammgui.dom.block.Node
+    --- @type fun(data): ammgui.dom.AnyNode
     self._page = page
 
     --- @private
@@ -163,6 +162,14 @@ function ns.App:start()
         {
             self._mainWindow,
             self._devtoolsWindow,
+            viewport.Devtools:New(
+                self._gpu,
+                self._devtoolsWindow,
+                {
+                    stylesheets = { panel.style }
+                },
+                self._earlyRefreshEvent
+            )
         },
         self._context
     )

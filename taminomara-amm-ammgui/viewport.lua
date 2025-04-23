@@ -6,9 +6,11 @@ local rule = require "ammgui.css.rule"
 local log = require "ammcore.log"
 local dom = require "ammgui.dom"
 local defer = require "ammcore.defer"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local eventManager = require "ammgui.eventManager"
-local devtools     = require "ammgui.devtools"
+local devtools = require "ammgui.devtools"
+local componentBase = require "ammgui.component.base"
+local div           = require "ammgui.component.block.div"
 
 --- Viewport and panel management.
 ---
@@ -49,6 +51,70 @@ function ns.Viewport:getEventListener(pos)
     error("not implemented")
 end
 
+--- Event listener for selecting elements in devtools.
+---
+--- @class ammgui.viewport.DevtoolsHighlightEventListener: ammgui.eventManager.EventListener
+DevtoolsHighlightEventListener = class.create("DevtoolsHighlightEventListener", eventManager.EventListener)
+
+--- @param target ammgui.viewport.Window
+---
+--- !doctype classmethod
+--- @generic T: ammgui.viewport.DevtoolsHighlightEventListener
+--- @param self T
+--- @return T
+function DevtoolsHighlightEventListener:New(target)
+    self = eventManager.EventListener.New(self)
+
+    --- Target window.
+    ---
+    --- @type ammgui.viewport.Window
+    self.target = target
+
+    --- @private
+    --- @type table?
+    self._highlightedId = nil
+
+    return self
+end
+
+function DevtoolsHighlightEventListener:onMouseEnter(pos, modifiers)
+    self:onMouseMove(pos, modifiers, true)
+end
+
+function DevtoolsHighlightEventListener:onMouseMove(pos, modifiers, propagate)
+    if propagate then
+        local targetElement = self.target._context:getEventListener(pos)
+        if targetElement and class.isChildOf(targetElement, componentBase.Component) then
+            --- @cast targetElement ammgui.component.base.Component
+            self._highlightedId = targetElement.id
+            self.target:setHighlighted(
+                targetElement.id,
+                true,
+                true,
+                true,
+                true
+            )
+            self.target:setPreSelectedId(targetElement.id)
+        end
+    end
+    return propagate
+end
+
+function DevtoolsHighlightEventListener:onMouseExit(pos, modifiers)
+    self.target:setHighlighted(nil)
+    self.target:setPreSelectedId(nil)
+end
+
+function DevtoolsHighlightEventListener:onClick(pos, modifiers, propagate)
+    propagate = self:onMouseMove(pos, modifiers, propagate)
+    if propagate then
+        self.target:setSelectedId(self._highlightedId)
+        self._highlightedId = nil
+        self.target:setSelectionEnabled(false)
+    end
+    return propagate
+end
+
 --- Style settings for a window.
 ---
 --- @class ammgui.viewport.WindowSettings
@@ -62,7 +128,7 @@ end
 ns.Window = class.create("Window")
 
 --- @param gpu FINComputerGPUT2
---- @param page fun(data): ammgui.dom.block.Node
+--- @param page fun(data): ammgui.dom.AnyNode
 --- @param data unknown
 --- @param settings ammgui.viewport.WindowSettings
 --- @param earlyRefreshEvent ammcore.promise.Event
@@ -85,16 +151,12 @@ function ns.Window:New(
     self._gpu = gpu
 
     --- @private
-    --- @type fun(data): ammgui.dom.block.Node
+    --- @type fun(data): ammgui.dom.AnyNode
     self._page = page
 
     --- @private
     --- @type unknown
     self._data = data
-
-    --- @private
-    --- @type boolean
-    self._hasNewData = true
 
     --- @private
     --- @type integer
@@ -106,6 +168,7 @@ function ns.Window:New(
 
     local themeStylesheet = settings.themeStylesheet or theme.DEFAULT
     table.insert(self._stylesheets, themeStylesheet)
+    table.insert(self._stylesheets, theme.SYSTEM)
 
     --- @private
     --- @type table<string, Color | string>
@@ -136,17 +199,41 @@ function ns.Window:New(
     --- @type ammgui.dom.DivNode?
     self._rootNode = nil
 
-    --- @private
+    --- @package
     --- @type ammgui.component.context.RenderingContext
     self._context = context.RenderingContext:New(self._gpu, self._earlyRefreshEvent)
+
+    --- @private
+    --- @type ammgui.viewport.DevtoolsHighlightEventListener
+    self._devtoolsHighlighter = DevtoolsHighlightEventListener:New(self)
+
+    --- @private
+    --- @type boolean
+    self._devtoolsHighlighterActive = false
 
     --- @private
     --- @type ammgui.devtools.Element?
     self._devtoolsRepr = nil
 
+    --- @private
+    --- @type table?
+    self._devtoolsHighlightedId = nil
+
+    --- @private
+    --- @type [boolean, boolean, boolean, boolean]?
+    self._devtoolsHighlightedParams = nil
+
+    --- @private
+    --- @type table?
+    self._devtoolsSelectedId = nil
+
+    --- @private
+    --- @type table?
+    self._devtoolsPreSelectedId = nil
+
     self:_compileRules()
     self:_refreshRoot()
-    self._root:onMount(self._context, self._rootNode)
+    self._root:onMount(context.SyncContext:New(self._earlyRefreshEvent), self._rootNode)
 
     return self
 end
@@ -171,14 +258,13 @@ function ns.Window:_compileRules()
 end
 
 --- Set new data for the page function and update GUI.
+---
+--- @param data any
 function ns.Window:setData(data)
     self._data = data
-    self._hasNewData = true
     self._earlyRefreshEvent:set()
 end
 
---- @param pos Vector2D
---- @param size Vector2D
 function ns.Window:update(pos, size)
     local sizeOutdated = self._size ~= size
 
@@ -193,7 +279,7 @@ function ns.Window:update(pos, size)
     end
 
     self:_refreshRoot()
-    self._root:onUpdate(self._context, self._rootNode)
+    self._root:onUpdate(context.SyncContext:New(self._earlyRefreshEvent), self._rootNode)
 
     if sizeOutdated or self._root.outdatedCss then
         logger:trace("Dispatch css update")
@@ -218,13 +304,18 @@ function ns.Window:update(pos, size)
 end
 
 function ns.Window:draw(pos, size)
+    self._context.gpu:pushClipRect(pos, size)
     self._context.gpu:pushLayout(pos, size, 1)
-    self._context:reset(size)
+    self._context:reset(size, self._devtoolsHighlightedId, self._devtoolsHighlightedParams)
     self._root:draw(self._context)
     self._context:finalize()
     self._context.gpu:popGeometry()
+    self._context.gpu:popClip()
 end
 
+--- Get root element's representation for devtools panel.
+---
+--- @return ammgui.devtools.Element?
 function ns.Window:getDevtoolsData()
     if not self._devtoolsRepr then
         self._devtoolsRepr = self._root:repr()
@@ -232,19 +323,78 @@ function ns.Window:getDevtoolsData()
     return self._devtoolsRepr
 end
 
-function ns.Window:_refreshRoot()
-    if self._hasNewData then
-        self._hasNewData = false
+--- Set ID of a component that should be have its debug overlay displayed.
+---
+--- @param id table?
+--- @param drawContent boolean?
+--- @param drawPadding boolean?
+--- @param drawOutline boolean?
+--- @param drawMargin boolean?
+function ns.Window:setHighlighted(id, drawContent, drawPadding, drawOutline, drawMargin)
+    self._devtoolsHighlightedId = id
+    self._devtoolsHighlightedParams = { drawContent, drawPadding, drawOutline, drawMargin }
+end
 
-        local ok, err = defer.xpcall(function()
-            self._rootNode = dom.div { self._page(self._data) }
-        end)
-
-        if not ok then
-            logger:error("Error in page function: %s\n%s", err.message, err.trace)
-            self._rootNode = dom.div {}
-        end
+--- Set flag that enables selecting elements for debug overlay.
+---
+--- @param enabled boolean
+function ns.Window:setSelectionEnabled(enabled)
+    self._devtoolsHighlighterActive = enabled
+    if not enabled then
+        self:setHighlighted(nil)
+        self:setPreSelectedId(nil)
     end
+end
+
+--- Get flag that enables selecting elements for debug overlay.
+---
+--- @return boolean enabled
+function ns.Window:getSelectionEnabled()
+    return self._devtoolsHighlighterActive
+end
+
+--- Set ID of a component that should be selected in a debug window
+--- attached to this window.
+---
+--- @param id table?
+function ns.Window:setSelectedId(id)
+    self._devtoolsSelectedId = id
+end
+
+--- Get ID of a component that should be selected in a debug window
+--- attached to this window.
+---
+--- @return table? id
+function ns.Window:getSelectedId()
+    return self._devtoolsSelectedId
+end
+
+--- Get ID of a component that should be pre-selected in a debug window
+--- attached to this window.
+---
+--- @return table? id
+function ns.Window:setPreSelectedId(id)
+    self._devtoolsPreSelectedId = id
+end
+
+--- Get ID of a component that should be pre-selected in a debug window
+--- attached to this window.
+---
+--- @return table? id
+function ns.Window:getPreSelectedId()
+    return self._devtoolsPreSelectedId
+end
+
+function ns.Window:_refreshRoot()
+    self._rootNode = {
+        _isBlockNode = true,
+        _component = root.Root,
+        {
+            _isBlockNode = true,
+            _component = div.Body,
+            self._page(self._data)
+        }
+    }
 end
 
 --- Get topmost event listener by mouse coordinates.
@@ -254,8 +404,21 @@ end
 --- @return table<ammgui.eventManager.EventListener, Vector2D> affectedReceivers
 --- @return ammgui.viewport.Window? window
 function ns.Window:getEventListener(pos)
-    local firstReceiver, receivers = self._context:getEventListener(pos - self._pos)
-    return firstReceiver, receivers, self
+    if self._devtoolsHighlighterActive then
+        if
+            self._pos.x <= pos.x and pos.x < self._pos.x + self._size.x
+            and self._pos.y <= pos.y and pos.y < self._pos.y + self._size.y
+        then
+            return
+                self._devtoolsHighlighter,
+                { [self._devtoolsHighlighter] = self._pos }, self
+        else
+            return nil, {}, self
+        end
+    else
+        local firstReceiver, receivers = self._context:getEventListener(pos - self._pos)
+        return firstReceiver, receivers, self
+    end
 end
 
 --- Window that displays devtools panel.
@@ -264,7 +427,7 @@ end
 ns.Devtools = class.create("Devtools", ns.Window)
 
 --- @param gpu FINComputerGPUT2
---- @param target ammgui.viewport.Window
+--- @param target ammgui.viewport.Window?
 --- @param settings ammgui.viewport.WindowSettings
 --- @param earlyRefreshEvent ammcore.promise.Event
 ---
@@ -277,19 +440,45 @@ function ns.Devtools:New(gpu, target, settings, earlyRefreshEvent)
         self,
         gpu,
         devtools.panel,
-        { root = target:getDevtoolsData() },
+        {},
         settings,
         earlyRefreshEvent
     )
 
-    --- @type ammgui.viewport.Window
-    self.target = target
+    --- @private
+    --- @type ammgui.viewport.Window?
+    self._target = target
 
     --- @private
-    --- @type ammgui.devtools.Element
-    self._oldDevtoolsData = target:getDevtoolsData()
+    --- @type ammgui.devtools.Element?
+    self._oldDevtoolsData = nil
+
+    --- @private
+    --- @type table?
+    self._oldSelectedId = nil
+
+    --- @private
+    --- @type table?
+    self._oldPreSelectedId = nil
+
+    --- @private
+    --- @type boolean?
+    self._oldSelectionEnabled = nil
 
     return self
+end
+
+--- Set new target for devtools window.
+---
+--- @param target ammgui.viewport.Window?
+function ns.Devtools:setTarget(target)
+    if self._target then
+        self._target:setSelectionEnabled(false)
+        self._target:setSelectedId(nil)
+        self._target:setPreSelectedId(nil)
+        self._target:setHighlighted(nil)
+    end
+    self._target = target
 end
 
 function ns.Devtools:update(pos, size)
@@ -297,10 +486,42 @@ function ns.Devtools:update(pos, size)
 end
 
 function ns.Devtools:draw(pos, size)
-    local newData = self.target:getDevtoolsData()
-    if newData ~= self._oldDevtoolsData then
-        self._oldDevtoolsData = newData
-        self:setData({ root = newData })
+    local newDevtoolsData = self._target and self._target:getDevtoolsData()
+    local newSelectedId = self._target and self._target:getSelectedId()
+    local newPreSelectedId = self._target and self._target:getPreSelectedId()
+    local newSelectionEnabled = self._target and self._target:getSelectionEnabled()
+
+    if
+        newDevtoolsData ~= self._oldDevtoolsData
+        or newSelectedId ~= self._oldSelectedId
+        or newPreSelectedId ~= self._oldPreSelectedId
+        or newSelectionEnabled ~= self._oldSelectionEnabled
+    then
+        self._oldDevtoolsData = newDevtoolsData
+        self._oldSelectedId = newSelectedId
+        self._oldPreSelectedId = newPreSelectedId
+        self._oldSelectionEnabled = newSelectionEnabled
+        self:setData({
+            root = newDevtoolsData,
+            selectedId = newSelectedId,
+            preSelectedId = newPreSelectedId,
+            selectionEnabled = newSelectionEnabled,
+            setSelectionEnabled = function(...)
+                if self._target then
+                    self._target:setSelectionEnabled(...)
+                end
+            end,
+            setSelectedId = function(...)
+                if self._target then
+                    self._target:setSelectedId(...)
+                end
+            end,
+            setHighlightedId = function(...)
+                if self._target then
+                    self._target:setHighlighted(...)
+                end
+            end,
+        })
     end
 
     ns.Window.update(self, pos, size)
@@ -402,7 +623,8 @@ function SplitHandleEventListener:onDragEnd(pos, origin, modifiers, target)
         )
     )
 
-    local mainSize = math.max(0, self._view._size[self._view._mainDirection] - self._view._gap * math.max(0, #self._view.items - 1))
+    local mainSize = math.max(0,
+        self._view._size[self._view._mainDirection] - self._view._gap * math.max(0, #self._view.items - 1))
 
     local width1 = newPos - self._view._gap - self._view._positions[self._index][self._view._mainDirection]
     local scale1 = width1 / mainSize
@@ -512,7 +734,7 @@ function ns.Split:update(pos, size)
             self._handles[i]._isActive = false
             self._handles[i] = nil
         end
-        local factor = 1 - array.sum(self._proportions)
+        local factor = 1 - fun.a.sum(self._proportions, 0)
         for i, v in ipairs(self._proportions) do
             self._proportions[i] = factor * v
         end
@@ -520,7 +742,7 @@ function ns.Split:update(pos, size)
         for i, v in ipairs(self._proportions) do
             self._proportions[i] = 3 * v / 4
         end
-        local factor = (1 - array.sum(self._proportions)) / (#self.items - #self._proportions)
+        local factor = (1 - fun.a.sum(self._proportions, 0)) / (#self.items - #self._proportions)
         for i = #self._proportions + 1, #self.items do
             table.insert(self._proportions, factor)
             table.insert(self._handles, SplitHandleEventListener:New(self, i))

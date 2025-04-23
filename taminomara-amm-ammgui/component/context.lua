@@ -1,7 +1,7 @@
 local class = require "ammcore.class"
 local defer = require "ammcore.defer"
 local rule = require "ammgui.css.rule"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local log = require "ammcore.log"
 
 --- Rendering context.
@@ -10,225 +10,107 @@ local log = require "ammcore.log"
 --- @class ammgui.component.context
 local ns = {}
 
---- Text measuring service.
----
---- Allows measuring dimensions of rendered strings in batch.
----
---- @class ammgui.component.context.TextMeasure: ammcore.class.Base
-ns.TextMeasure = class.create("TextMeasure")
+local logger = log.Logger:New()
 
+--- Synchronization context, keeps track of outdated blocks.
+---
+--- @class ammgui.component.context.SyncContext: ammcore.class.Base
+ns.SyncContext = class.create("SyncContext")
+
+--- @param earlyRefreshEvent ammcore.promise.Event
+---
 --- !doctype classmethod
---- @generic T: ammgui.component.context.TextMeasure
+--- @generic T: ammgui.component.context.SyncContext
 --- @param self T
 --- @return T
-function ns.TextMeasure:New()
+function ns.SyncContext:New(earlyRefreshEvent)
     self = class.Base.New(self)
 
     --- @private
-    --- @type { text: string, size: integer, monospace: boolean, cb: fun(size: Vector2D, baseline: number) }[]
-    self._requests = {}
+    --- @type ammcore.promise.Event
+    self._earlyRefreshEvent = earlyRefreshEvent
+
+    --- @private
+    --- @type { outdated: boolean, children: ammgui.dom.Node[] }[]
+    self._outdatedStack = {}
+
+    --- @protected
+    --- @type table<ammgui.dom.Node, boolean>
+    self._children = {}
 
     return self
 end
 
---- Request measure for a word.
+--- Check if functional components at this level are out of date.
 ---
---- @param text string
---- @param size integer
---- @param monospace boolean
---- @param cb fun(size: Vector2D, baseline: number)
-function ns.TextMeasure:addRequest(text, size, monospace, cb)
-    table.insert(self._requests, { text = text, size = size, monospace = monospace, cb = cb })
-end
-
---- Measure all words and save results.
----
---- @param gpu FINComputerGPUT2
-function ns.TextMeasure:run(gpu)
-    if #self._requests == 0 then
-        return
-    end
-
-    local text = {}
-    local size = {}
-    local monospace = {}
-
-    for _, word in ipairs(self._requests) do
-        table.insert(text, word.text)
-        table.insert(size, word.size)
-        table.insert(monospace, word.monospace)
-    end
-
-    local measured = gpu:measureTextBatch(text, size, monospace)
-    local baselines = gpu:getFontBaselineBatch(size, monospace)
-
-    for i = 1, #self._requests do
-        self._requests[i].cb(measured[i], baselines[i])
-    end
-
-    self._requests = {}
-end
-
---- CSS calculation context.
----
---- @class ammgui.css.component.CssContext: ammcore.class.Base
-ns.CssContext = class.create("CssContext")
-
---- @param rules { selector: ammgui.css.selector.Selector, rule: ammgui.css.rule.CompiledRule }[]
---- @param theme table<string, Color | string>
---- @param units table<string, number>
---- @param outdated boolean?
----
---- !doctype classmethod
---- @generic T: ammgui.css.component.CssContext
---- @param self T
---- @return T
-function ns.CssContext:New(rules, theme, units, outdated)
-    self = class.Base.New(self)
-
-    --- @private
-    --- @type table<string, Color | string>
-    self._theme = theme
-
-    --- @private
-    --- @type table<string, number>
-    self._units = units
-
-    --- @private
-    --- @type boolean
-    self._outdated = outdated or false
-
-    --- @private
-    --- @type { selector: ammgui.css.selector.Selector, rule: ammgui.css.rule.CompiledRule }[]
-    self._rules = rules
-
-    --- @private
-    --- @type { elem: string, classes: table<string, true>, pseudo: table<string, true> }[]
-    self._path = {}
-
-    --- @private
-    --- @type { parent: ammgui.css.rule.Resolved, cssOutdated: boolean, layoutOutdated: boolean }[]
-    self._context = {}
-
-    return self
-end
-
---- @private
---- @return ammgui.css.rule.Resolved? parent
---- @return boolean cssOutdated
---- @return boolean layoutOutdated
-function ns.CssContext:_getContext()
-    if #self._context > 0 then
-        local context = self._context[#self._context]
-        return context.parent, context.cssOutdated, context.layoutOutdated
+--- @return boolean
+function ns.SyncContext:isOutdated()
+    if #self._outdatedStack > 0 then
+        -- We force-re-render functional components when their parent is outdated.
+        return self._outdatedStack[#self._outdatedStack].outdated
     else
-        return nil, self._outdated, self._outdated
+        -- If there is no parent, it means we're evaluating window's root.
+        -- We never force-re-render roots. It's up to the functional component's
+        -- implementation to detect if its parameters changed.
+        return false
     end
 end
 
---- @private
---- @param inline ammgui.css.rule.CompiledRule
---- @return ammgui.css.rule.CompiledRule[] newRules
-function ns.CssContext:_matchRules(inline)
-    --- @type ammgui.css.rule.CompiledRule[]
-    local matchingRules = {}
-    for _, ruleData in ipairs(self._rules) do
-        if ruleData.selector:match(self._path) then
-            table.insert(matchingRules, ruleData.rule)
-        end
-    end
-    table.insert(matchingRules, inline)
-
-    return matchingRules
-end
-
---- Enter a new DOM node and update context accordingly.
----
---- @param css ammgui.css.rule.Resolved previous CSS settings.
---- @param elem string name of the DOM node.
---- @param classes table<string, true> set of CSS classes applied to the DOM node.
---- @param pseudo table<string, true> set of CSS pseudoclasses applied to the DOM node.
---- @param inline ammgui.css.rule.CompiledRule inline CSS settings of a component.
---- @param childCssSettingsChanged boolean indicates that there were changes in component's or child's CSS settings.
---- @param cssSettingsChanged boolean indicates that there were changes in component's inline CSS settings or set of classes and pseudoclasses.
---- @return boolean outdated `true` if layout settings were changed.
---- @return boolean shouldPropagate `true` if component should propagate CSS changes to its children.
---- @return ammgui.css.rule.Resolved newCss new CSS settings for component.
-function ns.CssContext:enterNode(css, elem, classes, pseudo, inline, childCssSettingsChanged, cssSettingsChanged)
-    local parent, cssOutdated, layoutOutdated = self:_getContext()
-
-    table.insert(self._path, { elem = elem, classes = classes, pseudo = pseudo })
-
-    cssOutdated = cssOutdated or not css
-    layoutOutdated = layoutOutdated or not css
-
-    if cssOutdated or cssSettingsChanged then
-        local newRules = self:_matchRules(inline)
-
-        if not cssOutdated or not layoutOutdated then
-            local oldRules = css and rawget(css, "_context") or {}
-
-            -- Only reset calculated css values if rules actually changed.
-            -- I.e. we toggle `:hover` often, but most components don't have
-            -- any rules related to `:hover`. And those that do, only update
-            -- their layout-safe options.
-            cssOutdated = cssOutdated or not array.eq(oldRules, newRules)
-            if cssOutdated and not layoutOutdated then
-                local i, j, n = 1, 1, math.max(#newRules, #oldRules)
-                while i <= n and j <= n do
-                    while i <= #newRules and newRules[i].isLayoutSafe do
-                        i = i + 1
-                    end
-                    while j <= #oldRules and oldRules[j].isLayoutSafe do
-                        j = j + 1
-                    end
-                    if newRules[i] ~= oldRules[j] then
-                        layoutOutdated = true
-                        break
-                    end
-                    i = i + 1
-                    j = j + 1
-                end
+--- @param outdated boolean
+--- @param children ammgui.dom.ListNode?
+function ns.SyncContext:pushComponent(outdated, children)
+    local isParentOutdated = self:isOutdated()
+    local childrenAddedByThisComponent = {}
+    if children then
+        for _, child in ipairs(children) do
+            if self._children[child] then
+                -- We've seen this children node before. This happens when some component
+                -- passes its children to another component. We don't need to do anything,
+                -- as this child node is already registered.
+            else
+                -- We haven't seen this children node before. This means that this children
+                -- node was created by currently active functional component.
+                -- We use its `outdated` flag; we only force-refresh children when
+                -- the functional component that created them is itself outdated.
+                self._children[child] = isParentOutdated
+                table.insert(childrenAddedByThisComponent, child)
             end
         end
+    end
+    table.insert(self._outdatedStack, { outdated = outdated, children = childrenAddedByThisComponent })
+end
 
-        if cssOutdated or layoutOutdated then
-            css = rule.Resolved:New(newRules, parent, self._theme, self._units)
+function ns.SyncContext:popComponent()
+    if #self._outdatedStack > 0 then
+        local data = table.remove(self._outdatedStack)
+        for _, child in ipairs(data.children) do
+            self._children[child] = nil
         end
     end
-    table.insert(self._context, { parent = css, cssOutdated = cssOutdated, layoutOutdated = layoutOutdated })
-
-    return layoutOutdated, cssOutdated or childCssSettingsChanged, css
 end
 
---- Exit a DOM node and update context accordingly.
-function ns.CssContext:exitNode()
-    if #self._path == 0 or #self._context == 0 then
-        error("'exitNode' was called before 'enterNode'")
+--- @param children ammgui.dom.Node?
+function ns.SyncContext:pushChildren(children)
+    local outdated = self._children[children]
+    if outdated == nil then
+        error("unknown children node")
     else
-        table.remove(self._path)
-        table.remove(self._context)
+        -- We override current `outdated` flag by the `outdated` flag of the functional
+        -- component that created these children. This way, we only refresh children
+        -- when the component that'd created them is outdated. We don't care if
+        -- the container that received these children is outdated, we know that
+        -- it didn't (or at least shouldn't have) mess with the children.
+        table.insert(self._outdatedStack, { outdated = outdated })
     end
 end
 
---- A helper which enters a DOM node and returns a deferred statement to exit it.
----
---- See `ammcore.defer` for more info.
----
---- @param css ammgui.css.rule.Resolved previous CSS settings.
---- @param elem string name of the DOM node.
---- @param classes table<string, true> set of CSS classes applied to the DOM node.
---- @param pseudo table<string, true> set of CSS pseudoclasses applied to the DOM node.
---- @param inline ammgui.css.rule.CompiledRule inline CSS settings of a component.
---- @param childCssSettingsChanged boolean indicates that there were changes in component's or child's CSS settings.
---- @param cssSettingsChanged boolean indicates that there were changes in component's inline CSS settings or set of classes and pseudoclasses.
---- @return ammcore.defer._Defer deferred statement. See `ammcore.defer` for more info.
---- @return boolean outdated `true` if layout settings were changed.
---- @return boolean shouldPropagate `true` if component should propagate CSS changes to its children.
---- @return ammgui.css.rule.Resolved newCss new CSS settings for component.
-function ns.CssContext:descendNode(css, elem, classes, pseudo, inline, childCssSettingsChanged, cssSettingsChanged)
-    return defer.defer(self.exitNode, self),
-        self:enterNode(css, elem, classes, pseudo, inline, childCssSettingsChanged, cssSettingsChanged)
+function ns.SyncContext:popChildren()
+    local data = table.remove(self._outdatedStack)
+    assert(not data.children, "not a children node")
+end
+
+function ns.SyncContext:requestEarlyRefresh()
+    self._earlyRefreshEvent:set()
 end
 
 --- Rendering context.
@@ -267,7 +149,13 @@ end
 --- Reset rendering context before next redraw.
 ---
 --- @param size Vector2D
-function ns.RenderingContext:reset(size)
+--- @param devtoolsHighlightedId table?
+--- @param devtoolsHighlightedParams [boolean, boolean, boolean, boolean]?
+function ns.RenderingContext:reset(
+    size,
+    devtoolsHighlightedId,
+    devtoolsHighlightedParams
+)
     --- @private
     --- @type Vector2D
     self._size = size
@@ -309,6 +197,18 @@ function ns.RenderingContext:reset(size)
     --- @private
     --- @type table<integer, { posA: Vector2D, posB: Vector2D, eventReceiver: ammgui.eventManager.EventListener }[]>
     self._eventGrid = {}
+
+    --- @private
+    --- @type table?
+    self._devtoolsHighlightedId = devtoolsHighlightedId
+
+    --- @private
+    --- @type [boolean, boolean, boolean, boolean]?
+    self._devtoolsHighlightedParams = devtoolsHighlightedParams
+
+    --- @private
+    --- @type [ammgui.component.base.SupportsDebugOverlay, Vector2D, Vector2D][]
+    self._devtoolsHighlightedTargets = {}
 end
 
 function ns.RenderingContext:requestEarlyRefresh()
@@ -435,27 +335,29 @@ function ns.RenderingContext:popLayout()
     end
 end
 
+--- @param target ammgui.component.base.SupportsDebugOverlay
+--- @param id table
+function ns.RenderingContext:noteDebugTarget(target, id)
+    if self._devtoolsHighlightedId and self._devtoolsHighlightedId == id then
+        table.insert(self._devtoolsHighlightedTargets, {
+            target, self._posA, self._posB
+        })
+    end
+end
+
 function ns.RenderingContext:finalize()
-    -- if self._dragging and self._dragIconPos then
-    --     self.gpu:drawBox {
-    --         position = self._dragIconPos,
-    --         size = structs.Vector2D { 20, 20 },
-    --         rotation = 0,
-    --         color = structs.Color { 1, 1, 1, 0.12 },
-    --         image = "",
-    --         imageSize = structs.Vector2D { x = 0, y = 0 },
-    --         hasCenteredOrigin = true,
-    --         horizontalTiling = false,
-    --         verticalTiling = false,
-    --         isBorder = false,
-    --         margin = { top = 0, right = 0, bottom = 0, left = 0 },
-    --         isRounded = true,
-    --         radii = structs.Vector4 { 10, 10, 10, 10 },
-    --         hasOutline = true,
-    --         outlineThickness = 1,
-    --         outlineColor = structs.Color { 1, 1, 1, 0.5 },
-    --     }
-    -- end
+    for _, target in ipairs(self._devtoolsHighlightedTargets) do
+        self.gpu:pushLayout(
+            target[2],
+            target[3] - target[2],
+            1
+        )
+        target[1]:drawDebugOverlay(
+            self,
+            table.unpack(self._devtoolsHighlightedParams)
+        )
+        self.gpu:popGeometry()
+    end
 end
 
 return ns

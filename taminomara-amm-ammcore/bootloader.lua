@@ -624,37 +624,45 @@ end
 
 --- Get module name at stack frame ``n``.
 ---
---- @param n integer? number of stack frame from the top of the stack. By default, return module of the calling frame.
+--- @param n integer|function? number of stack frame from the top of the stack. By default, return module of the calling frame.
 --- @return string module module name.
 function ns.getMod(n)
-    return ns.getModuleByRealPath(ns.getFile((n or 1) + 1)) or "<unknown>"
+    n = type(n) == "function" and n or (n or 1) + 1
+    return ns.getModuleByRealPath(ns.getFile(n)) or "<unknown>"
 end
 
 --- Get file name at stack frame ``n``.
 ---
---- @param n integer? number of stack frame from the top of the stack. By default, return file of the calling frame.
+--- @param n integer|function? number of stack frame from the top of the stack. By default, return file of the calling frame.
 --- @return string file file name.
 function ns.getFile(n)
-    return debug.getinfo((n or 1) + 1).source:match("^@(.-)$") or "<unknown>"
+    n = type(n) == "function" and n or (n or 1) + 1
+    local info = debug.getinfo(n)
+    local source = info and info.source
+    return source and source:match("^@(.-)$") or "<unknown>"
 end
 
 --- Get current line number at stack frame ``n``.
 ---
---- @param n integer? number of stack frame from the top of the stack. By default, return line at the calling frame.
+--- @param n integer|function? number of stack frame from the top of the stack. By default, return line at the calling frame.
 --- @return integer line line number.
 function ns.getLine(n)
-    return debug.getinfo((n or 1) + 1).currentline or 1
+    n = type(n) == "function" and n or (n or 1) + 1
+    local info = debug.getinfo(n)
+    local currentline = info and info.currentline
+    return currentline or 1
 end
 
 --- Get current location at stack frame ``n``.
 ---
---- @param n integer? number of stack frame from the top of the stack. By default, return location of the calling frame.
+--- @param n integer|function? number of stack frame from the top of the stack. By default, return location of the calling frame.
 --- @return string location location, consists of file name and line number.
 function ns.getLoc(n)
+    n = type(n) == "function" and n or (n or 1) + 1
     local loc = string.format(
         "%s:%s",
-        ns.getFile((n or 1) + 1),
-        ns.getLine((n or 1) + 1)
+        ns.getFile(n),
+        ns.getLine(n)
     )
     return loc
 end

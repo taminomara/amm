@@ -1,7 +1,7 @@
 local class = require "ammcore.class"
 local bcom = require "ammgui.component.block"
 local util = require "ammgui.component.block.util"
-local array= require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 --- Flex component.
 ---
@@ -21,7 +21,7 @@ function ns.Flex:onMount(ctx, data)
     bcom.Component.onMount(self, ctx, data)
 
     --- @private
-    --- @type ammgui.component.block.ComponentProvider[]
+    --- @type ammgui.component.base.ComponentProvider[]
     self._providers = nil
 
     --- @private
@@ -130,7 +130,17 @@ function ns.Flex:calculateContentLayout(availableWidth, availableHeight)
 
     local totalCrossSize = 0
     for _, line in ipairs(self._lines) do
-        line.lineCrossSize = line.lineCrossSize or self:_estimateLineCrossSize(line, availableWidth, availableHeight)
+        local lineCrossSize, lineCrossSizeA, lineCrossSizeB =
+            self:_estimateLineCrossSize(line, availableWidth, availableHeight)
+
+        line.lineCrossSize = line.lineCrossSize or math.max(
+            lineCrossSize, lineCrossSizeA + lineCrossSizeB
+        )
+
+        local leading = line.lineCrossSize - lineCrossSizeA - lineCrossSizeB
+        line.lineCrossSizeA = lineCrossSizeA + leading / 2
+        line.lineCrossSizeB = lineCrossSizeB + leading / 2
+
         totalCrossSize = totalCrossSize + line.lineCrossSize
     end
 
@@ -234,7 +244,7 @@ function ns.Flex:_calculateHypotheticalMainSizes(availableWidth, availableHeight
 end
 
 function ns.Flex:_flowLines()
-    --- @type { [integer]: ammgui.component.block.Component, lineCrossSize: number?, lineMainSize: number?, position: Vector2D? }[]
+    --- @type { [integer]: ammgui.component.block.Component, lineCrossSize: number?, lineCrossSizeA: number?, lineCrossSizeB: number?, lineMainSize: number?, position: Vector2D? }[]
     self._lines = {}
 
     local columnGap = util.resolvePercentage(self.css.columnGap, self._availableMainSize or 0)
@@ -375,19 +385,49 @@ end
 --- @param line { [integer]: ammgui.component.block.Component, lineCrossSize: number? }
 --- @param availableWidth any
 --- @param availableHeight any
+--- @return number lineCrossSize
+--- @return number lineCrossSizeA
+--- @return number lineCrossSizeB
 function ns.Flex:_estimateLineCrossSize(line, availableWidth, availableHeight)
     local lineCrossSize = 0
+    local lineCrossSizeA = 0
+    local lineCrossSizeB = 0
 
     for _, child in ipairs(line) do
         local childUsedLayout = child:getLayout(availableWidth, availableHeight, true)
-        lineCrossSize = math.max(
-            lineCrossSize,
+
+        local baselineOffset
+        if self._crossSizeCoord == "y" then
+            local alignSelf = child.css.alignSelf
+            if alignSelf == "auto" then
+                alignSelf = self.css.alignItems
+            end
+            if alignSelf == "first baseline" and child.textLayout.firstBaselineOffset then
+                baselineOffset =
+                    childUsedLayout[self._effectiveCrossMarginName].x
+                    + childUsedLayout.contentPosition.y
+                    + child.textLayout.firstBaselineOffset
+            elseif alignSelf == "last baseline" and child.textLayout.lastBaselineOffset then
+                baselineOffset =
+                    childUsedLayout[self._effectiveCrossMarginName].x
+                    + childUsedLayout.contentPosition.y
+                    + child.textLayout.lastBaselineOffset
+            end
+        end
+
+        local childHeight =
             childUsedLayout.resolvedBorderBoxSize[self._crossSizeCoord]
             + childUsedLayout[self._effectiveCrossMarginName].x
             + childUsedLayout[self._effectiveCrossMarginName].y
-        )
+
+        if baselineOffset then
+            lineCrossSizeA = math.max(lineCrossSizeA, baselineOffset)
+            lineCrossSizeB = math.max(lineCrossSizeB, childHeight - baselineOffset)
+        else
+            lineCrossSize = math.max(lineCrossSize, childHeight)
+        end
     end
-    return lineCrossSize
+    return lineCrossSize, lineCrossSizeA, lineCrossSizeB
 end
 
 --- @param availableWidth number?
@@ -427,7 +467,7 @@ function ns.Flex:_alignItems(availableWidth, availableHeight)
                         }
                     else
                         local childSize = childUsedLayout.resolvedBorderBoxSize
-                        childComputedCrossSize = { childSize.y, "px" }
+                        childComputedCrossSize = { childSize[self._crossSizeCoord], "px" }
                     end
                     -- force recalculation according to css-flexbox-1, 9.4.11
                     child[self._crossSizeLayoutName] = child[self._crossSizeLayoutFunctionName](
@@ -475,11 +515,29 @@ function ns.Flex:_alignItems(availableWidth, availableHeight)
                     [self._mainSizeCoord] = 0,
                     [self._crossSizeCoord] = line.lineCrossSize - childSize[self._crossSizeCoord],
                 }
-            -- TODO:
-            -- elseif alignSelf == "first baseline" then
-            -- elseif alignSelf == "last baseline" then
-            else
-                childLayout.position = structs.Vector2D { 0, 0 }
+            elseif self._crossSizeCoord == "y" and alignSelf == "first baseline" and child.textLayout.firstBaselineOffset then
+                childLayout.position = structs.Vector2D {
+                    [self._mainSizeCoord] = 0,
+                    [self._crossSizeCoord] =
+                        line.lineCrossSizeA
+                        - child.textLayout.firstBaselineOffset
+                        - childUsedLayout.contentPosition.y
+                        - childUsedLayout.effectiveVerticalMargin.x,
+                }
+            elseif self._crossSizeCoord == "y" and alignSelf == "last baseline" and child.textLayout.lastBaselineOffset then
+                childLayout.position = structs.Vector2D {
+                    [self._mainSizeCoord] = 0,
+                    [self._crossSizeCoord] =
+                        line.lineCrossSizeA
+                        - child.textLayout.lastBaselineOffset
+                        - childUsedLayout.contentPosition.y
+                        - childUsedLayout.effectiveVerticalMargin.x,
+                }
+            else -- Fall back to safe center.
+                childLayout.position = structs.Vector2D {
+                    [self._mainSizeCoord] = 0,
+                    [self._crossSizeCoord] = math.max(0, (line.lineCrossSize - childSize[self._crossSizeCoord]) / 2),
+                }
             end
             childLayout.position[self._crossSizeCoord] =
                 childLayout.position[self._crossSizeCoord]
@@ -595,10 +653,22 @@ function ns.Flex:_calculateActualContentSize()
     local actualContentWidth, actualContentHeight = 0, 0
     for _, line in ipairs(self._lines) do
         for _, child in ipairs(line) do
-            local rightBottomCorner =
-                line.position
-                + self._childLayout[child].position
-                + child.usedLayout.visibleBorderBoxSize
+            local childPosition = line.position + self._childLayout[child].position
+
+            local contentOffset = child.usedLayout.contentPosition.y
+            local firstBaselineOffset = child.textLayout.firstBaselineOffset or child.textLayout.lastBaselineOffset
+            local lastBaselineOffset = child.textLayout.lastBaselineOffset or child.textLayout.firstBaselineOffset
+
+            if firstBaselineOffset and not self.textLayout.firstBaselineOffset then
+                self.textLayout.firstBaselineOffset =
+                    childPosition.y + contentOffset + firstBaselineOffset
+            end
+            if lastBaselineOffset then
+                self.textLayout.lastBaselineOffset =
+                    childPosition.y + contentOffset + lastBaselineOffset
+            end
+
+            local rightBottomCorner = childPosition + child.usedLayout.visibleBorderBoxSize
             actualContentWidth = math.max(actualContentWidth, rightBottomCorner.x)
             actualContentHeight = math.max(actualContentHeight, rightBottomCorner.y)
         end
@@ -626,7 +696,45 @@ function ns.Flex:draw(ctx)
 end
 
 function ns.Flex:reprChildren()
-    return array.map(self._children, function (x) return x:repr() end)
+    return fun.a.map(self._children, function(x) return x:repr() end)
+end
+
+function ns.Flex:drawDebugOverlay(ctx, drawContent, drawPadding, drawOutline, drawMargin)
+    bcom.Component.drawDebugOverlay(self, ctx, drawContent, drawPadding, drawOutline, drawMargin)
+    if drawContent then
+        local position = self.usedLayout.contentPosition
+        for _, line in ipairs(self._lines) do
+            for _, child in ipairs(line) do
+                local childMarginOffset = structs.Vector2D {
+                    child.usedLayout.effectiveHorizontalMargin.x,
+                    child.usedLayout.effectiveVerticalMargin.x,
+                }
+                local childMarginSize = childMarginOffset + structs.Vector2D {
+                    child.usedLayout.effectiveHorizontalMargin.y + 1,
+                    child.usedLayout.effectiveVerticalMargin.y + 1,
+                }
+
+                ctx.gpu:drawBox {
+                    position = position + line.position + self._childLayout[child].position - childMarginOffset,
+                    size = child.usedLayout.visibleBorderBoxSize + childMarginSize,
+                    rotation = 0,
+                    color = structs.Color { 0, 0, 0, 0 },
+                    image = "",
+                    imageSize = structs.Vector2D { x = 0, y = 0 },
+                    hasCenteredOrigin = false,
+                    horizontalTiling = false,
+                    verticalTiling = false,
+                    isBorder = false,
+                    margin = { top = 0, right = 0, bottom = 0, left = 0 },
+                    isRounded = true,
+                    radii = structs.Vector4 { 0, 0, 0, 0 },
+                    hasOutline = true,
+                    outlineThickness = 1,
+                    outlineColor = structs.Color { 0x66 / 0xFF, 0x00 / 0xFF, 0x66 / 0xFF, 1 },
+                }
+            end
+        end
+    end
 end
 
 return ns

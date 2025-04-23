@@ -3,7 +3,6 @@ local class = require "ammcore.class"
 local log = require "ammcore.log"
 local packageJson = require "ammcore.pkg.packageJson"
 local json = require "ammcore._contrib.json"
-local array= require "ammcore._util.array"
 
 --- Build script API.
 ---

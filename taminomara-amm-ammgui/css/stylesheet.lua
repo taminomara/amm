@@ -1,4 +1,5 @@
 local class = require "ammcore.class"
+local bootloader = require "ammcore.bootloader"
 
 --- A collection of CSS rules.
 ---
@@ -48,6 +49,7 @@ end
 --- @param rule ammgui.css.rule.Rule
 --- @return T
 function ns.Stylesheet:addRule(rule)
+    rule.loc = rule.loc or bootloader.getLoc(2)
     ---@diagnostic disable-next-line: undefined-field
     table.insert(self.rules, rule)
     return self

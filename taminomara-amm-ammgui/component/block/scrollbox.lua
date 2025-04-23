@@ -62,7 +62,7 @@ function ScrollbarEventListener:onDragStart(pos, origin, modifiers, target)
     local scrollableSize = self.parent.usedLayout.actualBorderBoxSize[self._direction]
     local viewportSize = self.parent.usedLayout.resolvedBorderBoxSize[self._direction]
 
-    if viewportSize >= scrollableSize then
+    if viewportSize + 0.5 >= scrollableSize then
         return false
     end
 
@@ -104,6 +104,7 @@ function ScrollbarEventListener:onDrag(pos, origin, modifiers, target)
     local scrollPos = math.max(scrollPosA, math.min(scrollPosB, scrollPosA + (scrollPosB - scrollPosA) * scrollPosRatio))
 
     self.parent.scroll[self._direction] = scrollPos
+    self.parent.stick[self._direction] = scrollPos >= scrollPosB - 5
 
     return "none" -- Don't highlight drop zones.
 end
@@ -134,6 +135,9 @@ function ns.ScrollBox:onMount(ctx, data)
     --- @type { x: boolean, y: boolean }
     self.scrollDrag = { x = false, y = false }
 
+    --- @type { x: boolean, y: boolean }
+    self.stick = { x = false, y = false }
+
     --- @private
     --- @type number
     self._mouseWheelFactor = 30
@@ -152,11 +156,15 @@ end
 --- @return boolean
 function ns.ScrollBox:onMouseWheel(pos, delta, modifiers, propagate)
     propagate = div.Div.onMouseWheel(self, pos, delta, modifiers, propagate)
-    if propagate and self.usedLayout then
+    if propagate then
         local direction = modifiers & 8 > 0 and "x" or "y" -- Shift pressed?
 
         local scrollableSize = self.usedLayout.actualBorderBoxSize[direction]
         local viewportSize = self.usedLayout.resolvedBorderBoxSize[direction]
+
+        if viewportSize + 0.5 >= scrollableSize then
+            return propagate
+        end
 
         local scrollPosA = 0
         local scrollPosB = math.max(0, scrollableSize - viewportSize)
@@ -165,11 +173,15 @@ function ns.ScrollBox:onMouseWheel(pos, delta, modifiers, propagate)
         -- Only propagate event if we scrolled less than 1px.
         propagate = math.abs(scrollPos - self.scroll[direction]) < 1
         self.scroll[direction] = scrollPos
+        self.stick[direction] = scrollPos >= scrollPosB - 5
     end
     return propagate
 end
 
 function ns.ScrollBox:draw(ctx)
+    self:_clampScroll("x")
+    self:_clampScroll("y")
+
     local contentPosition = self.usedLayout.contentPosition - structs.Vector2D {
         math.floor(self.scroll.x), math.floor(self.scroll.y),
     }
@@ -180,12 +192,26 @@ function ns.ScrollBox:draw(ctx)
     self:_drawScrollBox(ctx, "y", "x")
 end
 
+function ns.ScrollBox:_clampScroll(direction)
+    local scrollableSize = self.usedLayout.actualBorderBoxSize[direction]
+    local viewportSize = self.usedLayout.resolvedBorderBoxSize[direction]
+
+    local scrollPosA = 0
+    local scrollPosB = math.max(0, scrollableSize - viewportSize)
+
+    if self.stick[direction] then
+        self.scroll[direction] = scrollPosB
+    else
+        self.scroll[direction] = math.max(scrollPosA, math.min(scrollPosB, self.scroll[direction]))
+    end
+end
+
 --- @param ctx ammgui.component.context.RenderingContext
 function ns.ScrollBox:_drawScrollBox(ctx, direction, crossDirection)
     local scrollableSize = self.usedLayout.actualBorderBoxSize[direction]
     local viewportSize = self.usedLayout.resolvedBorderBoxSize[direction]
 
-    if viewportSize >= scrollableSize then
+    if viewportSize + 0.5 >= scrollableSize then -- +0.5 to compensate for rounding errors.
         return
     end
 

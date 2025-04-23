@@ -1,6 +1,7 @@
 local class = require "ammcore.class"
 local bcom = require "ammgui.component.block"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
+local log = require "ammcore.log"
 
 --- Div component.
 ---
@@ -20,7 +21,7 @@ function ns.Div:onMount(ctx, data)
     bcom.Component.onMount(self, ctx, data)
 
     --- @private
-    --- @type ammgui.component.block.ComponentProvider[]
+    --- @type ammgui.component.base.ComponentProvider[]
     self._providers = nil
 
     --- @private
@@ -120,6 +121,19 @@ function ns.Div:calculateContentLayout(availableWidth, availableHeight)
             end
         end
 
+        local contentOffset = child.usedLayout.contentPosition.y
+        local firstBaselineOffset = child.textLayout.firstBaselineOffset or child.textLayout.lastBaselineOffset
+        local lastBaselineOffset = child.textLayout.lastBaselineOffset or child.textLayout.firstBaselineOffset
+
+        if firstBaselineOffset and not self.textLayout.firstBaselineOffset then
+            self.textLayout.firstBaselineOffset =
+                currentY + contentOffset + firstBaselineOffset
+        end
+        if lastBaselineOffset then
+            self.textLayout.lastBaselineOffset =
+                currentY + contentOffset + lastBaselineOffset
+        end
+
         self._childPositions[child] = structs.Vector2D {
             childLayoutData.effectiveHorizontalMargin.x,
             currentY,
@@ -178,7 +192,7 @@ function ns.Div:draw(ctx, contentPosition)
 end
 
 function ns.Div:reprChildren()
-    return array.map(self._children, function (x) return x:repr() end)
+    return fun.a.map(self._children, function(x) return x:repr() end)
 end
 
 --- Implements a ``<body>`` element.
@@ -264,5 +278,47 @@ ns.Details.elem = "details"
 ns.Summary = class.create("Summary", ns.Div)
 
 ns.Summary.elem = "summary"
+
+--- Implements a ``<p>`` element.
+---
+--- @class ammgui.component.block.div.P: ammgui.component.block.div.Div
+ns.P = class.create("P", ns.Div)
+
+ns.P.elem = "p"
+
+--- Implements a ``<h1>`` element.
+---
+--- @class ammgui.component.block.div.H1: ammgui.component.block.div.Div
+ns.H1 = class.create("H1", ns.Div)
+
+ns.H1.elem = "h1"
+
+--- Implements a ``<h2>`` element.
+---
+--- @class ammgui.component.block.div.H2: ammgui.component.block.div.Div
+ns.H2 = class.create("H2", ns.Div)
+
+ns.H2.elem = "h2"
+
+--- Implements a ``<h3>`` element.
+---
+--- @class ammgui.component.block.div.H3: ammgui.component.block.div.Div
+ns.H3 = class.create("H3", ns.Div)
+
+ns.H3.elem = "h3"
+
+--- Implements a ``<button>`` element.
+---
+--- @class ammgui.component.block.div.Button: ammgui.component.block.div.Div
+ns.Button = class.create("Button", ns.Div)
+
+ns.Button.elem = "button"
+
+--- Implements a ``<figcaption>`` element.
+---
+--- @class ammgui.component.block.div.FigCaption: ammgui.component.block.div.Div
+ns.FigCaption = class.create("FigCaption", ns.Div)
+
+ns.FigCaption.elem = "figcaption"
 
 return ns

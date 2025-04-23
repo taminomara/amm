@@ -1,6 +1,7 @@
 local class = require "ammcore.class"
 local log = require "ammcore.log"
 local selector = require "ammgui.css.selector"
+local u = require "ammgui.css.units"
 
 --- A CSS rule.
 ---
@@ -8,16 +9,12 @@ local selector = require "ammgui.css.selector"
 --- @class ammgui.css.rule
 local ns = {}
 
---- @generic T
---- @generic U
---- @param prop T
---- @param literalValues table<T, T>
---- @param functionalValues table<T, fun(x: T, resolved: ammgui.css.rule.Resolved): U>
---- @param parser fun(x: unknown, r: ammgui.css.rule.Resolved): U
+--- @param literalValues table<string, any>
+--- @param parser fun(x: unknown, r: ammgui.css.rule.Resolved, n: string): any
 --- @param isLayoutSafe boolean
---- @return T|U
+--- @return unknown
 local function resolver(
-    prop, literalValues, functionalValues, parser, isLayoutSafe
+    literalValues, parser, isLayoutSafe
 )
     for value, mappedValue in ipairs(literalValues) do
         while mappedValue ~= value and literalValues[mappedValue] do
@@ -27,9 +24,9 @@ local function resolver(
     end
     return {
         literalValues = literalValues,
-        functionalValues = functionalValues,
         parser = parser,
         isLayoutSafe = isLayoutSafe,
+        __isResolver = true,
     } --[[ @as any ]]
 end
 
@@ -42,64 +39,51 @@ local ruleSetters = {}
 --- @class ammgui.css.rule.Resolved: ammcore.class.Base
 ns.Resolved = class.create("Resolved")
 
---- @param ... string
---- @return fun(x: unknown, defaultUnit?: string): number, string
-local function numValueParser(...)
-    local units = {}
-    local unitDesc, sep = "", ""
-    for _, unit in ipairs({ ... }) do
-        units[unit] = true
-        unitDesc = unitDesc .. sep .. (unit:len() > 0 and unit or "<number>")
-        sep = ", "
-    end
-
-    return function(x, defaultUnit)
-        local n, unit
-        if type(x) == "number" then
-            n, unit = x, defaultUnit or ""
-        elseif type(x) == "string" then
-            local parsedN, parsedUnit = x:match("^([%d.+-]+)(.*)$")
-            n = tonumber(parsedN)
-            unit = parsedUnit
-        else
-            error(string.format("invalid value %s", log.pp(x)), 0)
-        end
-        if not n then
-            error(string.format("invalid value %s: can't parse a number", log.pp(x)), 0)
-        end
-        if not units[unit] then
-            unit = unit:len() > 0 and unit or "<number>"
-            error(string.format("invalid value %s: expected one of %s, got %s", log.pp(x), unitDesc, log.pp(unit)), 0)
-        end
-        return n, unit
-    end
-end
-
 --- @param x unknown
 --- @param r ammgui.css.rule.Resolved
 --- @return nil
-local function parseFail(x, r)
-    error(string.format("invalid value %s", log.pp(x)), 0)
+local function parseFail(x, r, n)
+    error(string.format("invalid %s value %s", n, log.pp(x)), 0)
 end
 
-local lengthParser = numValueParser("px", "pt", "pc", "Q", "mm", "cm", "m", "in", "em", "rem", "vw", "vh", "vmin", "vmax",
-    "%")
+--- @param x unknown
+--- @param u string
+--- @param n string
+--- @return number value
+--- @return string unit
+local function parseUnit(x, u, n)
+    if type(x) == "number" then
+        return x, u
+    elseif
+        type(x) == "table"
+        and #x == 2
+        and type(x[1]) == "number"
+        and type(x[2]) == "string"
+    then
+        ---@diagnostic disable-next-line: redundant-return-value
+        return table.unpack(x)
+    else
+        error(string.format("invalid %s value %s", n, log.pp(x)))
+    end
+end
 
 --- @param x unknown
 --- @param r ammgui.css.rule.Resolved
+--- @param n string
 --- @return [number, "px"|"%"]
-local function parseLength(x, r)
-    if tonumber(x) == 0 then
-        x = 0 -- specifying unit is optional when value is 0
-    end
-    local n, u = lengthParser(x, "px")
+local function parseLength(x, r, n)
+    local n, u = parseUnit(x, "px", n)
     if u == "em" then
         local nn, nu = table.unpack(r.fontSize)
         n = n * nn
         u = nu
     end
     if u ~= "px" and u ~= "%" then
-        n = n * assert(rawget(r, "_units")[u], u)
+        local units = r._units
+        if not units[u] then
+            error(string.format("unknown %s unit %s", n, log.pp(u)), 0)
+        end
+        n = n * units[u]
         u = "px"
     end
     return { n, u }
@@ -108,24 +92,22 @@ end
 --- @param x unknown
 --- @param r ammgui.css.rule.Resolved
 --- @return [number, "px"|"%"]
-local function parsePositiveLength(x, r)
-    local val = parseLength(x, r)
+local function parsePositiveLength(x, r, n)
+    local val = parseLength(x, r, n)
     if val[1] < 0 then
-        error("length can't be negative")
+        error(string.format("%s can't be negative", n), 0)
     end
     return val
 end
 
-local fontSizeUnitParser = numValueParser("px", "pt", "pc", "Q", "mm", "cm", "m", "in", "em", "rem", "vw", "vh", "vmin",
-    "vmax", "%")
-
 --- @param x unknown
 --- @param r ammgui.css.rule.Resolved
+--- @param n string
 --- @return [number, "px"]
-local function parseFontSize(x, r)
-    local n, u = fontSizeUnitParser(x, "px")
+local function parseFontSize(x, r, n)
+    local n, u = parseUnit(x, "px", n)
     if n < 0 then
-        error("fontSize can't be negative")
+        error(string.format("%s can't be negative", n), 0)
     end
     if u == "%" then
         local nn, nu = table.unpack(ns.Resolved._getInherited(r, "fontSize"))
@@ -137,22 +119,24 @@ local function parseFontSize(x, r)
         u = nu
     end
     if u ~= "px" then
-        n = n * assert(rawget(r, "_units")[u], u)
+        local units = r._units
+        if not units[u] then
+            error(string.format("unknown %s unit %s", n, log.pp(u)), 0)
+        end
+        n = n * units[u]
         u = "px"
     end
     return { n, u }
 end
 
-local lineHeightUnitParser = numValueParser("", "px", "pt", "pc", "Q", "mm", "cm", "m", "in", "em", "rem", "vw", "vh",
-    "vmin", "vmax", "%")
-
 --- @param x unknown
 --- @param r ammgui.css.rule.Resolved
+--- @param n string
 --- @return [number, "px"|""]
-local function parseLineHeight(x, r)
-    local n, u = lineHeightUnitParser(x)
+local function parseLineHeight(x, r, n)
+    local n, u = parseUnit(x, "", n)
     if n < 0 then
-        error("lineHeight can't be negative")
+        error(string.format("%s can't be negative", n), 0)
     end
     if u == "%" then
         local nn, nu = table.unpack(r.fontSize)
@@ -164,16 +148,46 @@ local function parseLineHeight(x, r)
         u = nu
     end
     if u ~= "px" and u ~= "" then
-        n = n * assert(rawget(r, "_units")[u], u)
+        local units = r._units
+        if not units[u] then
+            error(string.format("unknown %s unit %s", n, log.pp(u)), 0)
+        end
+        n = n * units[u]
         u = "px"
     end
     return { n, u }
 end
 
 --- @param x unknown
+--- @param r ammgui.css.rule.Resolved
+--- @param n string
 --- @return Color
-local function parseColor(x)
+local function parseColor(x, r, n)
+    local theme = r._theme
+
+    if type(x) == "string" then x = x:lower() end
+    while theme[x] do
+        x = theme[x]
+        if type(x) == "string" then x = x:lower() end
+    end
+
     if type(x) == "string" then
+        if x == "transparent" then
+            return structs.Color { 0, 0, 0, 0 }
+        elseif x == "currentcolor" then
+            if n == "color" then
+                return r:_getInherited(n)
+            else
+                return r.color
+            end
+        elseif x == "currentbackgroundcolor" then
+            if n == "backgroundColor" then
+                return r:_getInherited(n)
+            else
+                return r.backgroundColor
+            end
+        end
+
         local r, g, b, a
         for _, m in ipairs({
             "^#(%x)(%x)(%x)$",
@@ -190,7 +204,7 @@ local function parseColor(x)
             end
         end
         if not r or not g or not b or not a then
-            error(string.format("invalid color %s", log.pp(x)), 0)
+            error(string.format("invalid %s value %s", n, log.pp(x)), 0)
         end
 
         return structs.Color {
@@ -202,65 +216,21 @@ local function parseColor(x)
     elseif type(x) == "userdata" or (type(x) == "table" and x.__amm_is_color) then
         return x
     else
-        error(string.format("invalid color %s", log.pp(x)), 0)
+        error(string.format("invalid %s value %s", n, log.pp(x)), 0)
     end
 end
 
 --- @param x unknown
+--- @param r ammgui.css.rule.Resolved
+--- @param n string
 --- @return number
-local function parseFloat(x)
+local function parseFloat(x, r, n)
     if type(x) == "number" then
         return x
-    elseif type(x) == "string" then
-        local n = tonumber(x)
-        if not n then
-            error(string.format("invalid number %s", log.pp(x)), 0)
-        end
-        return n
     else
-        error(string.format("invalid number %s", log.pp(x)), 0)
+        error(string.format("invalid %s value %s", n, log.pp(x)), 0)
     end
 end
-
-local colorFunctionalValue = function(x, resolved)
-    local theme = rawget(resolved, "_theme")
-    local color = theme[x]
-    while theme[color] do
-        color = theme[color]
-    end
-    if type(color) == "string" then
-        return parseColor(color)
-    else
-        return color or structs.Color { 0, 0, 0, 0 }
-    end
-end
-local colorFunctionalValues = {
-    transparent = function(x, resolved) return structs.Color { 0, 0, 0, 0 } end,
-    currentcolor = function(x, resolved) return resolved.color end,
-    currentbackgroundcolor = function(x, resolved) return resolved.backgroundColor end,
-    accentcolor = colorFunctionalValue,
-    accentcolortext = colorFunctionalValue,
-    buttonborder = colorFunctionalValue,
-    buttonface = colorFunctionalValue,
-    buttontext = colorFunctionalValue,
-    buttonhoverborder = colorFunctionalValue,
-    buttonhoverface = colorFunctionalValue,
-    buttonhovertext = colorFunctionalValue,
-    buttondisabledborder = colorFunctionalValue,
-    buttondisabledface = colorFunctionalValue,
-    buttondisabledtext = colorFunctionalValue,
-    fieldborder = colorFunctionalValue,
-    fieldface = colorFunctionalValue,
-    fieldtext = colorFunctionalValue,
-    fieldhoverborder = colorFunctionalValue,
-    fieldhoverface = colorFunctionalValue,
-    fieldhovertext = colorFunctionalValue,
-    fielddisabledborder = colorFunctionalValue,
-    fielddisabledface = colorFunctionalValue,
-    fielddisabledtext = colorFunctionalValue,
-    canvas = colorFunctionalValue,
-    canvastext = colorFunctionalValue,
-}
 
 --- .. dropdown:: Common CSS values
 ---
@@ -272,14 +242,11 @@ local colorFunctionalValues = {
 ---         - Use the value from the parent DOM node.
 ---       * - ``"initial"``
 ---         - Use initial value.
----       * - ``"revert"``
----         - Use value provided by the theme stylesheet.
 
 --- @alias ammgui.css.rule.GlobalValue
 --- |"unset"
 --- |"inherit"
 --- |"initial"
---- |"revert"
 
 --- .. dropdown:: Color values
 ---
@@ -301,7 +268,25 @@ local colorFunctionalValues = {
 --- |string
 --- |"transparent"
 --- |"currentcolor"
+--- |"currentbackgroundcolor"
 --- |ammgui.css.rule.GlobalValue
+
+--- @alias ammgui.css.rule.Unit
+--- |"px"
+--- |"pt"
+--- |"pc"
+--- |"Q"
+--- |"mm"
+--- |"cm"
+--- |"m"
+--- |"in"
+--- |"em"
+--- |"rem"
+--- |"vw"
+--- |"vh"
+--- |"vmin"
+--- |"vmax"
+--- |"%"
 
 --- .. dropdown:: Units
 ---
@@ -355,13 +340,13 @@ local colorFunctionalValues = {
 ---           and for `fontSize` itself, percentages refer to the parent's node `fontSize`.
 
 --- @alias ammgui.css.rule.LengthValueWithUnit
---- |string
+--- |[number, ammgui.css.rule.Unit]
 
 --- .. dropdown:: Length values
 ---
 ---    .. list-table::
 ---
----       * - `string`
+---       * - `[number, string]`
 ---         - Number with one of the units described below.
 ---       * - `number`
 ---         - Treated as ``px``.
@@ -374,6 +359,17 @@ local colorFunctionalValues = {
 --- @alias ammgui.css.rule.NumberValue
 --- |number
 --- |ammgui.css.rule.GlobalValue
+
+--- Base class for a CSS rule, contains auxiliary values.
+---
+--- !doc members: !
+--- @class ammgui.css.rule.RuleBase
+local RuleBase = {}
+
+--- Source, indicates file and line where this rule was created.
+---
+--- @type string?
+RuleBase.loc = nil
 
 --- Common CSS properties.
 ---
@@ -407,14 +403,14 @@ local TextProperties = {}
 TextProperties.font = nil
 ruleSetters.font = function(rule, value)
     if type(value) ~= "table" then
-        error(string.format("invalid value for font: %s", log.pp(value)))
+        error(string.format("invalid font value: %s", log.pp(value)))
     end
     if #value == 2 then
         rule.fontSize, rule.fontFamily = table.unpack(value)
     elseif #value == 3 then
         rule.fontSize, rule.lineHeight, rule.fontFamily = table.unpack(value)
     else
-        error(string.format("invalid value for font: %s", log.pp(value)))
+        error(string.format("invalid font value: %s", log.pp(value)))
     end
 end
 
@@ -423,12 +419,10 @@ end
 --- @type ammgui.css.rule.LengthValue?
 TextProperties.fontSize = nil
 ns.Resolved.fontSize = resolver(
-    TextProperties.fontSize,
     {
         unset = "inherit",
-        initial = "1rem",
+        initial = u.rem(1),
     },
-    {},
     parseFontSize,
     false
 ) --[[ @as [number, "px"] ]]
@@ -454,14 +448,12 @@ ns.Resolved.fontSize = resolver(
 --- @type ammgui.css.rule.FontFamily?
 TextProperties.fontFamily = nil
 ns.Resolved.fontFamily = resolver(
-    TextProperties.fontFamily,
     {
         unset = "inherit",
         initial = "normal",
         ["normal"] = "normal",
         ["monospace"] = "monospace",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "normal"|"monospace" ]]
@@ -483,7 +475,7 @@ ns.Resolved.fontFamily = resolver(
 ---
 ---       * - ``"normal"``
 ---         - Default line height, equals to the value of ``1.2``.
----       * - `string`
+---       * - `[number, string]`
 ---         - Number with one of the units described below.
 ---       * - `number`
 ---         - Scaling factor for `fontSize`, i.e. line height is calculated
@@ -492,13 +484,11 @@ ns.Resolved.fontFamily = resolver(
 --- @type ammgui.css.rule.LineHeight?
 TextProperties.lineHeight = nil
 ns.Resolved.lineHeight = resolver(
-    TextProperties.lineHeight,
     {
         unset = "inherit",
         initial = "normal",
         ["normal"] = 1.2,
     },
-    {},
     parseLineHeight,
     false
 ) --[[ @as [number, "px"|""] ]]
@@ -506,13 +496,11 @@ ns.Resolved.lineHeight = resolver(
 --- @type ammgui.css.rule.ColorValue?
 TextProperties.color = nil
 ns.Resolved.color = resolver(
-    TextProperties.color,
     {
         unset = "inherit",
         initial = "canvastext",
         currentcolor = "inherit",
     },
-    colorFunctionalValues,
     parseColor,
     true
 ) --[[ @as Color ]]
@@ -532,14 +520,12 @@ ns.Resolved.color = resolver(
 --- @type ammgui.css.rule.TextWrapModeValue
 TextProperties.textWrapMode = nil
 ns.Resolved.textWrapMode = resolver(
-    TextProperties.textWrapMode,
     {
         unset = "inherit",
         initial = "wrap",
         ["wrap"] = "wrap",
         ["nowrap"] = "nowrap",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "wrap"|"nowrap" ]]
@@ -553,15 +539,19 @@ local BlockProperties = {}
 --- @type ammgui.css.rule.ColorValue?
 BlockProperties.backgroundColor = nil
 ns.Resolved.backgroundColor = resolver(
-    BlockProperties.backgroundColor,
     {
         unset = "initial",
         initial = "transparent",
+        currentbackgroundcolor = "inherit",
     },
-    colorFunctionalValues,
     parseColor,
     true
 ) --[[ @as Color ]]
+
+--- @alias ammgui.css.rule.MarginValue
+--- |ammgui.css.rule.LengthValue
+--- |"auto"
+--- |ammgui.css.rule.GlobalValue
 
 --- Shorthand to set `marginTop`, `marginRight`, `marginBottom`, and `marginLeft`
 --- at once.
@@ -579,11 +569,11 @@ ns.Resolved.backgroundColor = resolver(
 --- `marginBottom`, and `marginLeft` respectively.
 ---
 --- @type
---- | ammgui.css.rule.LengthValue
---- | [ammgui.css.rule.LengthValue]
---- | [ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue]
---- | [ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue]
---- | [ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue, ammgui.css.rule.LengthValue]
+--- | ammgui.css.rule.MarginValue
+--- | [ammgui.css.rule.MarginValue]
+--- | [ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue]
+--- | [ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue]
+--- | [ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue, ammgui.css.rule.MarginValue]
 --- | nil
 BlockProperties.margin = nil
 ruleSetters.margin = function(rule, value)
@@ -611,62 +601,54 @@ ruleSetters.margin = function(rule, value)
         rule.marginBottom = value[3]
         rule.marginLeft = value[4]
     else
-        error(string.format("invalid value for margin: %s", log.pp(value)))
+        error(string.format("invalid margin value: %s", log.pp(value)))
     end
 end
 
---- @type ammgui.css.rule.LengthValue?
+--- @type ammgui.css.rule.MarginValue?
 BlockProperties.marginTop = nil
 ns.Resolved.marginTop = resolver(
-    BlockProperties.marginTop,
     {
         unset = "initial",
         initial = 0,
         ["auto"] = "auto",
     },
-    {},
     parseLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto" ]]
 
---- @type ammgui.css.rule.LengthValue?
+--- @type ammgui.css.rule.MarginValue?
 BlockProperties.marginLeft = nil
 ns.Resolved.marginLeft = resolver(
-    BlockProperties.marginLeft,
     {
         unset = "initial",
         initial = 0,
         ["auto"] = "auto",
     },
-    {},
     parseLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto" ]]
 
---- @type ammgui.css.rule.LengthValue?
+--- @type ammgui.css.rule.MarginValue?
 BlockProperties.marginRight = nil
 ns.Resolved.marginRight = resolver(
-    BlockProperties.marginRight,
     {
         unset = "initial",
         initial = 0,
         ["auto"] = "auto",
     },
-    {},
     parseLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto" ]]
 
---- @type ammgui.css.rule.LengthValue?
+--- @type ammgui.css.rule.MarginValue?
 BlockProperties.marginBottom = nil
 ns.Resolved.marginBottom = resolver(
-    BlockProperties.marginBottom,
     {
         unset = "initial",
         initial = 0,
         ["auto"] = "auto",
     },
-    {},
     parseLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto" ]]
@@ -700,7 +682,6 @@ ns.Resolved.marginBottom = resolver(
 --- @type ammgui.css.rule.MarginTrimValue
 TextProperties.marginTrim = nil
 ns.Resolved.marginTrim = resolver(
-    TextProperties.marginTrim,
     {
         unset = "inherit",
         initial = "none",
@@ -712,10 +693,9 @@ ns.Resolved.marginTrim = resolver(
         ["inline-start"] = "inline-start",
         ["inline-end"] = "inline-end",
     },
-    {},
     parseFail,
     false
-) --[[ @as "none"|"block"|"block-start"|"block-end"|"inline"|"inline-start"|"inline-end"" ]]
+) --[[ @as "none"|"block"|"block-start"|"block-end"|"inline"|"inline-start"|"inline-end" ]]
 
 --- Shorthand to set `paddingTop`, `paddingRight`, `paddingBottom`, and `paddingLeft`
 --- at once.
@@ -765,19 +745,17 @@ ruleSetters.padding = function(rule, value)
         rule.paddingBottom = value[3]
         rule.paddingLeft = value[4]
     else
-        error(string.format("invalid value for padding: %s", log.pp(value)))
+        error(string.format("invalid padding value: %s", log.pp(value)))
     end
 end
 
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.paddingTop = nil
 ns.Resolved.paddingTop = resolver(
-    BlockProperties.paddingTop,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -785,12 +763,10 @@ ns.Resolved.paddingTop = resolver(
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.paddingLeft = nil
 ns.Resolved.paddingLeft = resolver(
-    BlockProperties.paddingLeft,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -798,12 +774,10 @@ ns.Resolved.paddingLeft = resolver(
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.paddingRight = nil
 ns.Resolved.paddingRight = resolver(
-    BlockProperties.paddingRight,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -811,12 +785,10 @@ ns.Resolved.paddingRight = resolver(
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.paddingBottom = nil
 ns.Resolved.paddingBottom = resolver(
-    BlockProperties.paddingBottom,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -824,12 +796,10 @@ ns.Resolved.paddingBottom = resolver(
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.outlineRadius = nil
 ns.Resolved.outlineRadius = resolver(
-    BlockProperties.outlineRadius,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     true
 ) --[[ @as [number, "px"|"%"] ]]
@@ -837,12 +807,10 @@ ns.Resolved.outlineRadius = resolver(
 --- @type ammgui.css.rule.LengthValue?
 BlockProperties.outlineWidth = nil
 ns.Resolved.outlineWidth = resolver(
-    BlockProperties.outlineWidth,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -850,12 +818,10 @@ ns.Resolved.outlineWidth = resolver(
 --- @type ammgui.css.rule.ColorValue?
 BlockProperties.outlineTint = nil
 ns.Resolved.outlineTint = resolver(
-    BlockProperties.outlineTint,
     {
         unset = "initial",
         initial = "currentbackgroundcolor",
     },
-    colorFunctionalValues,
     parseColor,
     true
 ) --[[ @as Color ]]
@@ -883,7 +849,7 @@ ruleSetters.gap = function(rule, value)
         rule.rowGap = value[1]
         rule.columnGap = value[2]
     else
-        error(string.format("invalid value for gap: %s", log.pp(value)))
+        error(string.format("invalid gap value: %s", log.pp(value)))
     end
 end
 
@@ -906,12 +872,10 @@ end
 --- @type ammgui.css.rule.GapValue?
 BlockProperties.columnGap = nil
 ns.Resolved.columnGap = resolver(
-    BlockProperties.columnGap,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -919,12 +883,10 @@ ns.Resolved.columnGap = resolver(
 --- @type ammgui.css.rule.GapValue?
 BlockProperties.rowGap = nil
 ns.Resolved.rowGap = resolver(
-    BlockProperties.rowGap,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -944,44 +906,27 @@ ns.Resolved.rowGap = resolver(
 --- @type ammgui.css.rule.OverflowValue?
 BlockProperties.overflow = nil
 ns.Resolved.overflow = resolver(
-    BlockProperties.overflow,
     {
         unset = "initial",
         initial = "visible",
         ["visible"] = "visible",
         ["hidden"] = "hidden",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "visible"|"hidden" ]]
-
---- Represents a width value.
----
---- Available options:
----
---- - ``"auto"``: calculate width based on dimensions and settings
----   of the parent container;
---- - ``"min-content"``: use minimal width possible, wrapping all text and flexboxes;
---- - ``"fit-content"``: use all available width, but clamp it between ``min-content``
----   and ``max-content``;
---- - ``"max-content"``: use maximal width possible, avoid any wrapping;
---- - `string`: number with one of the following units: ``px``, ``pt``, ``em``, ``%``;
---- - `integer`: treated as ``px``.
 
 --- @alias ammgui.css.rule.WidthValue
 --- |"auto"
 --- |"min-content"
 --- |"fit-content"
 --- |"max-content"
---- |string
---- |integer
+--- |ammgui.css.rule.LengthValue
 --- |ammgui.css.rule.GlobalValue
 
 --- @type ammgui.css.rule.WidthValue?
 BlockProperties.width = nil
 ns.Resolved.width = resolver(
-    BlockProperties.width,
     {
         unset = "initial",
         initial = "auto",
@@ -990,7 +935,6 @@ ns.Resolved.width = resolver(
         ["fit-content"] = "fit-content",
         ["max-content"] = "max-content",
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto"|"min-content"|"fit-content"|"max-content" ]]
@@ -998,7 +942,6 @@ ns.Resolved.width = resolver(
 --- @type ammgui.css.rule.WidthValue?
 BlockProperties.minWidth = nil
 ns.Resolved.minWidth = resolver(
-    BlockProperties.minWidth,
     {
         unset = "initial",
         initial = "auto",
@@ -1007,7 +950,6 @@ ns.Resolved.minWidth = resolver(
         ["fit-content"] = "fit-content",
         ["max-content"] = "max-content",
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"]|"min-content"|"fit-content"|"max-content" ]]
@@ -1015,7 +957,6 @@ ns.Resolved.minWidth = resolver(
 --- @type ammgui.css.rule.WidthValue?
 BlockProperties.maxWidth = nil
 ns.Resolved.maxWidth = resolver(
-    BlockProperties.maxWidth,
     {
         unset = "initial",
         initial = "auto",
@@ -1024,36 +965,23 @@ ns.Resolved.maxWidth = resolver(
         ["fit-content"] = "fit-content",
         ["max-content"] = "max-content",
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"]|"min-content"|"fit-content"|"max-content" ]]
 
---- Represents a height value.
----
---- Available options:
----
---- - ``"auto"``: calculate height based on dimensions and settings
----   of the parent container;
---- - `string`: number with one of the following units: ``px``, ``pt``, ``em``, ``%``;
---- - `integer`: treated as ``px``.
-
 --- @alias ammgui.css.rule.Height
 --- |"auto"
---- |string
---- |integer
+--- |ammgui.css.rule.LengthValue
 --- |ammgui.css.rule.GlobalValue
 
 --- @type ammgui.css.rule.Height?
 BlockProperties.height = nil
 ns.Resolved.height = resolver(
-    BlockProperties.height,
     {
         unset = "initial",
         initial = "auto",
         ["auto"] = "auto",
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto" ]]
@@ -1061,13 +989,11 @@ ns.Resolved.height = resolver(
 --- @type ammgui.css.rule.Height?
 BlockProperties.minHeight = nil
 ns.Resolved.minHeight = resolver(
-    BlockProperties.minHeight,
     {
         unset = "initial",
         initial = "auto",
         ["auto"] = 0,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -1075,13 +1001,11 @@ ns.Resolved.minHeight = resolver(
 --- @type ammgui.css.rule.Height?
 BlockProperties.maxHeight = nil
 ns.Resolved.maxHeight = resolver(
-    BlockProperties.maxHeight,
     {
         unset = "initial",
         initial = "auto",
         ["auto"] = math.huge,
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"] ]]
@@ -1100,14 +1024,12 @@ local FlexProperties = {}
 --- @type ammgui.css.rule.FlexDirectionValue?
 FlexProperties.flexDirection = nil
 ns.Resolved.flexDirection = resolver(
-    FlexProperties.flexDirection,
     {
         unset = "initial",
         initial = "row",
         ["row"] = "row",
         ["column"] = "column",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "row"|"column" ]]
@@ -1126,7 +1048,7 @@ ns.Resolved.flexDirection = resolver(
 --- and `flexBasis`, accordingly.
 ---
 --- In the first two cases, a value of type `number` is treated
---- as `flexGrow`/`flexShrink`, and a value of type `string` is treated as `flexBasis`.
+--- as `flexGrow`/`flexShrink`, and other values are treated as `flexBasis`.
 ---
 --- @type
 --- | "none"
@@ -1144,30 +1066,30 @@ ruleSetters.flex = function(rule, value)
         value = { value }
     end
     if #value == 1 then
-        if type(value[1]) == "string" then
-            rule.flexGrow = 1
-            rule.flexShrink = 1
-            rule.flexBasis = value[1]
-        else
+        if type(value[1]) == "number" then
             rule.flexGrow = value[1]
             rule.flexShrink = 1
             rule.flexBasis = 0
+        else
+            rule.flexGrow = 1
+            rule.flexShrink = 1
+            rule.flexBasis = value[1]
         end
     elseif #value == 2 then
         rule.flexGrow = value[1]
-        if type(value[2]) == "string" then
-            rule.flexShrink = 1
-            rule.flexBasis = value[2]
-        else
+        if type(value[2]) == "number" then
             rule.flexShrink = value[2]
             rule.flexBasis = 0
+        else
+            rule.flexShrink = 1
+            rule.flexBasis = value[2]
         end
     elseif #value == 3 then
         rule.flexGrow = value[1]
         rule.flexShrink = value[2]
         rule.flexBasis = value[3]
     else
-        error(string.format("invalid value for flex: %s", log.pp(value)))
+        error(string.format("invalid flex value: %s", log.pp(value)))
     end
 end
 
@@ -1188,14 +1110,12 @@ end
 --- @type ammgui.css.rule.FlexWrapValue?
 FlexProperties.flexWrap = nil
 ns.Resolved.flexWrap = resolver(
-    FlexProperties.flexWrap,
     {
         unset = "initial",
         initial = "nowrap",
         ["wrap"] = "wrap",
         ["nowrap"] = "nowrap",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "wrap"|"nowrap" ]]
@@ -1213,9 +1133,6 @@ ns.Resolved.flexWrap = resolver(
 --- |"end"
 --- |"flex-start"
 --- |"flex-end"
---- |"baseline"
---- |"first baseline"
---- |"last baseline"
 --- |"space-between"
 --- |"space-around"
 --- |"space-evenly"
@@ -1225,7 +1142,6 @@ ns.Resolved.flexWrap = resolver(
 --- @type ammgui.css.rule.AlignContentValue?
 FlexProperties.alignContent = nil
 ns.Resolved.alignContent = resolver(
-    FlexProperties.alignContent,
     {
         unset = "initial",
         initial = "normal",
@@ -1240,7 +1156,6 @@ ns.Resolved.alignContent = resolver(
         ["space-evenly"] = "space-evenly",
         ["stretch"] = "stretch",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "start"|"center"|"end"|"space-between"|"space-around"|"space-evenly"|"stretch" ]]
@@ -1283,7 +1198,6 @@ ns.Resolved.alignContent = resolver(
 --- @type ammgui.css.rule.AlignItemsValue?
 FlexProperties.alignItems = nil
 ns.Resolved.alignItems = resolver(
-    FlexProperties.alignItems,
     {
         unset = "initial",
         initial = "normal",
@@ -1314,7 +1228,6 @@ ns.Resolved.alignItems = resolver(
         ["last baseline"] = "last baseline",
         ["stretch"] = "stretch",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "safe start"|"unsafe start"|"safe center"|"unsafe center"|"safe end"|"unsafe end"|"first baseline"|"last baseline"|"stretch" ]]
@@ -1343,7 +1256,6 @@ ns.Resolved.alignItems = resolver(
 --- @type ammgui.css.rule.JustifyContentValue?
 FlexProperties.justifyContent = nil
 ns.Resolved.justifyContent = resolver(
-    FlexProperties.justifyContent,
     {
         unset = "initial",
         initial = "normal",
@@ -1360,7 +1272,6 @@ ns.Resolved.justifyContent = resolver(
         ["space-evenly"] = "space-evenly",
         ["stretch"] = "stretch",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "normal"|"start"|"center"|"end"|"space-between"|"space-around"|"space-evenly"|"stretch" ]]
@@ -1368,12 +1279,10 @@ ns.Resolved.justifyContent = resolver(
 --- @type ammgui.css.rule.NumberValue?
 BlockProperties.flexGrow = nil
 ns.Resolved.flexGrow = resolver(
-    BlockProperties.flexGrow,
     {
         unset = "initial",
         initial = 0,
     },
-    {},
     parseFloat,
     false
 ) --[[ @as number ]]
@@ -1381,12 +1290,10 @@ ns.Resolved.flexGrow = resolver(
 --- @type ammgui.css.rule.NumberValue?
 BlockProperties.flexShrink = nil
 ns.Resolved.flexShrink = resolver(
-    BlockProperties.flexShrink,
     {
         unset = "initial",
         initial = 1,
     },
-    {},
     parseFloat,
     false
 ) --[[ @as number ]]
@@ -1394,7 +1301,6 @@ ns.Resolved.flexShrink = resolver(
 --- @type ammgui.css.rule.WidthValue?
 BlockProperties.flexBasis = nil
 ns.Resolved.flexBasis = resolver(
-    BlockProperties.flexBasis,
     {
         unset = "initial",
         initial = "auto",
@@ -1403,7 +1309,6 @@ ns.Resolved.flexBasis = resolver(
         ["fit-content"] = "fit-content",
         ["max-content"] = "max-content",
     },
-    {},
     parsePositiveLength,
     false
 ) --[[ @as [number, "px"|"%"]|"auto"|"min-content"|"fit-content"|"max-content" ]]
@@ -1421,7 +1326,6 @@ ns.Resolved.flexBasis = resolver(
 --- @type ammgui.css.rule.AlignSelfValue?
 BlockProperties.alignSelf = nil
 ns.Resolved.alignSelf = resolver(
-    BlockProperties.alignSelf,
     {
         unset = "initial",
         initial = "auto",
@@ -1453,47 +1357,20 @@ ns.Resolved.alignSelf = resolver(
         ["last baseline"] = "last baseline",
         ["stretch"] = "stretch",
     },
-    {},
     parseFail,
     false
 ) --[[ @as "safe start"|"unsafe start"|"safe center"|"unsafe center"|"safe end"|"unsafe end"|"first baseline"|"last baseline"|"stretch" ]]
-
--- --- @type ammgui.css.rule.JustifySelfValue?
--- BlockProperties.justifySelf = nil
--- ns.Resolved.justifySelf = resolver(
---     BlockProperties.justifySelf,
---     {
---         unset = "initial",
---         initial = "auto",
---         ["auto"] = "auto",
---         ["normal"] = "normal",
---         ["start"] = "start",
---         ["center"] = "center",
---         ["end"] = "end",
---         ["left"] = "start",
---         ["right"] = "end",
---         ["self-start"] = "start",
---         ["self-end"] = "end",
---         ["flex-start"] = "start",
---         ["flex-end"] = "end",
---         ["baseline"] = "first baseline",
---         ["first baseline"] = "first baseline",
---         ["last baseline"] = "last baseline",
---         ["stretch"] = "stretch",
---     },
---     {},
---     parseFail
--- ) --[[ @as "normal"|"auto"|"start"|"center"|"end"|"first baseline"|"last baseline"|"stretch" ]]
 
 --- A single CSS rule, combines style settings and selectors.
 ---
 --- !doc inherited-members
 --- !doc exclude-members: New
---- @class ammgui.css.rule.Rule: ammgui.css.rule.CommonProperties, ammgui.css.rule.TextProperties, ammgui.css.rule.BlockProperties, ammgui.css.rule.FlexProperties
+--- @class ammgui.css.rule.Rule: ammgui.css.rule.RuleBase, ammgui.css.rule.CommonProperties, ammgui.css.rule.TextProperties, ammgui.css.rule.BlockProperties, ammgui.css.rule.FlexProperties
 --- @field [integer] string Selectors for matching DOM nodes.
 ns.Rule = {}
 
---- @param context ammgui.css.rule.Rule[]
+--- @param context ammgui.css.rule.CompiledRule[]
+--- @param contextSelectors ammgui.css.selector.Selector[]
 --- @param parent ammgui.css.rule.Resolved?
 --- @param theme table<string, Color | string>
 --- @param units table<string, number>
@@ -1502,22 +1379,26 @@ ns.Rule = {}
 --- @generic T: ammgui.css.rule.Resolved
 --- @param self T
 --- @return T
-function ns.Resolved:New(context, parent, theme, units)
+function ns.Resolved:New(context, contextSelectors, parent, theme, units)
     self = class.Base.New(self)
 
     --- @private
-    --- @type ammgui.css.rule.Rule[]
+    --- @type ammgui.css.rule.CompiledRule[]
     self._context = context
+
+    --- @private
+    --- @type ammgui.css.selector.Selector[]
+    self._contextSelectors = contextSelectors
 
     --- @private
     --- @type ammgui.css.rule.Resolved?
     self._parent = parent
 
-    --- @private
+    --- @package
     --- @type table<string, Color | string>
     self._theme = theme
 
-    --- @private
+    --- @package
     --- @type table<string, number>
     self._units = units
 
@@ -1525,14 +1406,19 @@ function ns.Resolved:New(context, parent, theme, units)
 end
 
 function ns.Resolved:__index(name)
-    return ns.Resolved._get(self, name, "unset")
+    local value = ns.Resolved[name]
+    if value and value.__isResolver then
+        return ns.Resolved._get(self, name, "unset")
+    else
+        return value
+    end
 end
 
 --- @package
 --- @param name string
 --- @param unset string
 function ns.Resolved:_get(name, unset)
-    local context = rawget(self, "_context")
+    local context = self._context
     for i = #context, 1, -1 do
         local rule = context[i]
         local value = rule[name] or rule["all"]
@@ -1557,7 +1443,7 @@ end
 --- @param name string
 --- @param value unknown
 function ns.Resolved:_process(name, value)
-    --- @type { literalValues: table<string, unknown>, functionalValues: table<string, fun(x: string, r: ammgui.css.rule.Resolved): unknown>, parser: fun(x: unknown, r: ammgui.css.rule.Resolved): unknown }?
+    --- @type { literalValues: table<string, unknown>, parser: fun(x: unknown, r: ammgui.css.rule.Resolved, n: string): unknown }?
     local resolver = ns.Resolved[name]
     if not resolver then
         error(string.format("unknown CSS property %s", name))
@@ -1574,26 +1460,18 @@ function ns.Resolved:_process(name, value)
             if type(canonValue) == "string" then canonValue = canonValue:lower() end
         end
     end
-    if resolver.functionalValues[canonValue] then
-        local nextValue = resolver.functionalValues[canonValue](value, self)
-        if nextValue then
-            return nextValue
-        else
-            error(string.format("functional mapper for %s=%s didn't return a value", name, value))
-        end
-    end
     if value == "inherit" then
         return ns.Resolved._getInherited(self, name)
     end
     if value == "unset" or value == "initial" then
         error(string.format("no initial value for property %s", name))
     end
-    return resolver.parser(value, self)
+    return resolver.parser(value, self, name)
 end
 
 --- @package
 function ns.Resolved:_getInherited(name)
-    local parent = rawget(self, "_parent")
+    local parent = self._parent
     if parent then
         return ns.Resolved._get(parent, name, "inherit")
     else
@@ -1628,7 +1506,7 @@ ns.CompiledRule.isLayoutSafe = false
 --- @param appeared integer index of this rule in a stylesheet, used to calculate selector priorities.
 --- @return ammgui.css.rule.CompiledRule
 function ns.compile(data, layer, appeared)
-    local rule = {}
+    local rule = { loc = data.loc }
 
     for name, value in pairs(data) do
         if ruleSetters[name] then
@@ -1640,13 +1518,15 @@ function ns.compile(data, layer, appeared)
 
     local isLayoutSafe = true
     for name, value in pairs(rule) do
-        local resolver = ns.Resolved[name]
-        if type(resolver) ~= "table" then
-            error(string.format("unknown CSS property %s = %s", log.pp(name), log.pp(value)))
-        end
-        if not resolver.isLayoutSafe then
-            isLayoutSafe = false
-            break
+        if name ~= "loc" then
+            local resolver = ns.Resolved[name]
+            if type(resolver) ~= "table" then
+                error(string.format("rule at %s: unknown CSS property %s = %s", rule.loc, log.pp(name), log.pp(value)))
+            end
+            if not resolver.isLayoutSafe then
+                isLayoutSafe = false
+                break
+            end
         end
     end
     rule.isLayoutSafe = isLayoutSafe
@@ -1654,7 +1534,7 @@ function ns.compile(data, layer, appeared)
     --- @type ammgui.css.selector.Selector[]
     local compiledSelectors = {}
     if #data > 100 then
-        error("a single rule can't have more than 100 selectors")
+        error(string.format("rule at %s: a single rule can't have more than 100 selectors", rule.loc))
     end
     for i, selectorTxt in ipairs(data) do
         table.insert(compiledSelectors, selector.parse(selectorTxt, layer, appeared * 1000 + i))
@@ -1663,6 +1543,21 @@ function ns.compile(data, layer, appeared)
     rule.compiledSelectors = compiledSelectors
 
     return rule
+end
+
+--- Get all rule keys in alphabetical order.
+---
+--- @param rule ammgui.css.rule.CompiledRule
+--- @return string[]
+function ns.getRuleKeys(rule)
+    local res = {}
+    for k, _ in pairs(rule) do
+        if k ~= "isLayoutSafe" and k ~= "compiledSelectors" and k ~= "loc" then
+            table.insert(res, k)
+        end
+    end
+    table.sort(res)
+    return res
 end
 
 return ns

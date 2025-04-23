@@ -1,5 +1,5 @@
 local class = require "ammcore.class"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 
 --- Version specifications.
 ---
@@ -278,8 +278,8 @@ function ns.VersionSpec.__concat(lhs, rhs)
     end
 
     local res = ns.VersionSpec:New()
-    array.insertMany(res._components, lhs._components)
-    array.insertMany(res._components, rhs._components)
+    fun.a.extend(res._components, lhs._components)
+    fun.a.extend(res._components, rhs._components)
     return res
 end
 

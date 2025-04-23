@@ -71,6 +71,13 @@ function ns.Selector:__tostring()
     )
 end
 
+--- Get the canonical selector representation.
+---
+--- @return string
+function ns.Selector:repr()
+    return self._repr
+end
+
 --- @param lhs ammgui.css.selector.Selector
 --- @param rhs ammgui.css.selector.Selector
 function ns.Selector.__lt(lhs, rhs)
@@ -137,7 +144,7 @@ function ns.parse(selector, layer, appeared)
         local classes = {}
         local pseudo = {}
 
-        local code = "return function (elem, classes, pseudo)\n"
+        local code = "return function(elem, classes, pseudo)\n"
         repr = repr .. " "
 
         for op, name in group:gmatch("([^%w*_-]*)([%w*_-]*)") do

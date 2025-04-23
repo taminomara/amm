@@ -1,31 +1,52 @@
-local function closingCoro(id, shouldFail)
-    local _ <close> = setmetatable({}, {
-        __close = function(self, err)
-            print(string.format("Closing coroutine %s, err=%s", id, err))
-        end,
-    })
+local gui = require "ammgui"
+local dom = require "ammgui.dom"
+local fun = require "ammcore.fun"
 
-    sleep(1)
+event.ignoreAll()
+event.clear()
 
-    if shouldFail then
-        error("error")
-    end
+-- Page
+local page = dom.functional(function(ctx, params)
+    return dom.div {
+        dom.h1 { "Manufacturer control" },
+        dom.p {
+            dom.em { "recipe = " }, params.recipe.name,
+        },
+        dom.h2 { "Available recipes" },
+        dom.list(fun.a.map(params.recipes, function(recipe)
+            return dom.p {
+                recipe.name,
+                onClick = function() params.setRecipe() end
+            }
+        end)),
+    }
+end)
+
+-- Controller
+local gpu = assert(computer.getPCIDevices(classes.FINComputerGPUT2)[1])
+local screen = assert(computer.getPCIDevices(classes.Build_ScreenDriver_C)[1])
+gpu:bindScreen(screen)
+
+local manufacturer = component.proxy(assert(component.findComponent(classes.Manufacturer)[1])) --[[ @as Manufacturer ]]
+
+local function setRecipe(recipe)
+    manufacturer:setRecipe(recipe)
 end
 
-local function manuallyClosingCoro(...)
-    local args = { ... }
-    local co = coroutine.create(closingCoro)
-    while coroutine.status(co) ~= "dead" do
-        local res = { coroutine.resume(co, table.unpack(args)) }
-        if res[1] then
-            args = { coroutine.yield(table.unpack(res, 2, #res)) }
-        end
-    end
-    coroutine.close(co)
+local function makeData()
+    return {
+        recipe = manufacturer:getRecipe(),
+        recipes = manufacturer:getRecipes(),
+        setRecipe = setRecipe
+    }
 end
 
--- future.addTask(async(closingCoro, "success", false))
--- future.addTask(async(closingCoro, "error", true))
-future.addTask(async(manuallyClosingCoro, "success+wrapped", false))
--- future.addTask(async(manuallyClosingCoro, "error+wrapped", true))
+local app = gui.App:New(gpu, page, makeData())
+
+event.listen(manufacturer)
+event.registerListener({ sender = manufacturer, event = "ProductionChanged" }, function()
+    app:setData(makeData())
+end)
+
+app:start()
 future.loop()

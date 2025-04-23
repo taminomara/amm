@@ -1,9 +1,8 @@
 local class = require "ammcore.class"
-local log = require "ammcore.log"
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local base = require "ammgui.component.base"
 local util = require "ammgui.component.block.util"
-local defer = require "ammcore.defer"
+local api = require "ammgui.component.api"
 
 --- Components that implement block DOM nodes.
 ---
@@ -11,92 +10,16 @@ local defer = require "ammcore.defer"
 --- @class ammgui.component.block
 local ns = {}
 
-local logger = log.Logger:New()
-
-local function runEventHandler(handler, ...)
-    local result = nil
-    if handler then
-        local ok, err = defer.xpcall(function(...) result = handler(...) end, ...)
-        if not ok then
-            logger:error("Error in event handler: %s\n%s", err.message, err.trace)
-        end
-    end
-    return result
-end
-
---- An interface that abstracts over a single component and a list of components.
----
---- @class ammgui.component.block.ComponentProvider: ammcore.class.Base
-ns.ComponentProvider = class.create("ComponentProvider")
-
---- @param key integer | string | nil
----
---- !doctype classmethod
---- @generic T: ammgui.component.block.ComponentProvider
---- @param self T
---- @return T
-function ns.ComponentProvider:New(key)
-    self = class.Base.New(self)
-
-    --- Key for synchronizing arrays of nodes.
-    ---
-    --- @type integer | string | nil
-    self.key = key
-
-    return self
-end
-
---- Called when component is initialized.
----
---- !doc abstract
---- @param data ammgui.dom.block.Node user-provided component data.
-function ns.ComponentProvider:onMount(ctx, data)
-    error("not implemented")
-end
-
---- Called when component is updated.
----
---- !doc abstract
---- @param data ammgui.dom.block.Node user-provided component data.
-function ns.ComponentProvider:onUpdate(ctx, data)
-    error("not implemented")
-end
-
---- Called when component is destroyed.
----
---- !doc abstract
-function ns.ComponentProvider:onUnmount(ctx)
-    error("not implemented")
-end
-
---- Called to collect actual component implementations.
----
---- Should add actual component implementations to the given array.
----
---- @param components ammgui.component.block.Component[]
-function ns.ComponentProvider:collect(components)
-    error("not implemented")
-end
-
---- Process a reference.
----
---- @param ref ammgui.component.block.func.Ref<ammgui.component.block.Component?>
-function ns.ComponentProvider:noteRef(ref)
-    error("not implemented")
-end
-
 --- Base for all block components.
 ---
---- @class ammgui.component.block.Component: ammgui.component.base.Component, ammgui.component.block.ComponentProvider, ammgui.eventManager.EventListener
+--- @class ammgui.component.block.Component: ammgui.component.base.Component
 ns.Component = class.create("Component", base.Component)
 
 --- Name of a DOM node that corresponds to this component.
 ---
---- !doc const
---- !doctype classattribute
+--- !doctype const
 --- @type string
 ns.Component.elem = nil
-
 
 --- Contains base metrics calculated during the layout step.
 ---
@@ -143,6 +66,15 @@ ns.Component.elem = nil
 --- @field potentialContentSize number? height of the component's content before applying ``min-`` and ``max-`` modifiers.
 --- @field resolvedContentSize number? resolved height of the component's content.
 
+--- Contains metrics for text in this block.
+---
+--- These metrics are calculated during content layout. They may be absent
+--- for components that don't have any text.
+---
+--- @class ammgui.component.block.TextLayout
+--- @field firstBaselineOffset number? offset from content top to the first baseline.
+--- @field lastBaselineOffset number? offset from content top to the last baseline.
+
 --- Contains final layout metrics.
 ---
 --- These metrics are resolved values form css, adjusted by the actual layout context
@@ -183,6 +115,12 @@ ns.Component.verticalLayout = nil
 --- Used layout metrics. These are set by the `calculateLayout` method
 --- to be later reused in the `draw` call.
 ---
+--- @type ammgui.component.block.TextLayout
+ns.Component.textLayout = nil
+
+--- Used layout metrics. These are set by the `calculateLayout` method
+--- to be later reused in the `draw` call.
+---
 --- @type ammgui.component.block.UsedLayout
 ns.Component.usedLayout = nil
 
@@ -190,75 +128,6 @@ ns.Component.usedLayout = nil
 ---
 --- @type ammgui.component.block.Component?
 ns.Component.parent = nil
-
---- `true` when component is mounted.
----
---- @private
---- @type boolean
-ns.Component._isActive = false
-
---- Called when component is initialized.
----
---- !doc virtual
---- @param data ammgui.dom.block.Node user-provided component data.
-function ns.Component:onMount(ctx, data)
-    self._isActive = true
-    ns.Component.onUpdate(self, ctx, data)
-    if data.initialStyle then
-        self:setInlineCss(data.initialStyle)
-    end
-    if data.initialClass then
-        self:setClasses(data.initialClass)
-    end
-end
-
---- Called when component is updated.
----
---- If new data causes changes in layout, `onUpdate` handler should set `outdated`
---- to `true` to make sure that its layout is properly recalculated.
----
---- Changes to inline CSS styles and set of component's classes and pseudoclasses
---- should be handled through appropriate functions. If CSS settings change,
---- `outdated` will be set automatically during the CSS synchronization pass.
----
---- !doc virtual
---- @param data ammgui.dom.block.Node user-provided component data.
-function ns.Component:onUpdate(ctx, data)
-    if data.style then
-        self:setInlineCss(data.style)
-    end
-    if data.class then
-        self:setClasses(data.class)
-    end
-
-    self._onMouseEnterHandler = data.onMouseEnter
-    self._onMouseMoveHandler = data.onMouseMove
-    self._onMouseExitHandler = data.onMouseExit
-    self._onMouseDownHandler = data.onMouseDown
-    self._onMouseUpHandler = data.onMouseUp
-    self._onClickHandler = data.onClick
-    self._onRightClickHandler = data.onRightClick
-    self._onMouseWheelHandler = data.onMouseWheel
-    self._dragTarget = data.dragTarget
-    if data.isDraggable == nil then
-        self._isDraggable =
-            data.onDragStart ~= nil
-            or data.onDrag ~= nil
-            or data.onDragEnd ~= nil
-    else
-        self._isDraggable = data.isDraggable
-    end
-    self._onDragStartHandler = data.onDragStart
-    self._onDragHandler = data.onDrag
-    self._onDragEndHandler = data.onDragEnd
-end
-
---- Called when component is destroyed.
----
---- !doc virtual
-function ns.Component:onUnmount(ctx)
-    self._isActive = false
-end
 
 --- A single component just adds itself to the list (see `ComponentProvider.collect`).
 ---
@@ -268,7 +137,7 @@ function ns.Component:collect(components)
 end
 
 function ns.Component:noteRef(ref)
-    ref.current = self
+    ref.current = api.ComponentApi:New(self)
 end
 
 --- Called to prepare for layout estimation.
@@ -287,7 +156,7 @@ function ns.Component:prepareLayout(textMeasure)
         self.baseLayout = nil
         self.horizontalLayout = nil
         self.verticalLayout = nil
-        self.usedLayout = nil
+        self.textLayout = nil
         self.usedLayout = nil
         self._cachedContentLayout = nil
         self._cachedContentLayoutParams = nil
@@ -373,7 +242,7 @@ function ns.Component:calculateExtrinsicBorderBoxWidth()
 
     local minContentWidth, maxContentWidth, isReplaced, preferredAspectRatio = self:getIntrinsicContentWidth()
 
-    local function resolveWidth(widthWithUnit)
+    local function resolveWidth(widthWithUnit, isMin, isMax)
         local width = util.resolveAbsOrNil(widthWithUnit)
         if width then
             return width, width
@@ -381,17 +250,22 @@ function ns.Component:calculateExtrinsicBorderBoxWidth()
             local minBorderBoxWidth = minContentWidth + contentWidthAdjustment
             local maxBorderBoxWidth = maxContentWidth + contentWidthAdjustment
             if widthWithUnit == "min-content" then
-                maxBorderBoxWidth = minBorderBoxWidth
+                return minBorderBoxWidth, minBorderBoxWidth
             elseif widthWithUnit == "max-content" then
-                minBorderBoxWidth = maxBorderBoxWidth
+                return maxBorderBoxWidth, maxBorderBoxWidth
+            elseif isMin then
+                return 0, 0
+            elseif isMax then
+                return math.huge, math.huge
+            else
+                return minBorderBoxWidth, maxBorderBoxWidth
             end
-            return minBorderBoxWidth, maxBorderBoxWidth
         end
     end
 
-    local minBorderBoxWidth, maxBorderBoxWidth = resolveWidth(self.css.width)
-    local minBorderBoxMinWidth, maxBorderBoxMinWidth = resolveWidth(self.css.minWidth)
-    local minBorderBoxMaxWidth, maxBorderBoxMaxWidth = resolveWidth(self.css.maxWidth)
+    local minBorderBoxWidth, maxBorderBoxWidth = resolveWidth(self.css.width, false, false)
+    local minBorderBoxMinWidth, maxBorderBoxMinWidth = resolveWidth(self.css.minWidth, true, false)
+    local minBorderBoxMaxWidth, maxBorderBoxMaxWidth = resolveWidth(self.css.maxWidth, false, true)
 
     minBorderBoxWidth = math.max(minBorderBoxMinWidth, math.min(minBorderBoxWidth, minBorderBoxMaxWidth))
     maxBorderBoxWidth = math.max(maxBorderBoxMinWidth, math.min(maxBorderBoxWidth, maxBorderBoxMaxWidth))
@@ -476,24 +350,30 @@ function ns.Component:calculateLayout(availableWidth, availableHeight)
     local potentialContentHeight = self.verticalLayout.potentialContentSize
     local resolvedContentHeight = self.verticalLayout.resolvedContentSize
 
-    if potentialContentWidth and not potentialContentHeight and self.baseLayout.preferredAspectRatio then
-        potentialContentWidth = potentialContentHeight * self.baseLayout.preferredAspectRatio
-        resolvedContentWidth =
-            math.max(self.horizontalLayout.resolvedContentMinSize,
-                math.min(potentialContentWidth, self.horizontalLayout.resolvedContentMaxSize))
-    end
-    if not potentialContentWidth and potentialContentHeight and self.baseLayout.preferredAspectRatio then
-        potentialContentHeight = potentialContentWidth / self.baseLayout.preferredAspectRatio
-        resolvedContentHeight =
-            math.max(self.verticalLayout.resolvedContentMinSize,
-                math.min(potentialContentHeight, self.verticalLayout.resolvedContentMaxSize))
+    local contentSize, actualContentSize, collapsedMarginTop, collapsedMarginBottom
+
+    if self.baseLayout.isReplaced then
+        local preferredAspectRatio = self.baseLayout.preferredAspectRatio or 2
+        if potentialContentWidth and not potentialContentHeight then
+            potentialContentHeight = potentialContentWidth / preferredAspectRatio
+            resolvedContentHeight = nil
+        elseif not potentialContentWidth and potentialContentHeight then
+            potentialContentWidth = potentialContentHeight * preferredAspectRatio
+            resolvedContentWidth = nil ---@diagnostic disable-line: cast-local-type
+        elseif not potentialContentWidth and not potentialContentHeight then
+            potentialContentWidth = 100
+            potentialContentHeight = potentialContentWidth / preferredAspectRatio
+            resolvedContentWidth = nil ---@diagnostic disable-line: cast-local-type
+            resolvedContentHeight = nil
+        end
+        self.textLayout = {}
+    else
+        contentSize,
+        actualContentSize,
+        collapsedMarginTop,
+        collapsedMarginBottom = self:getContentLayout(resolvedContentWidth, resolvedContentHeight)
     end
 
-    local
-    contentSize,
-    actualContentSize,
-    collapsedMarginTop,
-    collapsedMarginBottom = self:getContentLayout(resolvedContentWidth, resolvedContentHeight)
 
     potentialContentWidth = potentialContentWidth or contentSize.x
     resolvedContentWidth = resolvedContentWidth or
@@ -520,6 +400,7 @@ function ns.Component:calculateLayout(availableWidth, availableHeight)
         + 2 * self.baseLayout.outlineWidth,
     }
 
+    actualContentSize = actualContentSize or resolvedContentSize
     actualContentSize = structs.Vector2D {
         math.max(actualContentSize.x, resolvedContentSize.x),
         math.max(actualContentSize.y, resolvedContentSize.y),
@@ -850,14 +731,15 @@ end
 --- @param honorPrecalculated boolean? honor pre-calculated horizontal and vertical layouts.
 --- @return ammgui.component.block.UsedLayout used layout data.
 function ns.Component:getLayout(availableWidth, availableHeight, honorPrecalculated)
-    local layoutParams = { availableWidth, availableHeight, honorPrecalculated }
+    local layoutParams = { availableWidth or false, availableHeight or false, honorPrecalculated }
     if
         not self.baseLayout
         or not self.horizontalLayout
         or not self.verticalLayout
+        or not self.textLayout
         or not self.usedLayout
         or not self._cachedLayoutParams
-        or not array.eq(self._cachedLayoutParams, layoutParams)
+        or not fun.a.eq(self._cachedLayoutParams, layoutParams)
     then
         if not honorPrecalculated then
             self.horizontalLayout = nil
@@ -897,13 +779,14 @@ end
 --- @return Vector2D? collapsedMarginTop collapsed margin from top child.
 --- @return Vector2D? collapsedMarginBottom collapsed margin from bottom child.
 function ns.Component:getContentLayout(availableWidth, availableHeight)
-    local layoutParams = { availableWidth, availableHeight }
+    local layoutParams = { availableWidth or false, availableHeight or false }
     if
         not self._cachedContentLayout
         or not self._cachedContentLayoutParams
-        or not array.eq(self._cachedContentLayoutParams, layoutParams)
+        or not fun.a.eq(self._cachedContentLayoutParams, layoutParams)
     then
         self._cachedContentLayoutParams = layoutParams
+        self.textLayout = {}
         self._cachedContentLayout = { self:calculateContentLayout(availableWidth, availableHeight) }
     end
 
@@ -917,7 +800,7 @@ end
 --- !doc abstract
 --- @param ctx ammgui.component.context.RenderingContext
 function ns.Component:draw(ctx)
-    self:drawContainer(
+    self.drawContainer(
         ctx,
         structs.Vector2D { 0, 0 },
         self.usedLayout.resolvedBorderBoxSize,
@@ -932,275 +815,106 @@ function ns.Component:draw(ctx)
         self.usedLayout.resolvedBorderBoxSize,
         self
     )
+
+    ctx:noteDebugTarget(self, self.id)
 end
 
-function ns.Component:isActive()
-    return self._isActive
-end
-
-function ns.Component:onMouseEnter(pos, modifiers, propagate)
-    self:setPseudoclass("hover")
-    if propagate and self._onMouseEnterHandler then
-        propagate = runEventHandler(self._onMouseEnterHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onMouseMove(pos, modifiers, propagate)
-    if propagate and self._onMouseMoveHandler then
-        propagate = runEventHandler(self._onMouseMoveHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onMouseExit(pos, modifiers, propagate)
-    self:unsetPseudoclass("hover")
-    if propagate and self._onMouseExitHandler then
-        propagate = runEventHandler(self._onMouseExitHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onMouseDown(pos, modifiers, propagate)
-    if propagate and self._onMouseDownHandler then
-        propagate = runEventHandler(self._onMouseDownHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onMouseUp(pos, modifiers, propagate)
-    if propagate and self._onMouseUpHandler then
-        propagate = runEventHandler(self._onMouseUpHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onClick(pos, modifiers, propagate)
-    if propagate and self._onClickHandler then
-        propagate = runEventHandler(self._onClickHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onRightClick(pos, modifiers, propagate)
-    if propagate and self._onRightClickHandler then
-        propagate = runEventHandler(self._onRightClickHandler, pos, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:onMouseWheel(pos, delta, modifiers, propagate)
-    if propagate and self._onMouseWheelHandler then
-        propagate = runEventHandler(self._onMouseWheelHandler, pos, delta, modifiers) --[[ @as boolean ]]
-        if propagate == nil then propagate = true end
-    end
-    return propagate
-end
-
-function ns.Component:isDraggable()
-    return self._isDraggable
-end
-
-function ns.Component:isDragTarget()
-    return self._dragTarget
-end
-
-function ns.Component:onDragStart(pos, origin, modifiers, target)
-    self:setPseudoclass("drag")
-    if self._onDragStartHandler then
-        return self._onDragStartHandler(pos, origin, modifiers, target)
-    end
-end
-
-function ns.Component:onDrag(pos, origin, modifiers, target)
-    if self._onDragHandler then
-        return self._onDragHandler(pos, origin, modifiers, target)
-    end
-end
-
-function ns.Component:onDragEnd(pos, origin, modifiers, target)
-    self:unsetPseudoclass("drag")
-    if self._onDragEndHandler then
-        self._onDragEndHandler(pos, origin, modifiers, target)
-    end
-end
-
-function ns.Component:onDragEnter(status)
-    if status ~= "none" then
-        self:setPseudoclass("drop")
-        for _, pseudo in ipairs { "ok", "warn", "err" } do
-            if pseudo == status then
-                self:setPseudoclass("drop-" .. pseudo)
-            else
-                self:unsetPseudoclass("drop-" .. pseudo)
-            end
-        end
-    end
-end
-
-function ns.Component:onDragExit()
-    self:unsetPseudoclass("drop")
-    self:unsetPseudoclass("drop-ok")
-    self:unsetPseudoclass("drop-warn")
-    self:unsetPseudoclass("drop-err")
-end
-
---- Sync one DOM node with its component or provider.
----
---- @param ctx ammgui.component.context.RenderingContext
---- @param provider ammgui.component.block.ComponentProvider? component that was updated.
---- @param node ammgui.dom.block.Node
---- @return ammgui.component.block.ComponentProvider provider
-function ns.Component.syncOne(ctx, provider, node)
-    ---@diagnostic disable-next-line: invisible
-    local nodeComponent = node._component
-    if provider and nodeComponent == provider.__class then
-        provider:onUpdate(ctx, node)
-    else
-        if provider then
-            provider:onUnmount(ctx)
-        end
-        provider = nodeComponent:New(node.key)
-        provider:onMount(ctx, node)
-    end
-    if node.ref then
-        provider:noteRef(node.ref)
-    end
-    return provider
-end
-
---- Sync array of DOM nodes with their providers.
----
---- @param ctx ammgui.component.context.RenderingContext
---- @param providers ammgui.component.block.ComponentProvider[]
---- @param nodes ammgui.dom.block.Node[]
---- @return ammgui.component.block.ComponentProvider[] providers
-function ns.Component.syncProviders(ctx, providers, nodes)
-    local providerByKey = {}
-    for i, provider in ipairs(providers) do
-        local key = provider.key or i
-        if providerByKey[key] then
-            logger:warning(
-                "multiple components with the same key %s: %s, %s",
-                log.pp(key), providerByKey[key], provider
-            )
-        else
-            providerByKey[key] = provider
-        end
-    end
-
-    local newProviders = {}
-    for i, node in ipairs(nodes) do
-        ---@diagnostic disable-next-line: invisible
-        if node._isBlockNode then
-            --- @cast node ammgui.dom.block.Node
-            local key = node.key or i
-            local provider = ns.Component.syncOne(ctx, providerByKey[key], node)
-            table.insert(newProviders, provider)
-            providerByKey[key] = nil
-        else
-            error(string.format("not a dom node: %s", log.pp(node)))
-        end
-    end
-
-    return newProviders
-end
-
---- Sync array of DOM nodes with their components.
----
---- @param ctx ammgui.component.context.RenderingContext
---- @param providers ammgui.component.block.ComponentProvider[]
---- @param components ammgui.component.block.Component[]
---- @param nodes ammgui.dom.block.Node[]
---- @param parent ammgui.component.block.Component
---- @return ammgui.component.block.ComponentProvider[] providers
---- @return ammgui.component.block.Component[] components
---- @return boolean outdated
---- @return boolean outdatedCss
-function ns.Component.syncAll(ctx, providers, components, nodes, parent)
-    local newProviders = ns.Component.syncProviders(ctx, providers, nodes)
-
-    local newComponents = {}
-    for _, provider in ipairs(newProviders) do
-        provider:collect(newComponents)
-    end
-
-    local outdated, outdatedCss = false, false
-    for _, component in ipairs(newComponents) do
-        outdated = outdated or component.outdated
-        outdatedCss = outdatedCss or component.outdatedCss
-        component.parent = parent
-    end
-
-    -- Mark as outdated if number or order of components changed.
-    outdated = outdated or not array.eq(components, newComponents)
-
-    return newProviders, newComponents, outdated, outdatedCss
-end
-
---- @param context ammgui.component.context.RenderingContext
-function ns.Component:drawDebugOverlay(context)
-    -- Resolved content.
-    do
-        context.gpu:drawRect(
+function ns.Component:drawDebugOverlay(ctx, drawContent, drawPadding, drawOutline, drawMargin)
+    -- Content.
+    if drawContent then
+        ctx.gpu:drawRect(
             self.usedLayout.contentPosition,
             self.usedLayout.resolvedContentSize,
-            structs.Color { 0.5, 0.5, 0.7, 0.5 },
+            structs.Color { 0x54 / 0xff, 0xA9 / 0xff, 0xCE / 0xff, 0.5 },
             "",
             0
         )
+        if self.textLayout.firstBaselineOffset then
+            ctx.gpu:drawLines(
+                {
+                    self.usedLayout.contentPosition + structs.Vector2D {
+                        0,
+                        self.textLayout.firstBaselineOffset
+                    },
+                    self.usedLayout.contentPosition + structs.Vector2D {
+                        self.usedLayout.resolvedContentSize.x,
+                        self.textLayout.firstBaselineOffset
+                    },
+                },
+                1,
+                structs.Color { 0x54 / 0xff, 0xA9 / 0xff, 0xCE / 0xff, 0.3 }
+            )
+        end
+        if self.textLayout.lastBaselineOffset then
+            ctx.gpu:drawLines(
+                {
+                    self.usedLayout.contentPosition + structs.Vector2D {
+                        0,
+                        self.textLayout.lastBaselineOffset
+                    },
+                    self.usedLayout.contentPosition + structs.Vector2D {
+                        self.usedLayout.resolvedContentSize.x,
+                        self.textLayout.lastBaselineOffset
+                    },
+                },
+                1,
+                structs.Color { 0x54 / 0xff, 0xA9 / 0xff, 0xCE / 0xff, 0.3 }
+            )
+        end
     end
-    -- Actual content.
-    do
-        local a = self.usedLayout.contentPosition
-        local b = a + self.usedLayout.actualContentSize
-        context.gpu:drawLines(
-            {
-                structs.Vector2D { a.x, a.y },
-                structs.Vector2D { b.x, a.y },
-                structs.Vector2D { b.x, b.y },
-                structs.Vector2D { a.x, b.y },
-                structs.Vector2D { a.x, a.y },
-            },
-            1,
-            structs.Color { 0.5, 0.5, 0.7, 1 }
+
+    local outlineSize = structs.Vector2D { self.baseLayout.outlineWidth, self.baseLayout.outlineWidth }
+
+    -- Padding.
+    if drawPadding then
+        self.drawRectangleWithHole(
+            ctx,
+            outlineSize,
+            self.usedLayout.resolvedBorderBoxSize - outlineSize * 2,
+            self.usedLayout.contentPosition,
+            self.usedLayout.resolvedContentSize,
+            structs.Color { 0xA4 / 0xff, 0xA0 / 0xff, 0xC6 / 0xff, 0.5 }
         )
     end
-    -- Resolved border box.
-    do
-        context.gpu:pushClipRect(self.usedLayout.contentPosition, self.usedLayout.resolvedContentSize)
-        context.gpu:drawRect(
+
+    -- Outline
+    if drawOutline then
+        self.drawRectangleWithHole(
+            ctx,
             structs.Vector2D { 0, 0 },
             self.usedLayout.resolvedBorderBoxSize,
-            structs.Color { 0.5, 0.7, 0.5, 0.5 },
-            "",
-            0
-        )
-        context.gpu:popClip()
-    end
-    -- Actual border box.
-    do
-        local a = structs.Vector2D { 0, 0 }
-        local b = a + self.usedLayout.actualBorderBoxSize
-        context.gpu:drawLines(
-            {
-                structs.Vector2D { a.x, a.y },
-                structs.Vector2D { b.x, a.y },
-                structs.Vector2D { b.x, b.y },
-                structs.Vector2D { a.x, b.y },
-                structs.Vector2D { a.x, a.y },
-            },
-            1,
-            structs.Color { 0.5, 0.7, 0.5, 1 }
+            outlineSize,
+            self.usedLayout.resolvedBorderBoxSize - outlineSize * 2,
+            structs.Color { 0xC9 / 0xff, 0x85 / 0xff, 0x31 / 0xff, 0.5 }
         )
     end
+
+    -- Margin
+    if drawMargin then
+        local marginTop = self.baseLayout.marginTop or self.usedLayout.effectiveVerticalMargin.x
+        marginTop = math.max(marginTop, 0)
+        local marginBottom = self.baseLayout.marginBottom or self.usedLayout.effectiveVerticalMargin.y
+        marginBottom = math.max(marginBottom, 0)
+        local marginLeft = self.baseLayout.marginLeft or self.usedLayout.effectiveHorizontalMargin.x
+        marginLeft = math.max(marginLeft, 0)
+        local marginRight = self.baseLayout.marginRight or self.usedLayout.effectiveHorizontalMargin.y
+        marginRight = math.max(marginRight, 0)
+        self.drawRectangleWithHole(
+            ctx,
+            structs.Vector2D { -marginLeft, -marginTop },
+            self.usedLayout.resolvedBorderBoxSize + structs.Vector2D { marginLeft + marginRight, marginTop + marginBottom },
+            structs.Vector2D { 0, 0 },
+            self.usedLayout.resolvedBorderBoxSize,
+            structs.Color { 0xEC / 0xff, 0x8F / 0xff, 0x82 / 0xff, 0.5 }
+        )
+    end
+end
+
+function ns.Component:repr()
+    local repr = base.Component.repr(self)
+    repr.baseLayout = self.baseLayout
+    repr.usedLayout = self.usedLayout
+    return repr
 end
 
 return ns

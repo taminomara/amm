@@ -1,4 +1,4 @@
-local array = require "ammcore._util.array"
+local fun = require "ammcore.fun"
 local class = require "ammcore.clas"
 local severity = require "amm.lib.severity"
 local log = require "ammcore.log"
@@ -211,7 +211,7 @@ function lc.LineCtl:_check()
     local updatedMachines = self:_discoverMachines()
     if
         updatedPowerSwitch ~= self._powerSwitch
-        or not array.eq(updatedMachines, self._machines)
+        or not fun.a.eq(updatedMachines, self._machines)
     then
         -- A set of machines connected to the factory has changed.
         -- We'll need to restart the computer to re-index all of them.
@@ -499,7 +499,7 @@ function lc.LineCtl:_setPotentialHandler(_, potential)
         potential = self._state.availablePotential
     end
 
-    local machines = array.insertMany({}, self._machines)
+    local machines = array.extend({}, self._machines)
     table.sort(machines, function(a, b) return a.maxPotential < b.maxPotential end)
 
     for i, machine in ipairs(machines) do

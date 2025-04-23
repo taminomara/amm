@@ -1,5 +1,5 @@
 local class        = require "ammcore.clas"
-local array        = require "ammcore._util.array"
+local array        = require "ammcore.fun._index"
 local controlPanel = require "amm.lib.controlPanel"
 local lc           = require "amm.ctl.lc"
 local severity     = require "amm.lib.severity"
