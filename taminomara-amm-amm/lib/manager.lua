@@ -528,7 +528,7 @@ function manager.Manager:loadState(code)
         local content = filesystemHelpers.readFile(stateFile)
 
         local result
-        local success = pcall(function () result = pickle.unpickle(content) end)
+        local success = pcall(function() result = pickle.unpickle(content) end)
 
         if success then
             return table.unpack(result)

@@ -3,7 +3,7 @@ local promise = require "ammcore.promise"
 
 local suite = test.suite()
 
-suite:case("promise", function ()
+suite:case("promise", function()
     local p, r = promise.promise()
     test.assertFalse(p:canGet())
     r(1, 2, 3)
@@ -11,7 +11,7 @@ suite:case("promise", function ()
     test.assertDeepEq({ p:get() }, { 1, 2, 3 })
 end)
 
-suite:case("event", function ()
+suite:case("event", function()
     local e = promise.Event:New()
     test.assertFalse(e:isSet())
     test.assertFalse(e:future():canGet())
@@ -24,15 +24,15 @@ suite:case("event", function ()
     test.assertFalse(e:future():canGet())
 end)
 
-suite:case("event-mt", function ()
+suite:case("event-mt", function()
     local e = promise.Event:New()
 
-    local reader = function ()
+    local reader = function()
         e:await()
         print("read")
     end
 
-    local writer = function ()
+    local writer = function()
         print("write")
         e:set()
     end

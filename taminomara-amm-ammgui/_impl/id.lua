@@ -12,24 +12,15 @@ end
 __AMMGUI_IMPL_ID = true
 
 local function idGenerator(name)
-    local id = -2 ^ 63
+    local id = 0
     return function()
         id = id + 1
-        if id > 2 ^ 62 then
+        if id > 2 ^ 50 then
             computer.panic(string.format("ran out of integer IDs for %s", name))
         end
         return id
     end
 end
-
---- A unique ID for a component.
----
---- @class ammgui._impl.id.ComponentId
-
---- Make a new unique component ID.
----
---- @type fun(): ammgui._impl.id.ComponentId
-ns.newComponentId = idGenerator("ComponentId")
 
 --- A unique ID for a component.
 ---

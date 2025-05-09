@@ -232,7 +232,7 @@ end
 --- .. code-block:: lua
 ---
 ---    test.assertError(
----        function (a, b) return a + b end,
+---        function(a, b) return a + b end,
 ---        { nil, 1 },
 ---        "attempt to perform arithmetic on a nil value",
 ---    )
@@ -653,7 +653,7 @@ end
 ---            test.param(2, 2, 4),
 ---            test.param(3, 3, 9),
 ---        },
----        function (a, b, c)
+---        function(a, b, c)
 ---            test.assertEq(a * b, c)
 ---        end
 ---    )

@@ -1,5 +1,5 @@
 local test = require "ammtest"
-local selector = require "ammgui.css.selector"
+local selector = require "ammgui._impl.css.selector"
 
 local suite = test.suite()
 

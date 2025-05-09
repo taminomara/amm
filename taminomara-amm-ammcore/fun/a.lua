@@ -50,7 +50,7 @@ rawset(ns, "sort", table.sort) -- Use `rawset` to bypass lua-ls analysis.
 ---
 --- @generic T
 --- @param a T[]
---- @param pred? fun(x: T): any
+--- @param pred? fun(x: T, i: integer): any
 --- @return boolean
 function ns.all(a, pred)
     return common.all(a, pred, ipairs)
@@ -60,7 +60,7 @@ end
 ---
 --- @generic T
 --- @param a T[]
---- @param pred? fun(x: T): any
+--- @param pred? fun(x: T, i: integer): any
 --- @return boolean
 function ns.any(a, pred)
     return common.any(a, pred, ipairs)
@@ -94,7 +94,7 @@ end
 ---
 --- @generic T, U
 --- @param arr T[] array to be mapped.
---- @param fn fun(x: T, i: number): U mapper.
+--- @param fn fun(x: T, i: number): U? mapper.
 --- @return U[] mapped new array containing result of applying ``fn`` to every element in ``arr``.
 function ns.map(arr, fn)
     local res = {}
@@ -267,11 +267,13 @@ end
 --- Otherwise, if ``a`` or ``b`` is not a table, or ``a`` has custom equality operator,
 --- then this function is equivalent to ``a == b``.
 ---
---- @param a any[] left array.
---- @param b any[] right array.
+--- @generic T
+--- @param a T[] left array.
+--- @param b T[] right array.
+--- @param getter? fun(x: T, i: number): any
 --- @return boolean
-function ns.eq(a, b)
-    return common.eq(a, b, ipairs)
+function ns.eq(a, b, getter)
+    return common.eq(a, b, ipairs, getter)
 end
 
 return ns

@@ -8,8 +8,9 @@ local ns = {}
 
 --- Check that all values in the table are `true`.
 ---
---- @param t table
---- @param pred? fun(x: unknown): any
+--- @generic K, V
+--- @param t table<K, V>
+--- @param pred? fun(v: V, k: K): any
 --- @return boolean
 function ns.all(t, pred)
     return common.all(t, pred, pairs)
@@ -17,8 +18,9 @@ end
 
 --- Check that any value in the table is `true`.
 ---
---- @param t table
---- @param pred? fun(x: unknown): any
+--- @generic K, V
+--- @param t table<K, V>
+--- @param pred? fun(v: V, k: K): any
 --- @return boolean
 function ns.any(t, pred)
     return common.any(t, pred, pairs)
@@ -29,9 +31,9 @@ end
 ---
 --- @generic T
 --- @generic U
---- @param to table<T, U> table to be modified.
---- @param from table<T, U> table to be copied.
---- @return table<T, U> to to reference to the ``to`` table.
+--- @param to T table to be modified.
+--- @param from U table to be copied.
+--- @return T | U to to reference to the ``to`` table.
 function ns.update(to, from)
     for k, v in pairs(from) do
         to[k] = v
@@ -78,11 +80,13 @@ end
 --- Otherwise, if ``a`` or ``b`` is not a table, or ``a`` has custom equality operator,
 --- then this function is equivalent to ``a == b``.
 ---
---- @param a table left table.
---- @param b table right table.
+--- @generic K, V
+--- @param a table<K, V> left array.
+--- @param b table<K, V> right array.
+--- @param getter? fun(v: V, k: K): any
 --- @return boolean
-function ns.eq(a, b)
-    return common.eq(a, b, pairs)
+function ns.eq(a, b, getter)
+    return common.eq(a, b, pairs, getter)
 end
 
 --- Check that two tables are deep-equal.

@@ -23,7 +23,7 @@ in them:
 
 .. code-block:: lua
 
-   suite:case("test addition", function ()
+   suite:case("test addition", function()
        test.assertEq(2 + 2, 4)
    end)
 
@@ -38,7 +38,7 @@ and `ammcore.param`:
            test.param(2, 2, 4),
            test.param(5, 10, 15),
        },
-       function (a, b, expected)
+       function(a, b, expected)
           test.assertEq(a + b, expected)
        end
    )

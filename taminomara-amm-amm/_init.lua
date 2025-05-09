@@ -21,9 +21,7 @@ end
 AMM_VERSION   = (require "amm._version").version
 
 --- Special address for broadcasting messages.
----
---- @type string
-AMM_BROADCAST = "_broadcast_"
+AMM_BROADCAST = require("ammgui.x")
 
 --- Address of this computer.
 ---

@@ -1,5 +1,6 @@
 local dom = require "ammgui.dom"
 local fun = require "ammcore.fun"
+local api= require "ammgui.api"
 
 --- Allows creating resize-able split-panels.
 ---
@@ -45,11 +46,15 @@ end
 --- @field direction ammgui.css.rule.FlexDirectionValue?
 --- @field class string|string[]?
 
---- @param ctx ammgui.dom.Context
+--- @param ctx ammgui.Context
 --- @param params ammgui.dom.resize.ResizeParams
 --- @return ammgui.dom.AnyNode
 local function _split(ctx, params)
     local dragState = ctx:useRef(nil)
+
+    --- @type ammgui.Ref<ammgui.Ref<ammgui.NodeApi?>[]>
+    local refs = ctx:useRef({})
+    refs.current = {}
 
     local class = params.class
     if not class then
@@ -65,12 +70,9 @@ local function _split(ctx, params)
         style = { flexDirection = params.direction },
     }
 
-    --- @type ammgui.component.block.func.Ref<ammgui.component.api.ComponentApi?>[]
-    local refs = {}
-
     for i, node in ipairs(params) do
-        local ref = ctx:useRef(nil)
-        table.insert(refs, ref)
+        local ref = api.Ref:New(nil)
+        table.insert(refs.current, ref)
         table.insert(flex, dom.list { node, key = node.key, ref = ref })
         if i < #params then
             table.insert(
@@ -79,7 +81,7 @@ local function _split(ctx, params)
                     class = "__amm_resize__handle",
                     onDragStart = function()
                         dragState.current = {}
-                        for _, ref in ipairs(refs) do
+                        for _, ref in ipairs(refs.current) do
                             table.insert(dragState.current, {
                                 size = assert(ref.current):getBorderBoxSize().y,
                                 minSize = assert(ref.current):getBorderBoxMinSize().y,
@@ -99,18 +101,18 @@ local function _split(ctx, params)
                                         dragState.current[j].size + deltaLeft, dragState.current[j].maxSize))
                                 local sizeChange = dragState.current[j].size - newSize
                                 deltaLeft = deltaLeft + sizeChange
-                                assert(refs[j].current):setInlineCss { flexBasis = newSize }
+                                assert(refs.current[j].current):setInlineCss { flexBasis = newSize }
                             end
                         end
                         do
                             local deltaLeft = -maxPossibleDelta
-                            for j = i + 1, #refs do
+                            for j = i + 1, #refs.current do
                                 local newSize = math.max(
                                     dragState.current[j].minSize, math.min(
                                         dragState.current[j].size + deltaLeft, dragState.current[j].maxSize))
                                 local sizeChange = dragState.current[j].size - newSize
                                 deltaLeft = deltaLeft + sizeChange
-                                assert(refs[j].current):setInlineCss { flexBasis = newSize }
+                                assert(refs.current[j].current):setInlineCss { flexBasis = newSize }
                             end
                         end
                     end,
@@ -143,6 +145,6 @@ end
 ---        dom.scroll { ... }, -- panel 1
 ---        dom.scroll { ... }, -- panel 2
 ---    }
-ns.Split = dom.functional(_split)
+ns.Split = dom.Functional(_split)
 
 return ns

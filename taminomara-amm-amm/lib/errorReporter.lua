@@ -302,7 +302,7 @@ end
 -- ---
 -- --- @return string
 -- function errorReporter.ErrorReporter:generateReport()
---     -- table.sort(self._messages, function (left, right) return left.sv > right.sv end)
+--     -- table.sort(self._messages, function(left, right) return left.sv > right.sv end)
 --     local text = ""
 
 --     for code, data in pairs(self._messages) do

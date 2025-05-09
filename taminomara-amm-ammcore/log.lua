@@ -452,7 +452,7 @@ local Pretty = { __tostring = function(self) return ns.pprintVa(self, self.long)
 --- If given one argument, this function will use `pprint`, otherwise
 --- it will use `pprintVa`.
 ---
---- Example usage:
+--- **Example:**
 ---
 --- .. code-block::
 ---

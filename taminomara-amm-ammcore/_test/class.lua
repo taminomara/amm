@@ -3,7 +3,7 @@ local class = require "ammcore.class"
 
 local suite = test.safeSuite()
 
-suite:case("Base", function ()
+suite:case("Base", function()
     test.assertEq(tostring(class.Base), "Base")
     test.assertEq(tostring(class.Base:New()), "Base()")
     test.assertEq(class.Base.__name, "Base")

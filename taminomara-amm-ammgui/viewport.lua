@@ -1,16 +1,17 @@
 local class = require "ammcore.class"
-local context = require "ammgui.component.context"
 local theme = require "ammgui.css.theme"
-local root = require "ammgui.component.block.root"
-local rule = require "ammgui.css.rule"
 local log = require "ammcore.log"
-local dom = require "ammgui.dom"
-local defer = require "ammcore.defer"
 local fun = require "ammcore.fun"
-local eventManager = require "ammgui.eventManager"
-local devtools = require "ammgui.devtools"
-local componentBase = require "ammgui.component.base"
-local div           = require "ammgui.component.block.div"
+local eventListener = require "ammgui._impl.eventListener"
+local devtools = require "ammgui._impl.devtools"
+local render = require "ammgui._impl.context.render"
+local root = require "ammgui._impl.component.root"
+local sync = require "ammgui._impl.context.sync"
+local css = require "ammgui._impl.context.css"
+local resolved = require "ammgui._impl.css.resolved"
+local tracy = require "ammcore.tracy"
+local textMeasure = require "ammgui._impl.context.textMeasure"
+local node = require "ammgui._impl.component.node"
 
 --- Viewport and panel management.
 ---
@@ -27,25 +28,25 @@ ns.Viewport = class.create("Viewport")
 
 --- Update components.
 ---
---- @param pos Vector2D
---- @param size Vector2D
+--- @param pos ammgui.Vec2
+--- @param size ammgui.Vec2
 function ns.Viewport:update(pos, size)
     error("not implemented")
 end
 
 --- Render components.
 ---
---- @param pos Vector2D
---- @param size Vector2D
+--- @param pos ammgui.Vec2
+--- @param size ammgui.Vec2
 function ns.Viewport:draw(pos, size)
     error("not implemented")
 end
 
 --- Get topmost event listener by mouse coordinates.
 ---
---- @param pos Vector2D
---- @return ammgui.eventManager.EventListener? topReceiver
---- @return table<ammgui.eventManager.EventListener, Vector2D> affectedReceivers
+--- @param pos ammgui.Vec2
+--- @return ammgui._impl.eventListener.EventListener? topReceiver
+--- @return table<ammgui._impl.eventListener.EventListener, ammgui.Vec2> affectedReceivers
 --- @return ammgui.viewport.Window? window
 function ns.Viewport:getEventListener(pos)
     error("not implemented")
@@ -53,8 +54,8 @@ end
 
 --- Event listener for selecting elements in devtools.
 ---
---- @class ammgui.viewport.DevtoolsHighlightEventListener: ammgui.eventManager.EventListener
-DevtoolsHighlightEventListener = class.create("DevtoolsHighlightEventListener", eventManager.EventListener)
+--- @class ammgui.viewport.DevtoolsHighlightEventListener: ammgui._impl.eventListener.EventListener
+DevtoolsHighlightEventListener = class.create("DevtoolsHighlightEventListener", eventListener.EventListener)
 
 --- @param target ammgui.viewport.Window
 ---
@@ -63,7 +64,7 @@ DevtoolsHighlightEventListener = class.create("DevtoolsHighlightEventListener", 
 --- @param self T
 --- @return T
 function DevtoolsHighlightEventListener:New(target)
-    self = eventManager.EventListener.New(self)
+    self = eventListener.EventListener.New(self)
 
     --- Target window.
     ---
@@ -71,7 +72,7 @@ function DevtoolsHighlightEventListener:New(target)
     self.target = target
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._highlightedId = nil
 
     return self
@@ -84,17 +85,21 @@ end
 function DevtoolsHighlightEventListener:onMouseMove(pos, modifiers, propagate)
     if propagate then
         local targetElement = self.target._context:getEventListener(pos)
-        if targetElement and class.isChildOf(targetElement, componentBase.Component) then
-            --- @cast targetElement ammgui.component.base.Component
-            self._highlightedId = targetElement.id
-            self.target:setHighlighted(
-                targetElement.id,
-                true,
-                true,
-                true,
-                true
-            )
-            self.target:setPreSelectedId(targetElement.id)
+        while targetElement do
+            if class.isChildOf(targetElement, node.Node) then
+                --- @cast targetElement ammgui._impl.component.node.Node
+                self._highlightedId = targetElement.id
+                self.target:setHighlighted(
+                    targetElement.id,
+                    true,
+                    true,
+                    true,
+                    true
+                )
+                self.target:setPreSelectedId(targetElement.id)
+                break
+            end
+            targetElement = targetElement.parent
         end
     end
     return propagate
@@ -127,6 +132,7 @@ end
 --- @class ammgui.viewport.Window: ammgui.viewport.Viewport
 ns.Window = class.create("Window")
 
+--- @param name string
 --- @param gpu FINComputerGPUT2
 --- @param page fun(data): ammgui.dom.AnyNode
 --- @param data unknown
@@ -138,6 +144,7 @@ ns.Window = class.create("Window")
 --- @param self T
 --- @return T
 function ns.Window:New(
+    name,
     gpu,
     page,
     data,
@@ -145,6 +152,11 @@ function ns.Window:New(
     earlyRefreshEvent
 )
     self = ns.Viewport.New(self)
+
+    --- Window name, used for debugging.
+    ---
+    --- @type string
+    self.name = name
 
     --- @private
     --- @type FINComputerGPUT2
@@ -192,16 +204,16 @@ function ns.Window:New(
     }
 
     --- @private
-    --- @type ammgui.component.block.root.Root
-    self._root = root.Root:New(nil)
+    --- @type ammgui._impl.component.root.Root
+    self._root = root.Root:New()
 
     --- @private
-    --- @type ammgui.dom.DivNode?
+    --- @type ammgui.dom.Node?
     self._rootNode = nil
 
     --- @package
-    --- @type ammgui.component.context.RenderingContext
-    self._context = context.RenderingContext:New(self._gpu, self._earlyRefreshEvent)
+    --- @type ammgui._impl.context.render.Context
+    self._context = render.Context:New(self._gpu, self._earlyRefreshEvent)
 
     --- @private
     --- @type ammgui.viewport.DevtoolsHighlightEventListener
@@ -212,11 +224,11 @@ function ns.Window:New(
     self._devtoolsHighlighterActive = false
 
     --- @private
-    --- @type ammgui.devtools.Element?
+    --- @type ammgui._impl.devtools.Element?
     self._devtoolsRepr = nil
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._devtoolsHighlightedId = nil
 
     --- @private
@@ -224,30 +236,33 @@ function ns.Window:New(
     self._devtoolsHighlightedParams = nil
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._devtoolsSelectedId = nil
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._devtoolsPreSelectedId = nil
 
     self:_compileRules()
-    self:_refreshRoot()
-    self._root:onMount(context.SyncContext:New(self._earlyRefreshEvent), self._rootNode)
+
+    self._root:onMount(
+        sync.Context:New(self._earlyRefreshEvent),
+        self._page(self._data)
+    )
 
     return self
 end
 
 function ns.Window:_compileRules()
     --- @private
-    --- @type { selector: ammgui.css.selector.Selector, rule: ammgui.css.rule.CompiledRule }[]
+    --- @type { selector: ammgui.css.selector.Selector, rule: ammgui._impl.css.resolved.CompiledRule }[]
     self._rules = {}
 
     local i = 0
     for _, style in ipairs(self._stylesheets) do
         for _, r in ipairs(style.rules) do
             i = i + 1
-            local compiled = rule.compile(r, style.layer, i)
+            local compiled = resolved.compile(r, style.layer, i)
             for _, selector in ipairs(compiled.compiledSelectors) do
                 table.insert(self._rules, { selector = selector, rule = compiled })
             end
@@ -278,54 +293,95 @@ function ns.Window:update(pos, size)
         self._units["vmax"] = math.max(size.x, size.y) / 100
     end
 
-    self:_refreshRoot()
-    self._root:onUpdate(context.SyncContext:New(self._earlyRefreshEvent), self._rootNode)
+    do
+        local _ <close> = tracy.zoneScopedN("AmmGui/Window/Sync")
+        tracy.zoneNameF("AmmGui/Window/Sync | %q", self.name)
 
-    if sizeOutdated or self._root.outdatedCss then
-        logger:trace("Dispatch css update")
-        self._root:updateCss(
-            context.CssContext:New(self._rules, self._theme, self._units, sizeOutdated)
+        self._root:onUpdate(
+            sync.Context:New(self._earlyRefreshEvent),
+            self._page(self._data)
         )
-
-        self._devtoolsRepr = nil
     end
 
-    if sizeOutdated or self._root.outdated then
-        logger:trace("Dispatch layout update")
+    do
+        local _ <close> = tracy.zoneScopedN("AmmGui/Window/UpdateLayout")
+        tracy.zoneNameF("AmmGui/Window/UpdateLayout | %q", self.name)
 
-        local tms = context.TextMeasure:New()
-        self._root:prepareLayout(tms)
-        tms:run(self._gpu)
+        if sizeOutdated or self._root.cssOutdated then
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Impl/Css")
+                self._root:syncCss(
+                    css.Context:New(self._rules, self._theme, self._units, sizeOutdated)
+                )
+            end
 
-        self._root:getLayout(size.x, size.y)
+            self._devtoolsRepr = nil
+        end
 
-        self._devtoolsRepr = nil
+        if self._root.layoutOutdated then
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Impl/ResetLayout")
+                self._root:updateLayoutTree()
+            end
+
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Impl/PrepareLayout")
+                local tms = textMeasure.TextMeasure:New()
+                self._root.layout:prepareLayout(tms)
+                do
+                    local _ <close> = tracy.zoneScopedN("AmmGui/Impl/PrepareLayout/TmsRun")
+                    tms:run(self._gpu)
+                end
+            end
+
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Impl/CalculateLayout")
+                self._root.layout:asBlock():getLayout(size.x, size.y)
+            end
+
+            self._devtoolsRepr = nil
+        else
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Impl/ResetLayout")
+                self._root:updateLayoutTree()
+            end
+        end
     end
 end
 
 function ns.Window:draw(pos, size)
-    self._context.gpu:pushClipRect(pos, size)
-    self._context.gpu:pushLayout(pos, size, 1)
-    self._context:reset(size, self._devtoolsHighlightedId, self._devtoolsHighlightedParams)
-    self._root:draw(self._context)
-    self._context:finalize()
-    self._context.gpu:popGeometry()
-    self._context.gpu:popClip()
+    do
+        local _ <close> = tracy.zoneScopedN("AmmGui/Window/Draw")
+        tracy.zoneNameF("AmmGui/Window/Draw | %q", self.name)
+
+        self._context.gpu:pushClipRect(pos, size)
+        self._context.gpu:pushLayout(pos, size, 1)
+        self._context:reset(size, self._devtoolsHighlightedId, self._devtoolsHighlightedParams)
+
+        do
+            local _ <close> = tracy.zoneScopedN("AmmGui/Impl/Draw")
+            self._root.layout:asBlock():draw(self._context)
+        end
+
+        self._context:finalize()
+        self._context.gpu:popGeometry()
+        self._context.gpu:popClip()
+    end
 end
 
 --- Get root element's representation for devtools panel.
 ---
---- @return ammgui.devtools.Element?
+--- @return ammgui._impl.devtools.Element?
 function ns.Window:getDevtoolsData()
     if not self._devtoolsRepr then
-        self._devtoolsRepr = self._root:repr()
+        self._devtoolsRepr = self._root:devtoolsRepr()
     end
     return self._devtoolsRepr
 end
 
 --- Set ID of a component that should be have its debug overlay displayed.
 ---
---- @param id table?
+--- @param id ammgui._impl.id.EventListenerId?
 --- @param drawContent boolean?
 --- @param drawPadding boolean?
 --- @param drawOutline boolean?
@@ -356,7 +412,7 @@ end
 --- Set ID of a component that should be selected in a debug window
 --- attached to this window.
 ---
---- @param id table?
+--- @param id ammgui._impl.id.EventListenerId?
 function ns.Window:setSelectedId(id)
     self._devtoolsSelectedId = id
 end
@@ -364,7 +420,7 @@ end
 --- Get ID of a component that should be selected in a debug window
 --- attached to this window.
 ---
---- @return table? id
+--- @return ammgui._impl.id.EventListenerId? id
 function ns.Window:getSelectedId()
     return self._devtoolsSelectedId
 end
@@ -372,7 +428,7 @@ end
 --- Get ID of a component that should be pre-selected in a debug window
 --- attached to this window.
 ---
---- @return table? id
+--- @return ammgui._impl.id.EventListenerId? id
 function ns.Window:setPreSelectedId(id)
     self._devtoolsPreSelectedId = id
 end
@@ -380,28 +436,16 @@ end
 --- Get ID of a component that should be pre-selected in a debug window
 --- attached to this window.
 ---
---- @return table? id
+--- @return ammgui._impl.id.EventListenerId? id
 function ns.Window:getPreSelectedId()
     return self._devtoolsPreSelectedId
 end
 
-function ns.Window:_refreshRoot()
-    self._rootNode = {
-        _isBlockNode = true,
-        _component = root.Root,
-        {
-            _isBlockNode = true,
-            _component = div.Body,
-            self._page(self._data)
-        }
-    }
-end
-
 --- Get topmost event listener by mouse coordinates.
 ---
---- @param pos Vector2D
---- @return ammgui.eventManager.EventListener? topReceiver
---- @return table<ammgui.eventManager.EventListener, Vector2D> affectedReceivers
+--- @param pos ammgui.Vec2
+--- @return ammgui._impl.eventListener.EventListener? topReceiver
+--- @return table<ammgui._impl.eventListener.EventListener, ammgui.Vec2> affectedReceivers
 --- @return ammgui.viewport.Window? window
 function ns.Window:getEventListener(pos)
     if self._devtoolsHighlighterActive then
@@ -426,6 +470,7 @@ end
 --- @class ammgui.viewport.Devtools: ammgui.viewport.Window
 ns.Devtools = class.create("Devtools", ns.Window)
 
+--- @param name string
 --- @param gpu FINComputerGPUT2
 --- @param target ammgui.viewport.Window?
 --- @param settings ammgui.viewport.WindowSettings
@@ -435,9 +480,10 @@ ns.Devtools = class.create("Devtools", ns.Window)
 --- @generic T: ammgui.viewport.Devtools
 --- @param self T
 --- @return T
-function ns.Devtools:New(gpu, target, settings, earlyRefreshEvent)
+function ns.Devtools:New(name, gpu, target, settings, earlyRefreshEvent)
     self = ns.Window.New(
         self,
+        name,
         gpu,
         devtools.panel,
         {},
@@ -450,15 +496,15 @@ function ns.Devtools:New(gpu, target, settings, earlyRefreshEvent)
     self._target = target
 
     --- @private
-    --- @type ammgui.devtools.Element?
+    --- @type ammgui._impl.devtools.Element?
     self._oldDevtoolsData = nil
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._oldSelectedId = nil
 
     --- @private
-    --- @type table?
+    --- @type ammgui._impl.id.EventListenerId?
     self._oldPreSelectedId = nil
 
     --- @private
@@ -530,8 +576,8 @@ end
 
 --- Scroll bar drag handle.
 ---
---- @class ammgui.vewport.SplitHandleEventListener: ammgui.eventManager.EventListener
-local SplitHandleEventListener = class.create("SplitHandleEventListener", eventManager.EventListener)
+--- @class ammgui.vewport.SplitHandleEventListener: ammgui._impl.eventListener.EventListener
+local SplitHandleEventListener = class.create("SplitHandleEventListener", eventListener.EventListener)
 
 --- @param view ammgui.viewport.Split
 --- @param index integer
@@ -541,7 +587,7 @@ local SplitHandleEventListener = class.create("SplitHandleEventListener", eventM
 --- @param self T
 --- @return T
 function SplitHandleEventListener:New(view, index)
-    self = eventManager.EventListener.New(self)
+    self = eventListener.EventListener.New(self)
 
     --- @package
     --- @type boolean
@@ -663,7 +709,7 @@ function ns.Split:New(direction, items, context)
     self.items = items
 
     --- @private
-    --- @type ammgui.component.context.RenderingContext
+    --- @type ammgui._impl.context.render.Context
     self._context = context
 
     --- @private
@@ -707,7 +753,7 @@ function ns.Split:New(direction, items, context)
     self._dragIndex = 0
 
     --- @package
-    --- @type Vector2D[]
+    --- @type ammgui.Vec2[]
     self._positions = {}
 
     --- @private
@@ -755,12 +801,15 @@ function ns.Split:update(pos, size)
         local viewMainSize = mainSize * self._proportions[i]
         item:update(
             pos,
-            structs.Vector2D {
+            Vec2:FromTable {
                 [self._mainDirection] = viewMainSize,
                 [self._crossDirection] = crossSize,
             }
         )
-        pos = pos + structs.Vector2D { [self._mainDirection] = viewMainSize + self._gap }
+        pos = pos + Vec2:FromTable {
+            [self._mainDirection] = viewMainSize + self._gap,
+            [self._crossDirection] = 0,
+        }
     end
 end
 
@@ -775,13 +824,13 @@ function ns.Split:draw(pos, size)
 
         item:draw(
             pos,
-            structs.Vector2D {
+            Vec2:FromTable {
                 [self._mainDirection] = viewMainSize,
                 [self._crossDirection] = crossSize,
             }
         )
 
-        pos = pos + structs.Vector2D {
+        pos = pos + Vec2:FromTable {
             [self._mainDirection] = viewMainSize,
             [self._crossDirection] = 0,
         }
@@ -790,7 +839,7 @@ function ns.Split:draw(pos, size)
             self:_addSeparator(i, pos, size)
         end
 
-        pos = pos + structs.Vector2D {
+        pos = pos + Vec2:FromTable {
             [self._mainDirection] = self._gap,
             [self._crossDirection] = 0,
         }
@@ -800,11 +849,11 @@ function ns.Split:draw(pos, size)
 
     if self._drag then
         self._context.gpu:drawRect(
-            structs.Vector2D {
+            Vec2:FromTable {
                 [self._mainDirection] = self._dragPos - self._gap,
                 [self._crossDirection] = pos[self._crossDirection],
             },
-            structs.Vector2D {
+            Vec2:FromTable {
                 [self._mainDirection] = self._gap,
                 [self._crossDirection] = size[self._crossDirection],
             },
@@ -824,14 +873,14 @@ function ns.Split:getEventListener(pos)
 end
 
 --- @param i integer
---- @param pos Vector2D
---- @param size Vector2D
+--- @param pos ammgui.Vec2
+--- @param size ammgui.Vec2
 function ns.Split:_addSeparator(i, pos, size)
     local color = (i == self._hoverIndex and self._hover and not self._drag)
         and structs.Color { 0.3, 0.3, 0.3, 1 }
         or structs.Color { 0.1, 0.1, 0.1, 1 }
 
-    local size = structs.Vector2D {
+    local size = Vec2:FromTable {
         [self._mainDirection] = self._gap,
         [self._crossDirection] = size[self._crossDirection],
     }

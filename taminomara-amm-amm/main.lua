@@ -20,7 +20,7 @@ for _, ctlPath in ipairs(ctlPaths) do
     end
 
     local mod
-    local ok, err = fin.xpcall(function () mod = require(path) end)
+    local ok, err = fin.xpcall(function() mod = require(path) end)
     if not ok then
         error(string.format("Invalid controller path %q: %s\n%s", ctlPath, err.message, err.trace))
     end

@@ -1,15 +1,14 @@
 local class = require "ammcore.class"
-local context = require "ammgui.component.context"
-local rule = require "ammgui.css.rule"
 local log = require "ammcore.log"
 local defer = require "ammcore.defer"
-local root = require "ammgui.component.block.root"
-local dom = require "ammgui.dom"
 local theme = require "ammgui.css.theme"
 local promise = require "ammcore.promise"
 local viewport = require "ammgui.viewport"
-local eventManager = require "ammgui.eventManager"
-local panel        = require "ammgui.devtools"
+local eventManager = require "ammgui._impl.eventManager"
+-- local panel = require "ammgui.devtools"
+local render = require "ammgui._impl.context.render"
+local tracy = require "ammcore.tracy"
+local devtools = require "ammgui._impl.devtools"
 
 --- AMM GUI Library.
 ---
@@ -127,12 +126,13 @@ function ns.App:start()
     self._queue = event.queue(event.filter { sender = self._gpu })
 
     --- @private
-    --- @type ammgui.component.context.RenderingContext
-    self._context = context.RenderingContext:New(self._gpu, self._earlyRefreshEvent)
+    --- @type ammgui._impl.context.render.Context
+    self._context = render.Context:New(self._gpu, self._earlyRefreshEvent)
 
     --- @private
     --- @type ammgui.viewport.Window
     self._mainWindow = viewport.Window:New(
+        "main",
         self._gpu,
         self._page,
         self._data,
@@ -147,10 +147,11 @@ function ns.App:start()
     --- @private
     --- @type ammgui.viewport.Window
     self._devtoolsWindow = viewport.Devtools:New(
+        "devtools",
         self._gpu,
         self._mainWindow,
         {
-            stylesheets = { panel.style }
+            stylesheets = { devtools.style },
         },
         self._earlyRefreshEvent
     )
@@ -163,13 +164,14 @@ function ns.App:start()
             self._mainWindow,
             self._devtoolsWindow,
             viewport.Devtools:New(
+            "",
                 self._gpu,
                 self._devtoolsWindow,
                 {
-                    stylesheets = { panel.style }
+                    stylesheets = { devtools.style },
                 },
                 self._earlyRefreshEvent
-            )
+            ),
         },
         self._context
     )
@@ -203,6 +205,7 @@ function ns.App:stop()
 end
 
 function ns.App:_runProtected()
+    --- @type any, any
     local ok, err = defer.xpcall(self._run, self)
 
     local msg, color
@@ -224,7 +227,7 @@ function ns.App:_runProtected()
         self._gpu:flush()
         local size = self._gpu:getScreenSize()
         self._gpu:drawRect(
-            structs.Vector2D { 0, 0 },
+            { x = 0, y = 0 },
             size,
             structs.Color { 0.02, 0.02, 0.02, 1 },
             "",
@@ -249,12 +252,31 @@ function ns.App:_run()
     local eventFt = nil
 
     while true do
-        local size = self._gpu:getScreenSize()
-        self._context:reset(size)
-        self._rootWindow:update(structs.Vector2D { 0, 0 }, size)
-        self._rootWindow:draw(structs.Vector2D { 0, 0 }, size)
-        self._context:finalize()
-        self._gpu:flush()
+        do
+            local _ <close> = tracy.zoneScopedNS("AmmGui/Tick", 25)
+            local size = Vec2:FromV2(self._gpu:getScreenSize())
+
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Tick/Reset")
+                self._context:reset(size)
+            end
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Tick/Update")
+                self._rootWindow:update(Vec2:New( 0, 0 ), size)
+            end
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Tick/Draw")
+                self._rootWindow:draw(Vec2:New( 0, 0 ), size)
+            end
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Tick/Finalize")
+                self._context:finalize()
+            end
+            do
+                local _ <close> = tracy.zoneScopedN("AmmGui/Tick/Flush")
+                self._gpu:flush()
+            end
+        end
 
         if self._shouldStop then
             self._stoppedEvent:set()
@@ -264,7 +286,7 @@ function ns.App:_run()
         eventFt = eventFt or self._queue:waitFor({}) --[[ @as Future ]]
         local e = future.any(
             eventFt,
-            future.sleep(self._refreshRate / 1000),
+            -- future.sleep(self._refreshRate / 1000),
             self._earlyRefreshEvent:future()
         ):await()
         self._earlyRefreshEvent:reset()

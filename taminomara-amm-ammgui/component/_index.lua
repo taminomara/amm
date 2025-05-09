@@ -1,4 +1,0 @@
---- GUI components implement logic behind DOM nodes.
----
---- !doctype module
---- @class ammgui.component
