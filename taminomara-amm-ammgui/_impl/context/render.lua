@@ -124,15 +124,14 @@ end
 --- Get topmost event listener by mouse coordinates.
 ---
 --- @param pos ammgui.Vec2
---- @return ammgui._impl.eventListener.EventListener? topListener
---- @return table<ammgui._impl.eventListener.EventListener, ammgui.Vec2> affectedListeners
+--- @return ammgui.eventManager.ResolvedListeners chain
 function ns.Context:getEventListener(pos)
-    if not (0 <= pos.x and pos.x < self._size.x) then return nil, {} end
-    if not (0 <= pos.y and pos.y < self._size.y) then return nil, {} end
+    if not (0 <= pos.x and pos.x < self._size.x) then return {} end
+    if not (0 <= pos.y and pos.y < self._size.y) then return {} end
     local cell = self._eventGrid[self:_coordsToEventGrid(pos)]
-    if not cell then return nil, {} end
+    if not cell then return {} end
 
-    local listeners = {}
+    local listenerPositions = {}
     local firstListener = nil
     for _, eventCoords in ipairs(cell) do
         if
@@ -141,12 +140,24 @@ function ns.Context:getEventListener(pos)
         then
             local eventListener = self._eventListeners[eventCoords.eventListenerId]
             if eventListener then
-                listeners[eventListener] = eventCoords.posA
+                listenerPositions[eventListener] = eventCoords.posA
                 firstListener = eventListener
             end
         end
     end
-    return firstListener, listeners
+
+    --- @type ammgui.eventManager.ResolvedListeners
+    local chain = {}
+
+    while firstListener do
+        if listenerPositions[firstListener] then
+            table.insert(chain, firstListener)
+            chain[firstListener.id] = listenerPositions[firstListener]
+        end
+        firstListener = firstListener.parent
+    end
+
+    return chain
 end
 
 --- Add an event listener to the depth buffer.

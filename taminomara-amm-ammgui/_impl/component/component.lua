@@ -118,10 +118,12 @@ function ns.Component:New(key)
     return self
 end
 
+--- @param data ammgui.dom.Node
 function ns.Component:onMount(ctx, data)
     ns.Component.onUpdate(self, ctx, data)
 end
 
+--- @param data ammgui.dom.Node
 function ns.Component:onUpdate(ctx, data)
     ---@diagnostic disable-next-line: invisible
     self:setTag(data._tag)
@@ -317,19 +319,22 @@ end
 --- @param classes string | false | (string | false)[]
 function ns.Component:setClasses(classes)
     local newClasses = {}
-    if type(classes) == "string" then
-        for name in classes:gmatch("%S+") do
-            newClasses[name] = true
-        end
-    elseif classes then
-        for _, class in ipairs(classes) do
-            if class then
-                for name in class:gmatch("%S+") do
-                    newClasses[name] = true
+
+    local function parseClasses(classes)
+        if type(classes) == "string" then
+            for name in classes:gmatch("%S+") do
+                newClasses[name] = true
+            end
+        elseif classes then
+            for _, class in ipairs(classes) do
+                if class then
+                    parseClasses(class)
                 end
             end
         end
     end
+
+    parseClasses(classes)
 
     if not fun.t.eq(self._classes, newClasses) then
         self._classes = newClasses
@@ -479,10 +484,24 @@ end
 
 --- @return ammgui._impl.devtools.Element
 function ns.Component:devtoolsRepr()
-    local classes = fun.a.map(self._classes, fun.get(1))
+    local classes = {}
+    for class, _ in pairs(self._classes) do
+        table.insert(classes, class)
+    end
     table.sort(classes)
-    local pseudoclasses = fun.a.map(self._pseudoclasses, fun.get(1))
+
+    local pseudoclasses = {}
+    for pseudoclass, _ in pairs(self._pseudoclasses) do
+        table.insert(pseudoclasses, ":" .. pseudoclass)
+    end
     table.sort(pseudoclasses)
+
+    local baseLayout, usedLayout
+    if not self.layout:isInline() then
+        local blockLayout = self.layout:asBlock()
+        baseLayout = blockLayout.baseLayout
+        usedLayout = blockLayout.usedLayout
+    end
 
     return {
         id = self.id,
@@ -492,8 +511,8 @@ function ns.Component:devtoolsRepr()
         pseudoclasses = pseudoclasses,
         css = self.css,
         children = {},
-        baseLayout = nil,
-        usedLayout = nil,
+        baseLayout = baseLayout,
+        usedLayout = usedLayout,
     }
 end
 

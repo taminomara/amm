@@ -98,7 +98,7 @@ function ns.Context:popComponent()
     end
 end
 
---- @param children ammgui.dom.Node?
+--- @param children ammgui.dom.BaseNode?
 function ns.Context:pushChildren(children)
     local outdated = self._children[children]
     if outdated == nil then

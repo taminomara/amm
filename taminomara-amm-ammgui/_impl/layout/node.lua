@@ -200,13 +200,12 @@ function ns.Node:draw(ctx)
         contentPosition.y = contentPosition.y - math.floor(self.scroll.y)
     end
 
+    blockBase.BlockBase.draw(self, ctx)
     ctx:pushEventListener(
         Vec2:New( 0, 0 ),
         self.usedLayout.resolvedBorderBoxSize,
         self._nodeEventListener
     )
-
-    blockBase.BlockBase.draw(self, ctx)
     ctx:noteDebugTarget(
         Vec2:New( 0, 0 ),
         self.usedLayout.resolvedBorderBoxSize,

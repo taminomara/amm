@@ -148,9 +148,6 @@ function ns.Context:enterNode(css, elem, classes, pseudo, inline, inlineDynamic,
 
         if cssOutdated or layoutOutdated then
             css = resolved.Resolved:New(newRules, newSelectors, parent, self._theme, self._units)
-        else
-            css.contextSelectors = newSelectors
-            css.trace = {}
         end
     end
 

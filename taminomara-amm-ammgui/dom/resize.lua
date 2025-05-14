@@ -1,6 +1,6 @@
 local dom = require "ammgui.dom"
 local fun = require "ammcore.fun"
-local api= require "ammgui.api"
+local api = require "ammgui.api"
 
 --- Allows creating resize-able split-panels.
 ---
@@ -42,12 +42,13 @@ local function calculateMaxDelta(i, delta, dragState)
     return maxPossibleDelta
 end
 
---- @class ammgui.dom.resize.ResizeParams: ammgui.dom.FunctionalParamsWithChildren
+--- @class ammgui.dom.resize.SplitParams: ammgui.dom.FunctionalParams
 --- @field direction ammgui.css.rule.FlexDirectionValue?
---- @field class string|string[]?
+--- @field class string?
+--- @field [integer] ammgui.dom.ContainerNodeParams
 
 --- @param ctx ammgui.Context
---- @param params ammgui.dom.resize.ResizeParams
+--- @param params ammgui.dom.resize.SplitParams
 --- @return ammgui.dom.AnyNode
 local function _split(ctx, params)
     local dragState = ctx:useRef(nil)
@@ -56,27 +57,18 @@ local function _split(ctx, params)
     local refs = ctx:useRef({})
     refs.current = {}
 
-    local class = params.class
-    if not class then
-        class = "__amm_resize__split"
-    elseif type(class) == "string" then
-        class = { class, "__amm_resize__split" }
-    else
-        class = fun.a.extend({ "__amm_resize__split" }, class)
-    end
-
-    local flex = dom.flex {
-        class = class,
+    local body = dom.div {
+        class = { "__amm_resize__split", params.class },
         style = { flexDirection = params.direction },
     }
 
     for i, node in ipairs(params) do
         local ref = api.Ref:New(nil)
         table.insert(refs.current, ref)
-        table.insert(flex, dom.list { node, key = node.key, ref = ref })
+        table.insert(body, dom.list { node --[[ @as any ]], key = node.key, ref = ref })
         if i < #params then
             table.insert(
-                flex,
+                body,
                 dom.div {
                     class = "__amm_resize__handle",
                     onDragStart = function()
@@ -121,18 +113,40 @@ local function _split(ctx, params)
         end
     end
 
-    return flex
+    return body
+end
+local split = dom.Functional(_split)
+
+--- @param params ammgui.dom.resize.SplitParams
+local function makePanels(params)
+    params = fun.t.copy(params)
+    for i, v in ipairs(params) do
+        params[i] = dom.div(fun.t.copy(v))
+        params[i].class = { "__amm_resize__split-panel", v.class --[[ @as any ]] }
+        if params[i].style then
+            params[i].style = fun.t.copy(params[i].style)
+        else
+            params[i].style = {}
+        end
+        params[i].style.flex = nil
+        params[i].style.flexGrow = 1
+        params[i].style.flexShrink = 1
+        params[i].style.flexBasis = 0
+    end
+    return params
 end
 
---- Make a resize-able split-panel.
+--- Make a resizeable stack of split-panels.
 ---
---- Pass an array of block nodes as a parameter. Each node becomes
---- a panel that can be resized. Technically, all panels are added into a flex
---- element, and resizing controls their ``flexBasis``. You can control how much
---- each panel can be resized by setting its ``min-height``, ``max-height``,
---- ``min-width``, and ``max-width``.
+--- Accepts an array of panels. Each panel is a lua table with array items representing
+--- its body. Additionally, it can contain ``class`` and ``style`` properties.
 ---
---- By default, panels are stacked vertically; pass ``direction`` to control split's
+--- Technically, all panels become scrollable DIVs in a flex container,
+--- and resizing controls their ``flexBasis``. You can control how much each panel
+--- can be resized by setting its ``minHeight``, ``maxHeight``, ``minWidth``,
+--- and ``maxWidth``.
+---
+--- By default, panels are stacked horizontally; pass ``direction`` to control split's
 --- direction. Pass ``class`` to add a class to the outer-most flex element.
 ---
 --- **Example:**
@@ -140,11 +154,40 @@ end
 --- .. code-block:: lua
 ---
 ---    local split = dom.Split {
----        direction = "row",
----        class = "my-split",
----        dom.scroll { ... }, -- panel 1
----        dom.scroll { ... }, -- panel 2
+---        direction = "column",
+---        {
+---            dom.div { ... }, -- panel 1
+---        },
+---        {
+---            dom.div { ... }, -- panel 2
+---        },
 ---    }
-ns.Split = dom.Functional(_split)
+---
+--- **Example: adding a non-resizeable panel.**
+---
+--- Here, we set ``minHeight`` and ``maxHeight`` properties for the middle panel,
+--- thus disabling its sizing:
+---
+--- .. code-block:: lua
+---
+---    local split = dom.Split {
+---        direction = "column",
+---        {
+---            "Can resize this panel."
+---        },
+---        {
+---            style = { minHeight = u.rem(1.2), maxHeight = u.rem(1.2) },
+---            "Not resizeable."
+---        },
+---        {
+---            "Can resize this one as well."
+---        },
+---    }
+---
+--- @param params ammgui.dom.resize.SplitParams
+--- @return ammgui.dom.FunctionalNode
+function ns.Split(params)
+    return split(makePanels(params))
+end
 
 return ns

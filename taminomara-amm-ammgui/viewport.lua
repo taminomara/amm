@@ -11,7 +11,7 @@ local css = require "ammgui._impl.context.css"
 local resolved = require "ammgui._impl.css.resolved"
 local tracy = require "ammcore.tracy"
 local textMeasure = require "ammgui._impl.context.textMeasure"
-local node = require "ammgui._impl.component.node"
+local component = require "ammgui._impl.component.component"
 
 --- Viewport and panel management.
 ---
@@ -45,8 +45,7 @@ end
 --- Get topmost event listener by mouse coordinates.
 ---
 --- @param pos ammgui.Vec2
---- @return ammgui._impl.eventListener.EventListener? topReceiver
---- @return table<ammgui._impl.eventListener.EventListener, ammgui.Vec2> affectedReceivers
+--- @return ammgui.eventManager.ResolvedListeners chain
 --- @return ammgui.viewport.Window? window
 function ns.Viewport:getEventListener(pos)
     error("not implemented")
@@ -84,22 +83,20 @@ end
 
 function DevtoolsHighlightEventListener:onMouseMove(pos, modifiers, propagate)
     if propagate then
-        local targetElement = self.target._context:getEventListener(pos)
-        while targetElement do
-            if class.isChildOf(targetElement, node.Node) then
-                --- @cast targetElement ammgui._impl.component.node.Node
-                self._highlightedId = targetElement.id
+        local elements = self.target._context:getEventListener(pos)
+        for _, eventListener in ipairs(elements) do
+            if class.isChildOf(eventListener, component.Component) then
+                self._highlightedId = eventListener.id
                 self.target:setHighlighted(
-                    targetElement.id,
+                    eventListener.id,
                     true,
                     true,
                     true,
                     true
                 )
-                self.target:setPreSelectedId(targetElement.id)
+                self.target:setPreSelectedId(eventListener.id)
                 break
             end
-            targetElement = targetElement.parent
         end
     end
     return propagate
@@ -441,27 +438,18 @@ function ns.Window:getPreSelectedId()
     return self._devtoolsPreSelectedId
 end
 
---- Get topmost event listener by mouse coordinates.
----
---- @param pos ammgui.Vec2
---- @return ammgui._impl.eventListener.EventListener? topReceiver
---- @return table<ammgui._impl.eventListener.EventListener, ammgui.Vec2> affectedReceivers
---- @return ammgui.viewport.Window? window
 function ns.Window:getEventListener(pos)
     if self._devtoolsHighlighterActive then
         if
             self._pos.x <= pos.x and pos.x < self._pos.x + self._size.x
             and self._pos.y <= pos.y and pos.y < self._pos.y + self._size.y
         then
-            return
-                self._devtoolsHighlighter,
-                { [self._devtoolsHighlighter] = self._pos }, self
+            return { self._devtoolsHighlighter, [self._devtoolsHighlighter.id] = self._pos }, self
         else
-            return nil, {}, self
+            return {}, self
         end
     else
-        local firstReceiver, receivers = self._context:getEventListener(pos - self._pos)
-        return firstReceiver, receivers, self
+        return self._context:getEventListener(pos - self._pos), self
     end
 end
 

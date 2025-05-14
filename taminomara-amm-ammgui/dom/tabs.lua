@@ -19,12 +19,16 @@ local logger = log.Logger:New()
 --- @field setCurrentTab fun(currentTab: any)
 --- @field additionalTabs ammgui.dom.AnyNode?
 --- @field small boolean?
+--- @field fullHeight boolean?
+--- @field class string?
 --- @field [integer] ammgui.dom.tabs.Tab
 
 --- @class ammgui.dom.tabs.TabsParams: ammgui.dom.FunctionalParams
 --- @field initialTab any
 --- @field additionalTabs ammgui.dom.AnyNode?
 --- @field small boolean?
+--- @field fullHeight boolean?
+--- @field class string?
 --- @field [integer] ammgui.dom.tabs.Tab
 
 --- @param ctx ammgui.Context
@@ -32,13 +36,11 @@ local logger = log.Logger:New()
 --- @param setCurrentTab fun(currentTab: any)?
 --- @return ammgui.dom.AnyNode
 local function _tabsInner(ctx, params, currentTab, setCurrentTab)
+    local fullHeight = params.fullHeight or false
     return dom.div {
-        class = "__amm_tabs",
+        class = { "__amm_tabs", fullHeight and "__amm_tabs__full", params.class },
         dom.div {
-            class = {
-                "__amm_tabs__tabs",
-                params.small and "__amm_tabs__tabs_small",
-            },
+            class = { "__amm_tabs__tabs", params.small and "small" },
             dom.map(params, function(tab, i)
                 if i % 2 == 1 then
                     if i == #params then
@@ -51,7 +53,7 @@ local function _tabsInner(ctx, params, currentTab, setCurrentTab)
                         return dom.div {
                             class = {
                                 "__amm_tabs__tab",
-                                tab.key == currentTab and "__amm_tabs__tab_current",
+                                tab.key == currentTab and "__amm_tabs__tab__current",
                             },
                             key = tab.key,
                             onClick = function()
@@ -65,24 +67,22 @@ local function _tabsInner(ctx, params, currentTab, setCurrentTab)
                 end
             end),
         },
-        dom.div {
-            class = "__amm_tabs__tabs_sep",
-        },
-        dom.div {
-            class = "__amm_tabs__contents",
-            dom.map(params, function(tab, i)
-                if i % 2 == 0 then
-                    return dom.div {
-                        class = {
-                            "__amm_tabs__content",
-                            tab.key == currentTab and "__amm_tabs__content_current",
-                        },
-                        key = tab.key,
-                        tab,
-                    }
-                end
-            end),
-        },
+        -- dom.div {
+        --     class = "__amm_tabs__tabs_sep",
+        -- },
+        dom.map(params, function(tab, i)
+            if i % 2 == 0 then
+                return dom.div {
+                    class = {
+                        "__amm_tabs__content",
+                        fullHeight and "__amm_tabs__content__full",
+                        tab.key == currentTab and "__amm_tabs__content__current",
+                    },
+                    key = tab.key,
+                    tab,
+                }
+            end
+        end),
     }
 end
 
@@ -194,6 +194,7 @@ end
 --- using callbacks.
 ---
 --- @param params ammgui.dom.tabs.TabsParams
+--- @return ammgui.dom.FunctionalNode
 function ns.Tabs(params)
     return tabs(makeTabs(params))
 end
@@ -247,6 +248,7 @@ end
 ---    end)
 ---
 --- @param params ammgui.dom.tabs.TabsManualParams
+--- @return ammgui.dom.FunctionalNode
 function ns.TabsManual(params)
     return tabsManual(makeTabs(params))
 end

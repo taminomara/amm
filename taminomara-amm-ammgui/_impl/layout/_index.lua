@@ -73,14 +73,6 @@ function ns.Layout:updateCss(css)
     self.css = css
 end
 
---- Prepare for layout calculation.
----
---- !doc virtual
---- @param textMeasure ammgui._impl.context.textMeasure.TextMeasure
-function ns.Layout:prepareLayout(textMeasure)
-    -- nothing to do here
-end
-
 --- Check whether this is an inline or a block element.
 ---
 --- Returns `true` for text fragments and nodes with ``display: inline``
@@ -497,8 +489,6 @@ end
 --- Indicates that this element acts like a white space, and can be skipped
 --- when wrapping text.
 ---
---- Note that all line breaks should return `false` here, because we can't collapse them.
----
 --- !doc virtual
 --- @return boolean canCollapse can be removed from the text when wrapping it.
 function ns.Element:canCollapse()
@@ -523,23 +513,13 @@ end
 
 --- Render this element.
 ---
---- !doc virtual
+--- !doc abstract
 --- @param ctx ammgui._impl.context.render.Context
 function ns.Element:draw(ctx)
-    -- local width, uHeightA, uHeightB = table.unpack(self._cachedSize)
-    -- local heightA, heightB = table.unpack(self._cachedAdjustedHeight)
-
-    -- local paddingPos = Vec2:New( self.paddingLeft, uHeightA - heightA + self.paddingTop )
-    -- local paddingSize = Vec2:New(
-    --     width + self.paddingLeft + self.paddingRight,
-    --     heightA + heightB + self.paddingTop + self.paddingBottom,
-    -- )
-
-    -- ctx:pushEventListener(paddingPos, paddingSize, self.parent)
-    -- ctx:noteDebugTarget(self, self.parent.id)
+    error("not implemented")
 end
 
----
+--- A class that renders debug overlay for a specific text element and box data.
 ---
 --- @class ammgui._impl.layout._index.ElementDebugTarget: ammcore.class.Base, ammgui._impl.context.render.SupportsDebugOverlay
 ns.ElementDebugTarget = class.create("ElementDebugTarget")

@@ -217,7 +217,6 @@ function ns.TextFragment:isLineBreak()
 end
 
 function ns.TextFragment:draw(ctx)
-    base.Element.draw(self, ctx)
     if not self:isCollapsed() then
         ctx.gpu:drawText(
             Vec2:New(0, 0),

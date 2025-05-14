@@ -239,12 +239,12 @@ ns.Rule.color = nil
 --- - ``"wrap"``: text is wrapped on whitespaces and after dashes;
 --- - ``"nowrap"``: text is not wrapped.
 
---- @alias ammgui.css.rule.TextWrapModeValue?
+--- @alias ammgui.css.rule.TextWrapModeValue
 --- |"wrap"
 --- |"nowrap"
 --- |ammgui.css.rule.GlobalValue
 
---- @type ammgui.css.rule.TextWrapModeValue
+--- @type ammgui.css.rule.TextWrapModeValue?
 ns.Rule.textWrapMode = nil
 
 --- @type ammgui.css.rule.ColorValue?
@@ -291,7 +291,7 @@ ns.Rule.marginRight = nil
 --- @type ammgui.css.rule.MarginValue?
 ns.Rule.marginBottom = nil
 
---- @alias ammgui.css.rule.MarginTrimValue?
+--- @alias ammgui.css.rule.MarginTrimValue
 --- |"none"
 --- |"block"
 --- |"block-start"
@@ -317,7 +317,7 @@ ns.Rule.marginBottom = nil
 --- - ``"inline-end"``: inline-end (right) margin of the last inline element
 ---   is trimmed to zero;
 ---
---- @type ammgui.css.rule.MarginTrimValue
+--- @type ammgui.css.rule.MarginTrimValue?
 ns.Rule.marginTrim = nil
 
 --- Shorthand to set `paddingTop`, `paddingRight`, `paddingBottom`, and `paddingLeft`
@@ -492,6 +492,22 @@ ns.Rule.flexDirection = nil
 --- | [ammgui.css.rule.NumberValue, ammgui.css.rule.NumberValue, ammgui.css.rule.WidthValue]
 --- | nil
 ns.Rule.flex = nil
+
+--- Shorthand to set `flexWrap` and `flexDirection` at once.
+---
+--- If given a single value, will set `flexWrap` or `flexDirection` depending
+--- on which value was passed.
+---
+--- If given an array of two values, then the first one should be a `flexWrap` value,
+--- and the second one should be a `flexDirection`.
+---
+--- @type
+--- | ammgui.css.rule.FlexWrapValue
+--- | ammgui.css.rule.FlexDirectionValue
+--- | [ammgui.css.rule.FlexWrapValue | ammgui.css.rule.FlexDirectionValue]
+--- | [ammgui.css.rule.FlexWrapValue, ammgui.css.rule.FlexDirectionValue]
+--- | nil
+ns.Rule.flexFlow = nil
 
 --- Represents a `flexWrap` value.
 ---

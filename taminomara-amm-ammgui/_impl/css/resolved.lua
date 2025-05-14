@@ -3,7 +3,7 @@ local log = require "ammcore.log"
 local parse = require "ammgui._impl.css.parse"
 local u = require "ammgui.css.units"
 local selector = require "ammgui._impl.css.selector"
-local fun      = require "ammcore.fun"
+local tracy = require "ammcore.tracy"
 
 --- Resolved CSS values.
 ---
@@ -19,12 +19,13 @@ local Resolver = class.create("Resolver")
 --- @param literalValues table<string, any>
 --- @param parser fun(x: unknown, r: ammgui._impl.css.resolved.Resolved, n: string): any
 --- @param isLayoutSafe boolean
+--- @param preParser? fun(x: unknown): any
 ---
 --- !doctype classmethod
 --- @generic T: ammgui._impl.css.resolved.Resolver
 --- @param self T
 --- @return T
-function Resolver:New(literalValues, parser, isLayoutSafe)
+function Resolver:New(literalValues, parser, isLayoutSafe, preParser)
     self = class.Base.New(self)
 
     for value, mappedValue in ipairs(literalValues) do
@@ -48,6 +49,11 @@ function Resolver:New(literalValues, parser, isLayoutSafe)
     ---
     --- @type boolean
     self.isLayoutSafe = isLayoutSafe
+
+    --- Preliminary value parser that's invoked during rule compilation.
+    ---
+    --- @type nil | fun(x: unknown): any
+    self.preParser = preParser
 
     return self
 end
@@ -132,7 +138,7 @@ function ns.Resolved:New(context, contextSelectors, parent, theme, units)
     self.units = units
 
     --- Cache for `getTrace`.
-    --- @type table<string, { selector: ammgui.css.selector.Selector?, value: any}>
+    --- @type table<string, { selector: ammgui.css.selector.Selector?, loc: string?, value: any, origValue: any }>
     self.trace = {}
 
     return self
@@ -140,6 +146,7 @@ end
 
 function ns.Resolved:__index(name)
     if resolvers[name] then
+        local _ <close> = tracy.zoneScopedN("AmmGui/CSS/Resolve")
         return ns.Resolved._get(self, name)
     else
         return ns.Resolved[name]
@@ -154,7 +161,7 @@ function ns.Resolved:_get(name)
         local rule = context[i]
         local value = rule[name] or rule["all"]
         if value then
-            value = ns.Resolved._process(self, name, value, self.contextSelectors[i])
+            value = ns.Resolved._process(self, name, value, self.contextSelectors[i], rule.loc)
             -- XXX: support revert?
             self[name] = value -- cache value
             return value
@@ -171,7 +178,12 @@ end
 --- @param name string
 --- @param value unknown
 --- @param selector ammgui.css.selector.Selector?
-function ns.Resolved:_process(name, value, selector)
+--- @param loc string?
+function ns.Resolved:_process(name, value, selector, loc)
+    local _ <close> = tracy.zoneScopedN("AmmGui/CSS/Process")
+
+    local origValue = value
+
     local resolver = resolvers[name]
     if not resolver then
         error(string.format("unknown CSS property %s", name))
@@ -181,7 +193,7 @@ function ns.Resolved:_process(name, value, selector)
     while resolver.literalValues[canonValue] do
         local nextValue = resolver.literalValues[canonValue]
         if nextValue == value then
-            ns.Resolved._saveTrace(self, name, nextValue, selector)
+            ns.Resolved._saveTrace(self, name, value, origValue, selector, loc)
             return nextValue
         else
             value = nextValue
@@ -190,14 +202,17 @@ function ns.Resolved:_process(name, value, selector)
         end
     end
     if value == "inherit" then
-        ns.Resolved._saveTrace(self, name, value, selector)
+        ns.Resolved._saveTrace(self, name, value, origValue, selector, loc)
         return ns.Resolved.getInherited(self, name)
     end
     if value == "unset" or value == "initial" then
         error(string.format("no initial value for property %s", name))
     end
-    value = resolver.parser(value, self, name)
-    ns.Resolved._saveTrace(self, name, value, selector)
+    do
+        local _ <close> = tracy.zoneScopedN("AmmGui/CSS/Process/Parse")
+        value = resolver.parser(value, self, name)
+    end
+    ns.Resolved._saveTrace(self, name, value, origValue, selector, loc)
     return value
 end
 
@@ -216,15 +231,15 @@ end
 --- @param value any
 --- @param selector ammgui.css.selector.Selector?
 --- @return any
-function ns.Resolved:_saveTrace(name, value, selector)
-    self.trace[name] = { value = value, selector = selector }
+function ns.Resolved:_saveTrace(name, value, origValue, selector, loc)
+    self.trace[name] = { value = value, origValue = origValue, selector = selector, loc = loc }
 end
 
 --- Get value for property with the given name, and track where this value came from.
 ---
 --- This function is used in the debug window.
 ---
---- @return any, { selector: ammgui.css.selector.Selector?, value: any }[]
+--- @return any, { selector: ammgui.css.selector.Selector?, loc: string?, value: any, origValue: any }[]
 function ns.Resolved:getTrace(name)
     local value = self[name]
     local trace = {}
@@ -232,12 +247,12 @@ function ns.Resolved:getTrace(name)
     --- @type ammgui._impl.css.resolved.Resolved?
     local root = self
     while root do
-        local traceDatum = assert(root.trace[name])
+        local traceDatum = assert(root.trace[name], name)
         if traceDatum.selector or traceDatum.value ~= "inherit" then
             table.insert(trace, traceDatum)
         end
         if traceDatum.value == "inherit" then
-            root = self.parent
+            root = root.parent
         else
             break
         end
@@ -245,6 +260,25 @@ function ns.Resolved:getTrace(name)
 
     return value, trace
 end
+
+local units = {
+    ["px"] = true,
+    ["pt"] = true,
+    ["pc"] = true,
+    ["Q"] = true,
+    ["mm"] = true,
+    ["cm"] = true,
+    ["m"] = true,
+    ["in"] = true,
+    ["em"] = true,
+    ["rem"] = true,
+    ["vw"] = true,
+    ["vh"] = true,
+    ["vmin"] = true,
+    ["vmax"] = true,
+    ["%"] = true,
+}
+local function isUnit(t) return #t == 2 and units[t[2]] end
 
 --- @type ammgui.css.rule.DisplayValue
 ns.Resolved.display = nil
@@ -263,7 +297,7 @@ resolvers.display = Resolver:New(
 )
 
 ruleSetters.font = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         error(string.format("invalid font value: %s", log.pp(value)))
     end
     if #value == 2 then
@@ -320,7 +354,8 @@ resolvers.color = Resolver:New(
         currentcolor = "inherit",
     },
     parse.parseColor,
-    true
+    true,
+    parse.tryParseColor
 )
 
 --- @type "wrap"|"nowrap"
@@ -345,11 +380,12 @@ resolvers.backgroundColor = Resolver:New(
         currentbackgroundcolor = "inherit",
     },
     parse.parseColor,
-    true
+    true,
+    parse.tryParseColor
 )
 
 ruleSetters.margin = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         value = { value }
     end
     if #value == 1 then
@@ -444,7 +480,7 @@ resolvers.marginTrim = Resolver:New(
 )
 
 ruleSetters.padding = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         value = { value }
     end
     if #value == 1 then
@@ -546,11 +582,12 @@ resolvers.outlineTint = Resolver:New(
         initial = "currentbackgroundcolor",
     },
     parse.parseColor,
-    true
+    true,
+    parse.tryParseColor
 )
 
 ruleSetters.gap = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         value = { value }
     end
     if #value == 1 then
@@ -587,7 +624,7 @@ resolvers.rowGap = Resolver:New(
 )
 
 ruleSetters.overflow = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         value = { value }
     end
     if #value == 1 then
@@ -729,7 +766,7 @@ resolvers.flexDirection = Resolver:New(
 )
 
 ruleSetters.flex = function(rule, value)
-    if type(value) ~= "table" then
+    if type(value) ~= "table" or isUnit(value) then
         value = { value }
     end
     if #value == 1 then
@@ -757,6 +794,26 @@ ruleSetters.flex = function(rule, value)
         rule.flexBasis = value[3]
     else
         error(string.format("invalid flex value: %s", log.pp(value)))
+    end
+end
+
+ruleSetters.flexFlow = function(rule, value)
+    if type(value) ~= "table" or isUnit(value) then
+        value = { value }
+    end
+    if #value == 1 then
+        if value[1] == "wrap" or value[1] == "nowrap" then
+            rule.flexWrap = value[1]
+        elseif value[1] == "row" or value[1] == "column" then
+            rule.flexDirection = value[1]
+        else
+            error(string.format("invalid flexFlow value: %s", log.pp(value[1])))
+        end
+    elseif #value == 2 then
+        rule.flexWrap = value[1]
+        rule.flexDirection = value[2]
+    else
+        error(string.format("invalid flexFlow value: %s", log.pp(value)))
     end
 end
 
@@ -955,6 +1012,8 @@ ns.CompiledRule.isLayoutSafe = false
 --- @param appeared integer index of this rule in a stylesheet, used to calculate selector priorities.
 --- @return ammgui._impl.css.resolved.CompiledRule
 function ns.compile(data, layer, appeared)
+    local _ <close> = tracy.zoneScopedN("AmmGui/CSS/Compile")
+
     local rule = { loc = data.loc }
 
     for name, value in pairs(data) do
@@ -969,7 +1028,6 @@ function ns.compile(data, layer, appeared)
     for name, value in pairs(rule) do
         if name == "all" then
             isLayoutSafe = false
-            break
         elseif name ~= "loc" then
             local resolver = resolvers[name]
             if not resolver then
@@ -977,7 +1035,9 @@ function ns.compile(data, layer, appeared)
             end
             if not resolver.isLayoutSafe then
                 isLayoutSafe = false
-                break
+            end
+            if resolver.preParser then
+                rule[name] = resolver.preParser(value)
             end
         end
     end
@@ -1002,12 +1062,25 @@ end
 function ns.getRuleKeys(rule)
     local res = {}
     for k, _ in pairs(rule) do
-        if k ~= "loc" and k ~= "compiledSelectors" and k  ~= "isLayoutSafe" then
+        if k ~= "loc" and k ~= "compiledSelectors" and k ~= "isLayoutSafe" then
             table.insert(res, k)
         end
     end
     table.sort(res)
     return res
+end
+
+--- @type string[]
+local inheritedProperties = {}
+for name, resolver in pairs(resolvers) do
+    if resolver.literalValues["unset"] == "inherit" then
+        table.insert(inheritedProperties, name)
+    end
+end
+
+--- @return string[]
+function ns.getInheritedProperties()
+    return inheritedProperties
 end
 
 return ns

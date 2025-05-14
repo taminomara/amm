@@ -18,45 +18,67 @@ ns.Replaced = class.create("Replaced", blockBase.BlockBase)
 --- @param css ammgui._impl.css.resolved.Resolved
 --- @param preferredWidth number?
 --- @param preferredHeight number?
+--- @param nodeEventListener ammgui._impl.eventListener.EventListener
 ---
 --- !doctype classmethod
 --- @generic T: ammgui._impl.layout.replaced.Replaced
 --- @param self T
 --- @return T
-function ns.Replaced:New(css, preferredWidth, preferredHeight)
+function ns.Replaced:New(css, preferredWidth, preferredHeight, nodeEventListener)
     self = blockBase.BlockBase.New(self, css)
 
-    --- @protected
+    --- Preferred intrinsic width of this component.
+    ---
     --- @type number
-    self._preferredWidth = nil
+    self.preferredWidth = nil
 
-    --- @protected
+    --- Preferred intrinsic width of this component.
+    ---
     --- @type number
-    self._preferredHeight = nil
+    self.preferredHeight = nil
 
     if not preferredWidth and not preferredHeight then
-        self._preferredWidth, self._preferredHeight = 300, 150
+        self.preferredWidth, self.preferredHeight = 300, 150
     elseif not preferredWidth then
-        self._preferredWidth, self._preferredHeight = preferredHeight * 2, self._preferredHeight
+        self.preferredWidth, self.preferredHeight = preferredHeight * 2, self.preferredHeight
     elseif not preferredHeight then
-        self._preferredWidth, self._preferredHeight = self._preferredWidth, preferredWidth / 2
+        self.preferredWidth, self.preferredHeight = self.preferredWidth, preferredWidth / 2
     else
-        self._preferredWidth, self._preferredHeight = preferredWidth, preferredHeight
+        self.preferredWidth, self.preferredHeight = preferredWidth, preferredHeight
     end
+
+    --- @private
+    --- @type ammgui._impl.eventListener.EventListener
+    self._nodeEventListener = nodeEventListener
 
     return self
 end
 
 function ns.Replaced:calculateIntrinsicContentWidth()
     return
-        self._preferredWidth,
-        self._preferredWidth,
+        self.preferredWidth,
+        self.preferredWidth,
         true,
-        self._preferredWidth / self._preferredHeight
+        self.preferredWidth / self.preferredHeight
 end
 
 function ns.Replaced:calculateContentLayout(availableWidth, availableHeight)
     error("replaced elements can't have content layout")
+end
+
+function ns.Replaced:draw(ctx)
+    blockBase.BlockBase.draw(self, ctx)
+    ctx:pushEventListener(
+        Vec2:New(0, 0),
+        self.usedLayout.resolvedBorderBoxSize,
+        self._nodeEventListener
+    )
+    ctx:noteDebugTarget(
+        Vec2:New(0, 0),
+        self.usedLayout.resolvedBorderBoxSize,
+        self,
+        self._nodeEventListener.id
+    )
 end
 
 return ns

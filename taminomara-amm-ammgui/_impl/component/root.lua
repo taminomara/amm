@@ -26,18 +26,13 @@ function ns.Root:onUpdate(ctx, data)
 end
 
 --- @param data ammgui.dom.AnyNode
---- @return ammgui.dom.Node
+--- @return ammgui.dom.ContainerNode
 function ns.Root:_makeNode(data)
     return {
         _isNode = true,
         _component = self,
-        _tag = "html",
-        {
-            _isNode = true,
-            _component = node.Node,
-            _tag = "body",
-            data
-        },
+        _tag = "body",
+        data,
     }
 end
 

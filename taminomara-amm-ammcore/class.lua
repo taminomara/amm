@@ -146,7 +146,6 @@ local ns = {}
 ---
 --- !doc special-members
 --- !doc exclude-members: __tostring
---- !doc deprecated
 --- @class ammcore.class.Base
 ns.Base = setmetatable({}, { __name = "Base", __tostring = function(self) return self.__name end })
 

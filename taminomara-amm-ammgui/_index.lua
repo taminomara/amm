@@ -163,15 +163,15 @@ function ns.App:start()
         {
             self._mainWindow,
             self._devtoolsWindow,
-            viewport.Devtools:New(
-            "",
-                self._gpu,
-                self._devtoolsWindow,
-                {
-                    stylesheets = { devtools.style },
-                },
-                self._earlyRefreshEvent
-            ),
+            -- viewport.Devtools:New(
+            -- "",
+            --     self._gpu,
+            --     self._devtoolsWindow,
+            --     {
+            --         stylesheets = { devtools.style },
+            --     },
+            --     self._earlyRefreshEvent
+            -- ),
         },
         self._context
     )

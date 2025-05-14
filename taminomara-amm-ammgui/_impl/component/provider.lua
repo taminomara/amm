@@ -74,7 +74,7 @@ end
 ---
 --- !doc abstract
 --- @param ctx ammgui._impl.context.sync.Context
---- @param data ammgui.dom.Node user-provided component data.
+--- @param data ammgui.dom.BaseNode user-provided component data.
 function ns.Provider:onMount(ctx, data)
     error("not implemented")
 end
@@ -83,7 +83,7 @@ end
 ---
 --- !doc abstract
 --- @param ctx ammgui._impl.context.sync.Context
---- @param data ammgui.dom.Node user-provided component data.
+--- @param data ammgui.dom.BaseNode user-provided component data.
 function ns.Provider:onUpdate(ctx, data)
     error("not implemented")
 end
@@ -114,6 +114,8 @@ end
 
 --- @type ammgui._impl.component.text?
 local text = nil
+--- @type ammgui._impl.component.list?
+local list = nil
 
 --- Sync one DOM node with its component.
 ---
@@ -125,6 +127,9 @@ function ns.Provider.syncOne(ctx, component, node)
     if type(node) == "string" then
         text = text or require("ammgui._impl.component.text") -- Prevent circular import.
         node = { node, _isNode = true, _component = text.Text }
+    elseif type(node) == "boolean" or type(node) == "nil" then
+        list = list or require("ammgui._impl.component.list") -- Prevent circular import.
+        node = { _isNode = true, _component = list.List }
     end
 
     ---@diagnostic disable-next-line: invisible
@@ -184,6 +189,8 @@ function ns.Provider.syncProviders(ctx, components, nodes)
                 pendingString = node
                 pendingStringKey = #newProviders + 1
             end
+        elseif type(node) == "boolean" or type(node) == "nil" then
+            -- nothing to do here.
         ---@diagnostic disable-next-line: invisible
         elseif node._isNode then
             --- @cast node ammgui.dom.Node

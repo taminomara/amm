@@ -1,7 +1,6 @@
 local stylesheet = require "ammgui.css.stylesheet"
 local class = require "ammcore.class"
 local u = require "ammgui.css.units"
-local fun = require "ammcore.fun"
 
 --- Pre-defined themes.
 ---
@@ -10,23 +9,38 @@ local fun = require "ammcore.fun"
 local ns = {}
 
 local DEFAULT_COLORS = {
-    canvas = "#101010",
-    canvastext = "#e0e0e0",
-    accentcolor = "#1f6dff",
-    accentcolortext = "#f0f0f0",
+    Canvas = "#101010",
+    CanvasText = "#e0e0e0",
 
-    ok = "#109910",
-    oktext = "#e0e0e0",
-    stop = "#105099",
-    stoptext = "#e0e0e0",
-    warning = "#b99910",
-    warningtext = "#e0e0e0",
-    error = "#991010",
-    errortext = "#e0e0e0",
-    critical = "#ab0ea0",
-    criticaltext = "#e0e0e0",
-    nodata = "#707070",
-    nodatatext = "#e0e0e0",
+    AccentBg = "#0e2a9c",
+    AccentBgHover = "#1435ba",
+    AccentText = "#f0f0f0",
+
+    ButtonBg = "#202020",
+    ButtonBgHover = "#303030",
+    ButtonText = "#f0f0f0",
+
+    EmBg = "transparent",
+    EmText = "#617ce6",
+    DimBg = "transparent",
+    DimText = "#737272",
+    StrongBg = "transparent",
+    StrongText = "#e66161",
+    CodeBg = "#303030",
+    CodeText = "#f0f0f0",
+
+    OkBg = "#109910",
+    OkYext = "#e0e0e0",
+    StopBg = "#105099",
+    StopText = "#e0e0e0",
+    WarningBg = "#b99910",
+    WarningText = "#e0e0e0",
+    ErrorBg = "#991010",
+    ErrorText = "#e0e0e0",
+    CriticalBg = "#ab0ea0",
+    CriticalText = "#e0e0e0",
+    NoDataBg = "#707070",
+    NoDataText = "#e0e0e0",
 }
 
 --- Theme stylesheet.
@@ -48,15 +62,23 @@ function ns.Theme:New(theme)
     --- See list of all colors in `ammgui.css.rule.SystemColorValue`.
     ---
     --- @type table<string, Color | string>
-    self.theme = fun.t.update(fun.t.copy(DEFAULT_COLORS), theme)
+    self.theme = {}
+    for k, v in pairs(DEFAULT_COLORS) do self.theme[k:lower()] = v end
+    for k, v in pairs(theme) do self.theme[k:lower()] = v end
 
+    self:_setupDefaultRules()
+
+    return self
+end
+
+function ns.Theme:_setupDefaultRules()
     -- Display for basic elements.
     self:addRule {
         "flex",
         display = "flex",
     }
     self:addRule {
-        "span", "em", "code",
+        "span", "em", "dim", "strong", "code", "small",
         display = "inline",
     }
     self:addRule {
@@ -65,39 +87,54 @@ function ns.Theme:New(theme)
     }
     -- Inline typography
     self:addRule {
+        "small",
+        fontSize = u.percent(80),
+    }
+    self:addRule {
         "em",
-        color = "accentcolor",
+        backgroundColor = "EmBg",
+        color = "EmText",
+    }
+    self:addRule {
+        "dim",
+        backgroundColor = "DimBg",
+        color = "DimText",
+    }
+    self:addRule {
+        "strong",
+        backgroundColor = "StrongBg",
+        color = "StrongText",
     }
     self:addRule {
         "code",
-        backgroundColor = "#303030",
-        color = "accentcolortext",
-        outlineRadius = u.em(0.5),
+        backgroundColor = "CodeBg",
+        color = "CodeText",
+        outlineRadius = u.em(0.3),
         outlineWidth = 1,
         padding = { 0, u.em(0.2) },
     }
     -- Block typography
     self:addRule {
         "p", "section", "blockquote", "figure", "figcaption",
-        margin = { u.em(0.5), 0 },
+        margin = { u.rem(0.5), u.rem(0.5) },
     }
     self:addRule {
         "h1",
-        color = "accentcolortext",
+        color = "AccentText",
         fontSize = u.percent(140),
-        marginTop = u.em(0.7),
+        margin = { u.em(0.7), u.rem(0.5), u.rem(0.5) },
     }
     self:addRule {
         "h2",
-        color = "accentcolortext",
+        color = "AccentText",
         fontSize = u.percent(130),
-        marginTop = u.em(0.7),
+        margin = { u.em(0.7), u.rem(0.5), u.rem(0.5) },
     }
     self:addRule {
         "h3",
-        color = "accentcolortext",
+        color = "AccentText",
         fontSize = u.percent(120),
-        marginTop = u.em(0.7),
+        margin = { u.em(0.7), u.rem(0.5), u.rem(0.5) },
     }
     self:addRule {
         "figcaption",
@@ -107,86 +144,123 @@ function ns.Theme:New(theme)
         "article",
         marginTrim = "block",
     }
-    -- Features
+    -- Controls
     self:addRule {
-        ".__amm_resize__container",
-        flexWrap = "nowrap",
-        alignItems = "stretch",
-        maxWidth = u.percent(100),
-        maxHeight = u.percent(100),
+        "button",
+        backgroundColor = "ButtonBg",
+        color = "ButtonText",
+        padding = { u.rem(0.2), u.rem(0.5) },
+        outlineWidth = 1,
+        textWrapMode = "nowrap",
     }
     self:addRule {
+        "button:hover",
+        backgroundColor = "ButtonBgHover",
+    }
+    self:addRule {
+        "button.accent",
+        backgroundColor = "AccentBg",
+        color = "AccentText",
+    }
+    self:addRule {
+        "button.accent:hover",
+        backgroundColor = "AccentBgHover",
+    }
+    self:addRule {
+        "button.small",
+        ".small button",
+        fontSize = u.percent(80),
+        outlineRadius = u.em(0.3),
+        padding = { 0, u.rem(0.5) },
+    }
+    -- Features
+    self:addRule {
         ".__amm_resize__split",
+        display = "flex",
         flexWrap = "nowrap",
-        alignItems = "stretch",
         width = u.percent(100),
         height = u.percent(100),
     }
     self:addRule {
+        ".__amm_resize__split-panel",
+        overflow = "scroll",
+    }
+    self:addRule {
         ".__amm_resize__handle",
         flex = { 0, 0, u.px(5) },
-        backgroundColor = structs.Color { 1, 1, 1, 0.1 },
+        backgroundColor = "ButtonBg",
     }
     self:addRule {
         ".__amm_resize__handle:hover",
         ".__amm_resize__handle:drag",
-        backgroundColor = structs.Color { 1, 1, 1, 0.3 },
+        backgroundColor = "ButtonBgHover",
+    }
+    self:addRule {
+        ".__amm_tabs",
+        display = "flex",
+        flexDirection = "column",
     }
     self:addRule {
         ".__amm_tabs__tabs",
+        flex = { 0, 0, "auto" },
         display = "flex",
-        columnGap = u.rem(0.4),
-        rowGap = u.rem(0.2),
-        paddingTop = u.rem(0.2),
-        paddingBottom = 0,
-        paddingLeft = u.rem(0.2),
-        paddingRight = u.rem(0.2),
-        fontSize = u.rem(1),
+        gap = { u.rem(0.2), u.rem(0.5) },
+        padding = { u.rem(0.2), u.rem(0.5) },
         alignItems = "baseline",
+        backgroundColor = "ButtonBg",
     }
     self:addRule {
         ".__amm_tabs__tab",
         flex = { 0, 0, "auto" },
-        textWrapMode = "nowrap",
-        backgroundColor = "#202020",
         padding = { u.rem(0.2), u.rem(0.5) },
+        textWrapMode = "nowrap",
+        backgroundColor = "ButtonBg",
+        color = "ButtonText",
     }
     self:addRule {
-        ".__amm_tabs__tabs_small .__amm_tabs__tab",
+        ".small .__amm_tabs__tab",
         padding = { 0, u.rem(0.5) },
     }
     self:addRule {
         ".__amm_tabs__tab:hover",
-        backgroundColor = "#303030",
+        backgroundColor = "ButtonBgHover",
     }
     self:addRule {
-        ".__amm_tabs__tab_current",
-        backgroundColor = "#0e2a9c",
+        ".__amm_tabs__tab__current",
+        backgroundColor = "AccentBg",
+        color = "AccentText",
     }
     self:addRule {
-        ".__amm_tabs__tab_current:hover",
-        backgroundColor = "#1435ba",
+        ".__amm_tabs__tab__current:hover",
+        backgroundColor = "AccentBgHover",
     }
     self:addRule {
         ".__amm_tabs__tab_spacer",
         flex = 1,
-        marginLeft = u.rem(-0.4),
+        marginLeft = u.rem(-0.5),
     }
     self:addRule {
         ".__amm_tabs__tabs_sep",
-        height = u.rem(0.2),
-        backgroundColor = "#202020",
+        flex = { 0, 0, u.rem(0.2) },
+        backgroundColor = "ButtonBg",
     }
     self:addRule {
         ".__amm_tabs__content",
         display = "none",
+        flex = { 1, 1, "auto" },
     }
     self:addRule {
-        ".__amm_tabs__content_current",
+        ".__amm_tabs__content__current",
         display = "block",
     }
-
-    return self
+    self:addRule {
+        ".__amm_tabs__full",
+        height = u.percent(100),
+    }
+    self:addRule {
+        ".__amm_tabs__content__full",
+        overflow = "scroll",
+    }
 end
 
 --- System styles.

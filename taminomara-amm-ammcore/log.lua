@@ -94,7 +94,7 @@ lowercaseLevels["crit"] = ns.Level.Critical
 
 --- Parse level name and return an appropriate level value.
 ---
---- @param name string|integer level name or value.
+--- @param name? string|integer level name or value.
 --- @return ammcore.log.Level? levelName level value.
 function ns.levelFromName(name)
     if type(name) == "string" then
@@ -241,7 +241,7 @@ end
 function ns.Logger:log(level, msg, ...)
     if level >= self:getEffectiveLevel() then
         local levelName = ns.LevelName[level] or tostring(level)
-        local verbosity = math.min(math.max(0, math.tointeger(level / 100) - 1), 4)
+        local verbosity = math.min(math.max(0, math.floor(level / 100) - 1), 4)
         computer.log(
             verbosity,
             string.format("[%s] %s: %s", self._prefix, levelName, string.format(msg, ...))

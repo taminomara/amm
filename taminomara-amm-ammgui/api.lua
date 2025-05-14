@@ -2,6 +2,7 @@ local class = require "ammcore.class"
 local bootloader = require "ammcore.bootloader"
 local fun = require "ammcore.fun"
 local log = require "ammcore.log"
+local eventListener = require "ammgui._impl.eventListener"
 
 --- Functional components API.
 ---
@@ -505,8 +506,65 @@ end
 --- is set to be the canvas itself, and that their ``isActive`` method returns
 --- whatever `CanvasBase.isActive` returns.
 ---
---- @class ammgui.CanvasBase: ammcore.class.Base
-ns.CanvasBase = class.create("CanvasBase")
+--- @class ammgui.CanvasBase: ammgui._impl.eventListener.EventListener
+ns.CanvasBase = class.create("CanvasBase", eventListener.EventListener)
+
+--- @param preferredWidth number?
+--- @param preferredHeight number?
+---
+--- !doctype classmethod
+--- @generic T: ammgui.CanvasBase
+--- @param self T
+--- @return T
+function ns.CanvasBase:New(preferredWidth, preferredHeight)
+    self = eventListener.EventListener.New(self)
+
+    --- Preferred intrinsic width of the canvas.
+    ---
+    --- @type number
+    self.preferredWidth = nil
+
+    --- Preferred intrinsic height of the canvas.
+    ---
+    --- @type number
+    self.preferredHeight = nil
+
+    if not preferredWidth and not preferredHeight then
+        self.preferredWidth, self.preferredHeight = 300, 150
+    elseif not preferredWidth then
+        self.preferredWidth, self.preferredHeight = preferredHeight * 2, self.preferredHeight
+    elseif not preferredHeight then
+        self.preferredWidth, self.preferredHeight = self.preferredWidth, preferredWidth / 2
+    else
+        self.preferredWidth, self.preferredHeight = preferredWidth, preferredHeight
+    end
+
+    --- @private
+    --- @type boolean
+    self._isActive = true
+
+    return self
+end
+
+function ns.CanvasBase:isActive()
+    return self._isActive
+end
+
+--- Called when canvas is initialized with new data.
+---
+--- !doc virtual
+--- @param data ammgui.dom.Node
+function ns.CanvasBase:onMount(data)
+    -- nothing to do here.
+end
+
+--- Called when canvas is synchronized with new, possibly updated, data.
+---
+--- !doc virtual
+--- @param data ammgui.dom.Node
+function ns.CanvasBase:onUpdate(data)
+    -- nothing to do here.
+end
 
 --- This function is called before each render.
 ---
@@ -515,39 +573,18 @@ ns.CanvasBase = class.create("CanvasBase")
 --- text measuring service.
 ---
 --- !doc virtual
---- @param params any data that was passed to the ``<canvas>`` element.
 --- @param textMeasure ammgui._impl.context.textMeasure.TextMeasure text measuring service.
-function ns.CanvasBase:prepareLayout(params, textMeasure)
+function ns.CanvasBase:prepareLayout(textMeasure)
+    -- nothing to do here.
 end
 
 --- Called to draw the canvas content.
 ---
 --- !doc abstract
---- @param params any data that was passed to the ``<canvas>`` element.
 --- @param ctx ammgui._impl.context.render.Context rendering context.
 --- @param size ammgui.Vec2 canvas size.
---- @param parentEventListener ammgui._impl.eventListener.EventListener canvas' event listener.
-function ns.CanvasBase:draw(params, ctx, size, parentEventListener)
+function ns.CanvasBase:draw(ctx, size)
     error("not implemented")
-end
-
---- Canvas implementation used for the ``<canvas>`` node.
----
---- @class ammgui.CanvasFunctional: ammgui.CanvasBase
-ns.CanvasFunctional = class.create("CanvasFunctional", ns.CanvasBase)
-
-function ns.CanvasFunctional:prepareLayout(params, textMeasure)
-    if params.onPrepareLayout then
-        self._prepared = { params.onPrepareLayout(params.data, textMeasure) }
-    else
-        self._prepared = {}
-    end
-end
-
-function ns.CanvasFunctional:draw(params, ctx, size, parentEventListener)
-    if params.onDraw then
-        params.onDraw(params.data, ctx.gpu, size, table.unpack(self._prepared))
-    end
 end
 
 return ns

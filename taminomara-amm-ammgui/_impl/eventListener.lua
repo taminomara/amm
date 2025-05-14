@@ -1,5 +1,5 @@
 local class = require "ammcore.class"
-local id    = require "ammgui._impl.id"
+local id = require "ammgui._impl.id"
 
 --- Event listener interface.
 ---
@@ -51,8 +51,8 @@ end
 ---
 --- @param pos ammgui.Vec2 mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
+--- @param propagate boolean whether event propagation was enabled or not.
+--- @return boolean propagate whether further event propagation was enabled or not.
 function ns.EventListener:onMouseMove(pos, modifiers, propagate)
     return propagate
 end
@@ -68,8 +68,8 @@ end
 ---
 --- @param pos ammgui.Vec2 mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
+--- @param propagate boolean whether event propagation was enabled or not.
+--- @return boolean propagate whether further event propagation was enabled or not.
 function ns.EventListener:onMouseDown(pos, modifiers, propagate)
     return propagate
 end
@@ -78,8 +78,8 @@ end
 ---
 --- @param pos ammgui.Vec2 mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
+--- @param propagate boolean whether event propagation was enabled or not.
+--- @return boolean propagate whether further event propagation was enabled or not.
 function ns.EventListener:onMouseUp(pos, modifiers, propagate)
     return propagate
 end
@@ -91,8 +91,8 @@ end
 ---
 --- @param pos ammgui.Vec2 mouse position relative to the area's top-left corner.
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
+--- @param propagate boolean whether event propagation was enabled or not.
+--- @return boolean propagate whether further event propagation was enabled or not.
 function ns.EventListener:onClick(pos, modifiers, propagate)
     return propagate
 end
@@ -102,8 +102,8 @@ end
 --- @param pos ammgui.Vec2 mouse position relative to the area's top-left corner.
 --- @param delta number
 --- @param modifiers integer see ``GPU T2`` for more info.
---- @param propagate boolean
---- @return boolean propagate
+--- @param propagate boolean whether event propagation was enabled or not.
+--- @return boolean propagate whether further event propagation was enabled or not.
 function ns.EventListener:onMouseWheel(pos, delta, modifiers, propagate)
     return propagate
 end

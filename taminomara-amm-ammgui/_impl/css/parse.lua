@@ -179,11 +179,42 @@ function ns.parseColor(x, r, n)
             b = tonumber(b, 16) / (2 ^ (4 * b:len()) - 1),
             a = tonumber(a, 16) / (2 ^ (4 * a:len()) - 1),
         }
-    elseif type(x) == "userdata" or (type(x) == "table" and x.__amm_is_color) then
+    elseif type(x) == "userdata" then
         return x
     else
         error(string.format("invalid %s value %s", n, log.pp(x)), 0)
     end
+end
+
+--- @param x any
+--- @return Color|any
+function ns.tryParseColor(x)
+    if type(x) == "string" then
+        local r, g, b, a
+        for _, m in ipairs({
+            "^#(%x)(%x)(%x)$",
+            "^#(%x)(%x)(%x)(%x)$",
+            "^#(%x%x)(%x%x)(%x%x)$",
+            "^#(%x%x)(%x%x)(%x%x)(%x%x)$",
+        }) do
+            r, g, b, a = x:match(m)
+            if r and g and b then
+                if not a then
+                    a = "ff"
+                end
+                break
+            end
+        end
+        if r and g and b and a then
+            return structs.Color {
+                r = tonumber(r, 16) / (2 ^ (4 * r:len()) - 1),
+                g = tonumber(g, 16) / (2 ^ (4 * g:len()) - 1),
+                b = tonumber(b, 16) / (2 ^ (4 * b:len()) - 1),
+                a = tonumber(a, 16) / (2 ^ (4 * a:len()) - 1),
+            }
+        end
+    end
+    return x
 end
 
 --- @param x unknown

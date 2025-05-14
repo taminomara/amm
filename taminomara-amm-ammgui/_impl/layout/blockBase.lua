@@ -148,6 +148,14 @@ function ns.BlockBase:asBlock()
     return self
 end
 
+--- Prepare for layout calculation.
+---
+--- !doc virtual
+--- @param textMeasure ammgui._impl.context.textMeasure.TextMeasure
+function ns.BlockBase:prepareLayout(textMeasure)
+    -- nothing to do here
+end
+
 --- Called to estimate component's intrinsic dimensions.
 ---
 --- This function is called when container needs to estimate component's dimensions

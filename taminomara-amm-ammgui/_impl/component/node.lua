@@ -36,12 +36,14 @@ function ns.Node:New(key)
     return self
 end
 
+--- @param data ammgui.dom.ContainerNode
 function ns.Node:onMount(ctx, data)
     component.Component.onMount(self, ctx, data)
 
     self._childComponents, self._children = self.syncAll(ctx, {}, data, self)
 end
 
+--- @param data ammgui.dom.ContainerNode
 function ns.Node:onUpdate(ctx, data)
     component.Component.onUpdate(self, ctx, data)
 
@@ -108,19 +110,10 @@ function ns.Node:updateLayoutTree()
 end
 
 function ns.Node:devtoolsRepr()
-    local baseLayout, usedLayout
-    if not self.layout:isInline() then
-        local blockLayout = self.layout:asBlock()
-        baseLayout = blockLayout.baseLayout
-        usedLayout = blockLayout.usedLayout
-    end
-
     return fun.t.update(
         component.Component.devtoolsRepr(self),
         {
             children = fun.a.map(self._children, fun.call_meth("devtoolsRepr")),
-            baseLayout = baseLayout,
-            usedLayout = usedLayout,
         }
     )
 end

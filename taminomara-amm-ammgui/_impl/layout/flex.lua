@@ -112,7 +112,7 @@ function ns.Flex:calculateContentLayout(availableWidth, availableHeight)
 
     self:_alignItems(availableWidth, availableHeight)
     local contentCrossSize = self:_alignContent(freeCrossSpace)
-    local contentMainSize = self:_justifyItems()
+    local contentMainSize = self:_justifyContent()
 
     local contentSize = Vec2:FromTable {
         [self._mainSizeCoord] = contentMainSize,
@@ -551,7 +551,7 @@ function ns.Flex:_alignContent(freeCrossSpace)
 end
 
 --- @return number
-function ns.Flex:_justifyItems()
+function ns.Flex:_justifyContent()
     local maxMainSize = 0
     local availableMainSize = self._availableMainSize or 0
     for _, line in ipairs(self._lines) do
@@ -559,7 +559,11 @@ function ns.Flex:_justifyItems()
         local freeMainSize = math.max(0, contentMainSize - line.lineMainSize)
         local crossSpaceBefore, crossSpaceBetween, crossSpaceAfter = 0, self._mainGap, 0
 
-        if self.css.justifyContent == "start" or self.css.justifyContent == "stretch" then
+        if
+            self.css.justifyContent == "normal"
+            or self.css.justifyContent == "start"
+            or self.css.justifyContent == "stretch"
+        then
             crossSpaceAfter = freeMainSize
         elseif self.css.justifyContent == "center" then
             crossSpaceBefore = freeMainSize / 2
