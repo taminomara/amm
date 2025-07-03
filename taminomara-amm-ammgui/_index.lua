@@ -5,12 +5,40 @@ local theme = require "ammgui.css.theme"
 local promise = require "ammcore.promise"
 local viewport = require "ammgui.viewport"
 local eventManager = require "ammgui._impl.eventManager"
--- local panel = require "ammgui.devtools"
 local render = require "ammgui._impl.context.render"
 local tracy = require "ammcore.tracy"
 local devtools = require "ammgui._impl.devtools"
 
 --- AMM GUI Library.
+---
+--- Life cycle:
+---
+--- 1. User creates an app and provides a root component.
+---
+--- 2. Upon every update, components are rendered using their backends.
+---    Rendering a component means running its logic and building a shadow DOM.
+---
+--- 3. Whenever a new version of a shadow DOM is ready, it is committed
+---    to an actual DOM. Committing shadow DOM means running diff algorithm
+---    to find changes between shadow DOM and actual DOM, and updating actual DOM
+---    accordingly.
+---
+--- 4. After the actual DOM is updated, it is drawn onto a screen. This step includes
+---    the following:
+---
+---    1. CSS update step: we create a CSS context and run a CSS update stage.
+---       During this stage, each node calculates new CSS properties for itself.
+---
+---    2. Layout update step: each DOM node creates an appropriate layout engine
+---       for itself, or reuses a layout engine from previous drawing if it's safe
+---       to do so. Layout engine then run their logic in order to calculate
+---       all the data necessary to display respective nodes.
+---
+---    3. Drawing step: we create a draw context and run drawing logic in all layout
+---       engines.
+---
+---    4. Optional: devtools repr and update. If devtools window is open, we repr
+---       DOM nodes and update the window (i.e. run steps 1-4 for devtools window as well).
 ---
 --- !doctype module
 --- @class ammgui
@@ -25,7 +53,7 @@ ns.App = class.create("App")
 
 --- !doctype classmethod
 --- @generic T: ammgui.dom.FunctionalParams
---- @param page fun(data: T): ammgui.dom.AnyNode
+--- @param page fun(data: T): ammgui.component.Any
 --- @param data `T`
 --- @return ammgui.App<T>
 function ns.App:New(gpu, page, data)
@@ -36,7 +64,7 @@ function ns.App:New(gpu, page, data)
     self._gpu = gpu
 
     --- @private
-    --- @type fun(data): ammgui.dom.AnyNode
+    --- @type fun(data): ammgui.component.Any
     self._page = page
 
     --- @private

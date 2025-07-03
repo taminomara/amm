@@ -18,10 +18,6 @@
     "io": "disable",
     "bit": "disable",
     "bit32": "disable",
-    "ffi": "disable",
-    "jit": "disable",
-    "jit.profile": "disable",
-    "jit.util": "disable",
     "package": "disable"
   },
   "Lua.doc.privateName": ["_[a-zA-Z0-9]*", "_"]

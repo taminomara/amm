@@ -126,10 +126,10 @@ local list = nil
 function ns.Provider.syncOne(ctx, component, node)
     if type(node) == "string" then
         text = text or require("ammgui._impl.component.text") -- Prevent circular import.
-        node = { node, _isNode = true, _component = text.Text }
+        node = { node, _isComponent = true, _component = text.Text }
     elseif type(node) == "boolean" or type(node) == "nil" then
         list = list or require("ammgui._impl.component.list") -- Prevent circular import.
-        node = { _isNode = true, _component = list.List }
+        node = { _isComponent = true, _component = list.List }
     end
 
     ---@diagnostic disable-next-line: invisible
@@ -192,7 +192,7 @@ function ns.Provider.syncProviders(ctx, components, nodes)
         elseif type(node) == "boolean" or type(node) == "nil" then
             -- nothing to do here.
         ---@diagnostic disable-next-line: invisible
-        elseif node._isNode then
+        elseif node._isComponent then
             --- @cast node ammgui.dom.Node
             if pendingString then
                 syncOne(pendingStringKey, pendingString)
@@ -210,28 +210,28 @@ function ns.Provider.syncProviders(ctx, components, nodes)
     return newProviders
 end
 
---- Sync array of DOM nodes with their components.
----
---- @param ctx ammgui._impl.context.sync.Context
---- @param components ammgui._impl.component.provider.Provider[]
---- @param nodes ammgui.dom.AnyNode[]
---- @param parent ammgui._impl.component.component.Component
---- @return ammgui._impl.component.provider.Provider[] providers
---- @return ammgui._impl.component.component.Component[] components
-function ns.Provider.syncAll(ctx, components, nodes, parent)
-    local newComponents = ns.Provider.syncProviders(ctx, components, nodes)
+-- --- Sync array of DOM nodes with their components.
+-- ---
+-- --- @param ctx ammgui._impl.context.sync.Context
+-- --- @param components ammgui._impl.component.provider.Provider[]
+-- --- @param nodes ammgui.dom.AnyNode[]
+-- --- @param parent ammgui._impl.component.component.Component
+-- --- @return ammgui._impl.component.provider.Provider[] providers
+-- --- @return ammgui._impl.component.component.Component[] components
+-- function ns.Provider.syncAll(ctx, components, nodes, parent)
+--     local newComponents = ns.Provider.syncProviders(ctx, components, nodes)
 
-    local newNodeComponents = {}
+--     local newNodeComponents = {}
 
-    for _, component in ipairs(newComponents) do
-        component:collect(newNodeComponents)
-    end
+--     for _, component in ipairs(newComponents) do
+--         component:collect(newNodeComponents)
+--     end
 
-    for _, component in ipairs(newNodeComponents) do
-        component.parent = parent
-    end
+--     for _, component in ipairs(newNodeComponents) do
+--         component.parent = parent
+--     end
 
-    return newComponents, newNodeComponents
-end
+--     return newComponents, newNodeComponents
+-- end
 
 return ns

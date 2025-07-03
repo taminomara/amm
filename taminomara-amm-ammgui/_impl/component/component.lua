@@ -119,10 +119,19 @@ function ns.Component:New(key)
 end
 
 --- @param data ammgui.dom.Node
-function ns.Component:onMount(ctx, data)
-    ns.Component.onUpdate(self, ctx, data)
+function ns.Component:sync(ctx, data)
+    error("not implemented")
 end
 
+--- @param data ammgui.dom.Node
+function ns.Component:commit(ctx, data)
+    self:onUpdate(ctx, data)
+end
+
+--- Called when component is updated.
+---
+--- !doc virtual
+--- @param ctx ammgui._impl.context.sync.Context
 --- @param data ammgui.dom.Node
 function ns.Component:onUpdate(ctx, data)
     ---@diagnostic disable-next-line: invisible
@@ -151,6 +160,10 @@ function ns.Component:onUpdate(ctx, data)
     self._onDragEndHandler = data.onDragEnd
 end
 
+--- Called when component is destroyed.
+---
+--- !doc virtual
+--- @param ctx ammgui._impl.context.sync.Context
 function ns.Component:onUnmount(ctx)
     self._isActive = false
 end
@@ -159,6 +172,9 @@ function ns.Component:collect(components)
     table.insert(components, self)
 end
 
+--- Process a reference.
+---
+--- @param ref ammgui.Ref<ammgui.NodeApi?>
 function ns.Component:noteRef(ref)
     ref.current = api.NodeApi:New(self)
 end

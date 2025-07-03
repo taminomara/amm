@@ -43,9 +43,13 @@ function ns.Context:New(earlyRefreshEvent)
     --- @type { outdated: boolean, children: ammgui.dom.Node[] }[]
     self._outdatedStack = {}
 
-    --- @protected
+    --- @private
     --- @type table<ammgui.dom.Node, boolean>
     self._children = {}
+
+    --- @private
+    --- @type table<ammgui._impl.component.provider.Provider, any>
+    self._rendered = {}
 
     return self
 end
@@ -118,8 +122,26 @@ function ns.Context:popChildren()
     assert(not data.children, "not a children node")
 end
 
-function ns.Context:requestEarlyRefresh()
-    self._earlyRefreshEvent:set()
+--- @return ammcore.promise.Event
+function ns.Context:getEarlyRefreshEvent()
+    return self._earlyRefreshEvent
+end
+
+--- Set results of rendering a component.
+---
+--- These results will be available during commit phase via the `getRendered` method.
+---
+--- @param component ammgui._impl.component.provider.Provider
+--- @param rendered any
+function ns.Context:setRendered(component, rendered)
+    assert(not self._rendered[component], "already rendered")
+    self._rendered[component] = rendered
+end
+
+--- @param component ammgui._impl.component.provider.Provider
+--- @return any
+function ns.Context:getRendered(component)
+    return assert(self._rendered[component], "not rendered")
 end
 
 return ns
