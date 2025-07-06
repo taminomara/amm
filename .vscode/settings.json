@@ -33,5 +33,8 @@
         "dir": "C:\\Users\\tamin\\AppData\\Local\\FactoryGame\\Saved\\SaveGames\\Computers\\19172CD14DC16BA8207AF2A4A2B8D5C9"
       }
     ]
+  },
+  "[lua]": {
+    "editor.wordBasedSuggestions": "off"
   }
 }

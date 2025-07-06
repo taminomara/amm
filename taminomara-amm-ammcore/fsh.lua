@@ -1,9 +1,8 @@
+--- @namespace ammcore.fsh
+
 local defer = require "ammcore.defer"
 
 --- Helpers for working with FIN file system.
----
---- !doctype module
---- @class ammcore._util.fsh
 local ns = {}
 
 --- Read file at the given path or raise an error.

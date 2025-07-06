@@ -1,9 +1,8 @@
+--- @namespace ammcore.promise
+
 local class = require "ammcore.class"
 
 --- Promise and synchronization primitives.
----
---- !doctype module
---- @class ammcore.promise
 local ns = {}
 
 --- Create a promise and a function to resolve it.
@@ -42,20 +41,12 @@ end
 ---
 --- Initially, flag starts as `false`.
 ---
---- @class ammcore.promise.Event: ammcore.class.Base
+--- @class Event: ammcore.class.Base
 ns.Event = class.create("Event")
 
---- !doctype classmethod
---- @generic T: ammcore.promise.Event
---- @param self T
---- @return T
-function ns.Event:New()
-    self = class.Base.New(self)
-
+function ns.Event:__init()
     --- @private
     self._promise, self._resolve = ns.promise()
-
-    return self
 end
 
 --- Set the event flag to `false`.

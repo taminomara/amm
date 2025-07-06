@@ -1,9 +1,8 @@
+--- @namespace ammcore.fun.t
+
 local common = require "ammcore.fun._common"
 
 --- Functions that work on tables.
----
---- !doctype module
---- @class ammcore.fun.t
 local ns = {}
 
 --- Check that all values in the table are `true`.
@@ -29,8 +28,7 @@ end
 --- Insert values from one table into another, overriding any values
 --- that exist in both tables.
 ---
---- @generic T
---- @generic U
+--- @generic T, U
 --- @param to T table to be modified.
 --- @param from U table to be copied.
 --- @return T | U to to reference to the ``to`` table.
@@ -44,8 +42,7 @@ end
 --- Insert values from one table into another, using the given function to merge values
 --- that exist in both tables.
 ---
---- @generic T
---- @generic U
+--- @generic T, U
 --- @param to table<T, U> table to be modified.
 --- @param from table<T, U> table to be copied.
 --- @param merger nil | fun(l: U, r: U): U function used to merge values from left and right table.

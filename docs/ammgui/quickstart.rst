@@ -20,7 +20,7 @@ from `ammgui.css`, then hand it off to the runtime to display.
    local gui = require "ammgui"
    local dom = require "ammgui.dom"
 
-   local app = gui.App:New(function() {
+   local app = gui.App(function() {
        return dom.div {
            dom.h1 {
                "Hello, world!"

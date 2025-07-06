@@ -1,19 +1,18 @@
+--- @namespace ammcore.pkg.packageName
+
 --- Utilities for parsing package name.
----
---- !doctype module
---- @class ammcore.pkg.packageName
 local ns = {}
 
 --- @param name string
 --- @return boolean
 local function isValidUsername(name)
-    return name:match("^[-%w]+$") and not name:match("%-%-") and true
+    return name:match("^[-%w]+$") and not name:match("%-%-") and true or false
 end
 
 --- @param name string
 --- @return boolean
 local function isValidIdentifier(name)
-    return name:match("^[_%a][_%w]*$") and true
+    return name:match("^[_%a][_%w]*$") and true or false
 end
 
 --- Parse a package name into separate components.

@@ -1,7 +1,7 @@
 local bootloader = require "ammcore.bootloader"
 local log = require "ammcore.log"
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Allows setting up server EEPROM.
 local ns = {}

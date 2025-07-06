@@ -1,0 +1,44 @@
+{
+  "completion": {
+    "autoRequireFunction": "require",
+    "autoRequireNamingConvention": "keep",
+    "autoRequireSeparator": "."
+  },
+  "runtime": {
+    "version": "Lua5.4",
+    "requireLikeFunction": [],
+    "frameworkVersions": [],
+    "extensions": [],
+    "requirePattern": [
+      "taminomara-amm-?.lua",
+      "taminomara-amm-?/_index.lua",
+      "?.lua",
+      "?/_index.lua"
+    ],
+    "classDefaultCall": {
+      "functionName": "__init",
+      "forceNonColon": true,
+      "forceReturnSelf": true
+    }
+  },
+  "workspace": {
+    "ignoreDir": [],
+    "ignoreGlobs": [],
+    "library": [
+      "${workspaceFolder}/.amm/lib"
+    ],
+    "workspaceRoots": [],
+    "preloadFileSize": 0,
+    "encoding": "utf-8",
+    "moduleMap": [],
+    "reindexDuration": 5000,
+    "enableReindex": true
+  },
+  "strict": {
+    "requirePath": true,
+    "typeCall": true,
+    "arrayIndex": true,
+    "metaOverrideFileDefine": true,
+    "docBaseConstMatchBaseType": false
+  }
+}

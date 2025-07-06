@@ -1,3 +1,5 @@
+--- @namespace ammcore.server.remoteApi
+
 local class = require "ammcore.class"
 local json = require "ammcore._contrib.json"
 local packageJson = require "ammcore.pkg.packageJson"
@@ -6,9 +8,6 @@ local server = require "ammcore.server"
 local version= require "ammcore.pkg.version"
 
 --- Implements API for remote code server.
----
---- !doctype module
---- @class ammcore.server.remoteApi
 local ns = {}
 
 --- Package version that was fetched from code server.
@@ -16,20 +15,16 @@ local ns = {}
 --- This class does not implement `build`, it only provides data about the package.
 ---
 --- !doc private
---- @class ammcore.server.remoteApi.CodeServerPackageVersion: ammcore.pkg.package.PackageVersion
+--- @class CodeServerPackageVersion: ammcore.pkg.package.PackageVersion
 local CodeServerPackageVersion = class.create("CodeServerPackageVersion", package.PackageVersion)
 
 --- @param metadataRaw ammcore.pkg.packageJson.PackageJson
----
---- @generic T: ammcore.server.remoteApi.CodeServerPackageVersion
---- @param self T
---- @return T
-function CodeServerPackageVersion:New(metadataRaw)
+function CodeServerPackageVersion:__init(metadataRaw)
     local version, requirements, devRequirements, metadata = packageJson.parse(
         metadataRaw, "code server response"
     )
 
-    self = package.PackageVersion.New(self, metadata.name, version)
+    package.PackageVersion.__init(self, metadata.name, version)
 
     --- @type table<string, ammcore.pkg.version.VersionSpec>
     self.requirements = requirements
@@ -39,8 +34,6 @@ function CodeServerPackageVersion:New(metadataRaw)
 
     --- @type ammcore.pkg.packageJson.PackageJson
     self.data = metadata
-
-    return self
 end
 
 function CodeServerPackageVersion:getMetadata()
@@ -58,7 +51,7 @@ end
 --- Implements API handle that uses ammboot protocol to find packages
 --- on another computer.
 ---
---- @class ammcore.server.remoteApi.ServerApi: ammcore.server.ServerApi
+--- @class ServerApi: ammcore.server.ServerApi
 ns.ServerApi = class.create("ServerApi", server.ServerApi)
 
 --- @param networkCard NetworkCard
@@ -66,12 +59,8 @@ ns.ServerApi = class.create("ServerApi", server.ServerApi)
 --- @param port integer
 --- @param timeout integer?
 --- @param coreModuleResolver fun(path: string[]): code: string | nil, realPath: string | nil
----
---- @generic T: ammcore.server.remoteApi.ServerApi
---- @param self T
---- @return T
-function ns.ServerApi:New(networkCard, addr, port, timeout, coreModuleResolver)
-    self = server.ServerApi.New(self)
+function ns.ServerApi:__init(networkCard, addr, port, timeout, coreModuleResolver)
+    server.ServerApi.__init(self)
 
     --- Network card used to send requests to and receive responses from a code server.
     ---
@@ -101,8 +90,6 @@ function ns.ServerApi:New(networkCard, addr, port, timeout, coreModuleResolver)
     self._coreModuleResolver = coreModuleResolver
 
     event.listen(self.networkCard)
-
-    return self
 end
 
 --- @param message string
@@ -117,7 +104,7 @@ function ns.ServerApi:_waitResponse(message, deadline)
     while true do
         local now = computer.millis()
         if now > deadline then
-            error("timeout while waiting for response from a code server")
+            break
         end
 
         local e = { event.pull(now - deadline) }
@@ -128,9 +115,11 @@ function ns.ServerApi:_waitResponse(message, deadline)
             and port == self.port
             and receivedMessage == message
         then
-            return table.unpack(e) --[[ @as any ]]
+            return table.unpack(e) ---@diagnostic disable-line: return-type-mismatch
         end
     end
+
+    error("timeout while waiting for response from a code server")
 end
 
 function ns.ServerApi:lsPkg()
@@ -140,7 +129,7 @@ function ns.ServerApi:lsPkg()
 
     local result = {}
     for name, metadata in pairs(json.decode(pkgDataTxt)) do
-        result[name] = CodeServerPackageVersion:New(metadata)
+        result[name] = CodeServerPackageVersion(metadata)
     end
     return result
 end

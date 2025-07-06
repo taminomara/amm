@@ -1,5 +1,5 @@
 local test = require "ammtest"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 
 local suite = test.safeSuite()
 

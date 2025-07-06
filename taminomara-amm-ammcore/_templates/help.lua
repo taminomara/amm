@@ -1,10 +1,9 @@
+--- @namespace ammcore._templates.help
+
 local bootloader = require "ammcore.bootloader"
 local json       = require "ammcore._contrib.json"
 
 --- Writes locator script.
----
---- !doctype module
---- @class ammcore._templates.help
 local ns = {}
 
 function ns.formatHelp()

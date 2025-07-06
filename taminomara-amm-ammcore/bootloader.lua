@@ -1,11 +1,7 @@
+--- @namespace ammcore.bootloader
+
 --- Bootloader implements the `require` function
 --- and all necessary APIs for it to function.
----
---- .. autoobject:: require
----    :global:
----
---- !doctype module
---- @class ammcore.bootloader
 local ns = {}
 
 --- @type table<string, { loaded: boolean, value: any, realPath: string }>
@@ -28,7 +24,7 @@ end
 
 --- A bootloader config.
 ---
---- @class ammcore.bootloader.BootloaderConfig: { [string]: unknown }
+--- @class BootloaderConfig
 local BootloaderConfig = {}
 
 --- Which program to run after the system is fully booted.
@@ -133,7 +129,7 @@ BootloaderConfig.logLevels = nil
 
 --- @type ammcore.server.ServerApi?
 local serverApi
---- @type ammcore.bootloader.BootloaderConfig?
+--- @type BootloaderConfig?
 local bootloaderConfig
 --- @type (fun(path: string[]): code: string | nil, realPath: string | nil)?
 local coreModuleResolver = nil
@@ -233,7 +229,7 @@ end
 --- @param modname string module path.
 --- @return unknown # module contents.
 --- @return unknown realPath where this module comes from (usually a `string`).
-function require(modname) --- @diagnostic disable-line: lowercase-global
+function require(modname)
     local mod, pathCandidates = canonizeModName(modname)
 
     if not _modules[mod] then
@@ -384,10 +380,43 @@ local function initDrive()
 
     logger:trace("Initializing local code server")
 
-    serverApi = localApi.ServerApi:New(packages, coreModuleResolver)
+    serverApi = localApi.ServerApi(packages, coreModuleResolver)
     installedPackages = serverApi:lsPkg()
 
     logger:trace("Local code server initialized")
+end
+
+--- @param networkCard NetworkCard
+--- @param bootPort integer
+--- @return string bootAddr
+local function discoverCodeServer(networkCard, bootPort)
+    assert(logger)
+
+    logger:trace("Discovering available code servers")
+
+    event.listen(networkCard)
+    networkCard:open(bootPort)
+    networkCard:broadcast(bootPort, "getAmmCoreVersion")
+
+    local deadline = computer.millis() + 2000
+    local name, sender, port, receivedMessage
+    while true do
+        local now = computer.millis()
+        if now > deadline then
+            break
+        end
+
+        name, _, sender, port, receivedMessage = event.pull(now - deadline)
+        if
+            name == "NetworkMessage"
+            and port == bootPort
+            and receivedMessage == "rcvAmmCoreVersion"
+        then
+            return sender
+        end
+    end
+
+    error("timeout while waiting for response from a code server")
 end
 
 local function initNet()
@@ -399,7 +428,7 @@ local function initNet()
 
     logger:trace("Initializing remote code server")
 
-    local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard? ]]
+    local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[@as NetworkCard?]]
     if not networkCard then
         error("config.target is net, but no network card present")
     end
@@ -409,34 +438,9 @@ local function initNet()
         error(string.format("config.bootPort has invalid value %s", bootloaderConfig.bootPort))
     end
 
-    if not bootloaderConfig.bootAddr then
-        logger:trace("Discovering available code servers")
+    bootloaderConfig.bootAddr = bootloaderConfig.bootAddr or discoverCodeServer(networkCard, bootloaderConfig.bootPort)
 
-        event.listen(networkCard)
-        networkCard:open(bootloaderConfig.bootPort)
-        networkCard:broadcast(bootloaderConfig.bootPort, "getAmmCoreVersion")
-
-        local deadline = computer.millis() + 2000
-        local name, sender, port, receivedMessage
-        while true do
-            local now = computer.millis()
-            if now > deadline then
-                error("timeout while waiting for response from a code server")
-            end
-
-            name, _, sender, port, receivedMessage = event.pull(now - deadline)
-            if
-                name == "NetworkMessage"
-                and port == bootloaderConfig.bootPort
-                and receivedMessage == "rcvAmmCoreVersion"
-            then
-                bootloaderConfig.bootAddr = sender
-                break
-            end
-        end
-    end
-
-    serverApi = remoteApi.ServerApi:New(
+    serverApi = remoteApi.ServerApi(
         networkCard,
         bootloaderConfig.bootAddr,
         bootloaderConfig.bootPort,
@@ -451,9 +455,9 @@ end
 
 --- Initialize and install the global `require` function,
 --- then start a user script configured via computer's nick
---- or `config.prog <ammcore.bootloader.BootloaderConfig.prog>`.
+--- or `config.prog <BootloaderConfig.prog>`.
 ---
---- @param config ammcore.bootloader.BootloaderConfig bootloader config.
+--- @param config BootloaderConfig bootloader config.
 --- @param coreCodeLocation table<string, string> | string code table from the bootstrap script.
 function ns.main(config, coreCodeLocation)
     if serverApi then
@@ -497,7 +501,7 @@ function ns.main(config, coreCodeLocation)
     local nick = require "ammcore.nick"
     local log = require "ammcore.log"
 
-    logger = log.Logger:New()
+    logger = log.getLogger()
 
     local parsedNick = nick.parse(computer.getInstance().nick)
     do
@@ -587,7 +591,7 @@ end
 
 --- Get bootloader config.
 ---
---- @return ammcore.bootloader.BootloaderConfig config config that was used to init the bootloader.
+--- @return BootloaderConfig config config that was used to init the bootloader.
 function ns.getBootloaderConfig()
     assert(bootloaderConfig, "'getBootloaderConfig' called before 'main'", 2)
     return bootloaderConfig

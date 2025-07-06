@@ -1,14 +1,13 @@
+--- @namespace ammcore.pkg.provider
+
 local class = require "ammcore.class"
 
 --- Source of packages.
----
---- !doctype module
---- @class ammcore.pkg.provider
 local ns = {}
 
 --- An abstract interface for package provider.
 ---
---- @class ammcore.pkg.provider.Provider: ammcore.class.Base
+--- @class Provider: ammcore.class.Base
 ns.Provider = class.create("Provider")
 
 --- Get all locally installed packages.

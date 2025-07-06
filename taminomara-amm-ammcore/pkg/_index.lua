@@ -1,3 +1,5 @@
+--- @namespace ammcore.pkg
+
 local log = require "ammcore.log"
 local resolver = require "ammcore.pkg.resolver"
 local packageName = require "ammcore.pkg.packageName"
@@ -13,12 +15,9 @@ local fun = require "ammcore.fun"
 --- .. warning::
 ---
 ---    This API is unstable and may change in the future. Do not use it.
----
---- !doctype module
---- @class ammcore.pkg
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Get package provider with locally installed packages.
 ---
@@ -29,26 +28,26 @@ function ns.getPackageProvider(silent)
 
     local devRoot = bootloader.getDevRoot()
     if devRoot then
-        table.insert(providers, localProvider.LocalProvider:New(devRoot, true))
+        table.insert(providers, localProvider.LocalProvider(devRoot, true))
     elseif not silent then
         logger:warning("config.devRoot is not set, dev package provider is not available")
     end
 
     local srvRoot = bootloader.getSrvRoot()
     if srvRoot then
-        table.insert(providers, localProvider.LocalProvider:New(filesystem.path(srvRoot, "lib"), false))
+        table.insert(providers, localProvider.LocalProvider(filesystem.path(srvRoot, "lib"), false))
     elseif not silent then
         logger:warning("config.srvRoot is not set, local package provider is not available")
     end
 
-    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[@as FINInternetCard?]]
     if internetCard then
-        table.insert(providers, githubProvider.GithubProvider:New(internetCard))
+        table.insert(providers, githubProvider.GithubProvider(internetCard))
     elseif not silent then
         logger:warning("no internet card detected, github package provider is not available")
     end
 
-    return aggregateProvider.AggregateProvider:New(providers)
+    return aggregateProvider.AggregateProvider(providers)
 end
 
 --- Scan `config.packages` and dev packages to get root requirements.
@@ -70,18 +69,18 @@ function ns.gatherRootRequirements(provider)
 
             local name, specTxt = req:match("^([%w_-]*)(.*)$")
 
-            if not packageName.parseFullPackageName(name) then
+            if not name or not specTxt or not packageName.parseFullPackageName(name) then
                 error(string.format("invalid package name in config.packages: %s", name))
             end
 
-            local spec
+            local spec --- @type ammcore.pkg.version.VersionSpec
             local ok, err = pcall(function() spec = version.parseSpec(specTxt) end)
             if not ok then
                 error(string.format("invalid package requirement in config.packages: %s: %s", name, err))
             end
 
             if rootRequirements[name] then
-                rootRequirements[name] = rootRequirements[name] .. spec
+                rootRequirements[name] = rootRequirements[name]:concat(spec)
             else
                 rootRequirements[name] = spec
             end
@@ -91,9 +90,9 @@ function ns.gatherRootRequirements(provider)
     local localPackages = provider:getLocalPackages()
     for _, pkg in ipairs(localPackages) do
         if pkg.isDevMode then
-            local spec = version.VersionSpec:New(pkg.version)
+            local spec = version.VersionSpec(pkg.version)
             if rootRequirements[pkg.name] then
-                rootRequirements[pkg.name] = rootRequirements[pkg.name] .. spec
+                rootRequirements[pkg.name] = rootRequirements[pkg.name]:concat(spec)
             else
                 rootRequirements[pkg.name] = spec
             end
@@ -144,16 +143,14 @@ function ns.verify(rootRequirements, provider)
             end
 
             local pkg = pkgs[1]
-            if not pkg.isInstalled then
+            if not pkg or not pkg.isInstalled then
                 return false
             end
 
             allPkgs[name] = pkg
 
             do
-                fun.t.updateWith(allRequirements, pkg:getAllRequirements(), function(l, r)
-                    return l .. r
-                end)
+                fun.t.updateWith(allRequirements, pkg:getAllRequirements(), version.VersionSpec.concat)
             end
 
             ::continue::
@@ -206,16 +203,17 @@ function ns.install(rootRequirements, provider, updateAll, includeRemotePackages
         if not pkg.isInstalled then
             -- Check if another version is installed?
             local installedVersions, foundInstalled = provider:findPackageVersions(pkg.name, false)
+            local installedVersion = installedVersions[1]
             local operation = ""
-            if foundInstalled and #installedVersions == 1 then
-                if pkg.version > installedVersions[1].version then
-                    operation = string.format(" (upgrade from %s)", installedVersions[1].version)
+            if foundInstalled and installedVersion then
+                if pkg.version > installedVersion.version then
+                    operation = string.format(" (upgrade from %s)", installedVersion.version)
                     nUpgraded = nUpgraded + 1
-                elseif pkg.version == installedVersions[1].version then
+                elseif pkg.version == installedVersion.version then
                     operation = " (rebuild)"
                     nRebuilt = nRebuilt + 1
                 else
-                    operation = string.format(" (downgrade from %s)", installedVersions[1].version)
+                    operation = string.format(" (downgrade from %s)", installedVersion.version)
                     nDowngraded = nDowngraded + 1
                 end
             else

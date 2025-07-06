@@ -1,7 +1,7 @@
 local nick = require "ammcore.nick"
 local packageName = require "ammcore.pkg.packageName"
 local localProvider = require "ammcore.pkg.providers.local"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 local json = require "ammcore._contrib.json"
 local version = require "ammcore.pkg.version"
 local log = require "ammcore.log"
@@ -11,10 +11,10 @@ if bootloader.getLoaderKind() ~= "drive" then
     computer.panic("Program \".build\" only works with drive loader")
 end
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 local devRoot = assert(bootloader.getDevRoot(), "config.devRoot is not set")
-local devProvider = localProvider.LocalProvider:New(devRoot, true)
+local devProvider = localProvider.LocalProvider(devRoot, true)
 
 local parsed = nick.parse(computer.getInstance().nick)
 local packages = parsed:getAll("package", tostring)
@@ -25,7 +25,9 @@ end
 
 -- Parse repo.
 local repoArg = parsed:getOne("repo", tostring)
-if not repoArg then error("no github repo specified", 0) end
+if not repoArg then
+    error("no github repo specified", 0)
+end
 local user, repo = repoArg:match("^(.*)/(.*)$")
 if not user or not repo then
     error(string.format("invalid github repo %s", repoArg))
@@ -41,7 +43,9 @@ for _, package in ipairs(packages) do
         name, verTxt = package, nil
     end
 
-    if built[name] then goto continue end
+    if built[name] then
+        goto continue
+    end
     built[name] = true
 
     -- Check package name.
@@ -58,14 +62,17 @@ for _, package in ipairs(packages) do
     local ver
     if verTxt then
         local ok, err = pcall(function() ver = version.parse(verTxt) end)
-        if not ok then error(string.format("invalid release version %s: %s", verTxt, err), 0) end
+        if not ok then
+            error(string.format("invalid release version %s: %s", verTxt, err), 0)
+        end
     end
 
     -- Find package.
     local pkgs, ok = devProvider:findPackageVersions(name, false)
-    if not ok or #pkgs ~= 1 then error(string.format("can't find dev package %s", package)) end
     local pkg = pkgs[1]
-
+    if not ok or #pkgs ~= 1 or not pkg then
+        error(string.format("can't find dev package %s", package))
+    end
     -- Set package version, if any.
     if ver then
         pkg:overrideVersion(ver)

@@ -122,11 +122,7 @@ local type_func_map = {
 
 encode = function(val, stack)
   local t = type(val)
-  local f = type_func_map[t]
-  if f then
-    return f(val, stack)
-  end
-  error("unexpected type '" .. t .. "'", 0)
+  return type_func_map[t](val, stack)
 end
 
 
@@ -202,7 +198,7 @@ end
 
 
 local function parse_unicode_escape(s)
-  local n1 = tonumber(s:sub(1, 4), 16)
+  local n1 = assert(tonumber(s:sub(1, 4), 16))
   local n2 = tonumber(s:sub(7, 10), 16)
   -- Surrogate pair?
   if n2 then

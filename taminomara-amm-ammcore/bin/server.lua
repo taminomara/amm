@@ -8,11 +8,11 @@ if bootloader.getLoaderKind() ~= "drive" then
     computer.panic("Program \".server\" only works with drive loader")
 end
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 local config = bootloader.getBootloaderConfig()
 
-local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[ @as NetworkCard ]]
+local networkCard = computer.getPCIDevices(classes.NetworkCard)[1] --[[@as NetworkCard]]
 if not networkCard then
     error("no network card detected")
 end

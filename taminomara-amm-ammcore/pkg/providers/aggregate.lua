@@ -1,29 +1,23 @@
+--- @namespace ammcore.pkg.providers.aggregate
+
 local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
 local fun = require "ammcore.fun"
 
---- !doctype module
---- @class ammcore.pkg.providers.aggregate
 local ns = {}
 
 --- A provider that combines results from other providers.
 ---
---- @class ammcore.pkg.providers.aggregate.AggregateProvider: ammcore.pkg.provider.Provider
+--- @class AggregateProvider: ammcore.pkg.provider.Provider
 ns.AggregateProvider = class.create("AggregateProvider", provider.Provider)
 
 --- @param providers ammcore.pkg.provider.Provider[]
----
---- @generic T: ammcore.pkg.providers.aggregate.AggregateProvider
---- @param self T|ammcore.pkg.providers.aggregate.AggregateProvider
---- @return T
-function ns.AggregateProvider:New(providers)
-    self = provider.Provider.New(self)
+function ns.AggregateProvider:__init(providers)
+    provider.Provider.__init(self)
 
     --- @private
     --- @type ammcore.pkg.provider.Provider[]
     self._providers = providers
-
-    return self
 end
 
 --- @return ammcore.pkg.package.PackageVersion[]

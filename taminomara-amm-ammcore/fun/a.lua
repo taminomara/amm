@@ -1,9 +1,8 @@
+--- @namespace ammcore.fun.a
+
 local common = require "ammcore.fun._common"
 
 --- Functions that work on arrays.
----
---- !doctype module
---- @class ammcore.fun.a
 local ns = {}
 
 --- Concatenate array elements using the given separator.
@@ -270,7 +269,7 @@ end
 --- @generic T
 --- @param a T[] left array.
 --- @param b T[] right array.
---- @param getter? fun(x: T, i: number): any
+--- @param getter? fun(x: T, i: integer): any
 --- @return boolean
 function ns.eq(a, b, getter)
     return common.eq(a, b, ipairs, getter)

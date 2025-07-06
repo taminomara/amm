@@ -1,3 +1,5 @@
+--- @namespace ammcore.nick
+
 local class = require "ammcore.class"
 local log = require "ammcore.log"
 
@@ -23,16 +25,15 @@ local log = require "ammcore.log"
 --- has two positional parameters (``positional`` and ``positional=with=eq``),
 --- and two named parameters (``name1`` is ``value``, and
 --- ``name2`` is ``value " with quote``).
----
---- !doctype module
---- @class ammcore.nick
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Result of parsing component's nick.
 ---
---- @class ammcore.nick.ParsedNick: ammcore.class.Base, { [string]: string[], [integer]: string }
+--- @class ParsedNick: ammcore.class.Base
+--- @field [string] string[]
+--- @field [integer] string
 ns.ParsedNick = class.create("ParsedNick")
 
 --- Return the first value for parameter ``name``, parsed by function ``ty``.
@@ -43,12 +44,18 @@ ns.ParsedNick = class.create("ParsedNick")
 --- @return T? value parsed value or `nil` if parsing failed or parameter was not found.
 function ns.ParsedNick:getOne(name, ty)
     local value = self[name]
-    if not value or not value[1] then
+    if not value then
         return nil
     end
-    local parsed = ty(value[1])
+
+    local first = value[1]
+    if not first then
+        return nil
+    end
+
+    local parsed = ty(first)
     if not parsed then
-        logger:warning("Unable to parse nick, invalid value for %s: %q", name, value[1])
+        logger:warning("Unable to parse nick, invalid value for %s: %q", name, first)
         return nil
     end
     return parsed
@@ -95,9 +102,9 @@ end
 --- Parse key-value pairs from object's nick.
 ---
 --- @param nick string nick to parse.
---- @return ammcore.nick.ParsedNick parsed parsing result.
+--- @return ParsedNick parsed parsing result.
 function ns.parse(nick)
-    local result = ns.ParsedNick:New()
+    local result = ns.ParsedNick()
 
     local pos = 1
     while pos <= nick:len() do
@@ -121,7 +128,7 @@ function ns.parse(nick)
             result[name] = result[name] or {}
             table.insert(result[name], value)
         else
-            table.insert(result, value)
+            table.insert(result --[[@as string[] ]], value)
         end
 
         _, nextPos = nick:find('%S', nextPos + 1)

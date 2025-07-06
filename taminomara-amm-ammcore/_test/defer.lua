@@ -9,14 +9,14 @@ suite:case("xpcall success", function()
         function(...)
             args = { ... };
 
-            --- @diagnostic disable-next-line: redundant-return-value
+            --- @diagnostic disable-next-line: redundant-return-value, return-type-mismatch
             return "ret"
         end,
         1, 2, 3
     )
 
     test.assertTrue(ok)
-    test.assertEq(err, "ret")
+    test.assertEq(err --[[@as any]], "ret")
     test.assertDeepEq(args, { 1, 2, 3 })
 end)
 

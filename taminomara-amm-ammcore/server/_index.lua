@@ -1,9 +1,8 @@
+--- @namespace ammcore.server
+
 local class = require "ammcore.class"
 
 --- Code server API.
----
---- !doctype module
---- @class ammcore.server
 local ns = {}
 
 --- Abstract code server API implementation.
@@ -11,7 +10,7 @@ local ns = {}
 --- Server API bound to a concrete server should be requested
 --- from `ammcore.bootloader.getCodeServerApi`.
 ---
---- @class ammcore.server.ServerApi: ammcore.class.Base
+--- @class ServerApi: ammcore.class.Base
 ns.ServerApi = class.create("ServerApi")
 
 --- List all packages installed on the server.

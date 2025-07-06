@@ -12,7 +12,7 @@ suite:case("promise", function()
 end)
 
 suite:case("event", function()
-    local e = promise.Event:New()
+    local e = promise.Event()
     test.assertFalse(e:isSet())
     test.assertFalse(e:future():canGet())
     e:set()
@@ -25,7 +25,7 @@ suite:case("event", function()
 end)
 
 suite:case("event-mt", function()
-    local e = promise.Event:New()
+    local e = promise.Event()
 
     local reader = function()
         e:await()

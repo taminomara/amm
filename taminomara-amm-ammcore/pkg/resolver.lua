@@ -1,31 +1,24 @@
+--- @namespace ammcore.pkg.resolver
+
 local class = require "ammcore.class"
 local log = require "ammcore.log"
 local version = require "ammcore.pkg.version"
 
 --- Resolves dependencies.
----
---- !doctype module
---- @class ammcore.pkg.resolver
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- A package candidate.
 ---
 --- !doc private
---- @class ammcore.pkg.resolver._Candidate: ammcore.class.Base
+--- @class _Candidate: ammcore.class.Base
 local Candidate = class.create("Candidate")
 
 --- @param name string
 --- @param versions ammcore.pkg.package.PackageVersion[]
 --- @param updateAll boolean
----
---- @generic T: ammcore.pkg.resolver._Candidate
---- @param self T
---- @return T
-function Candidate:New(name, versions, updateAll)
-    self = class.Base.New(self)
-
+function Candidate:__init(name, versions, updateAll)
     --- Name of this package.
     ---
     --- @type string
@@ -73,12 +66,10 @@ function Candidate:New(name, versions, updateAll)
     ---
     --- @type integer
     self.conflicts = 0
-
-    return self
 end
 
---- @param lhs ammcore.pkg.resolver._Candidate
---- @param rhs ammcore.pkg.resolver._Candidate
+--- @param lhs _Candidate
+--- @param rhs _Candidate
 function Candidate.__lt(lhs, rhs)
     if (#lhs.versions > 0) ~= (#rhs.versions > 0) then
         return #rhs.versions == 0
@@ -91,14 +82,14 @@ function Candidate.__lt(lhs, rhs)
     end
 end
 
---- @param lhs ammcore.pkg.resolver._Candidate
---- @param rhs ammcore.pkg.resolver._Candidate
+--- @param lhs _Candidate
+--- @param rhs _Candidate
 function Candidate.__gt(lhs, rhs)
     return rhs < lhs
 end
 
---- @param candidates table<string, ammcore.pkg.resolver._Candidate>
---- @return ammcore.pkg.resolver._Candidate?
+--- @param candidates table<string, _Candidate>
+--- @return _Candidate?
 local function getNextCandidate(candidates)
     local best = nil
     for _, candidate in pairs(candidates) do
@@ -112,14 +103,14 @@ local function getNextCandidate(candidates)
 end
 
 --- @param rootRequirements table<string, ammcore.pkg.version.VersionSpec>
---- @param bestAttempt { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
+--- @param bestAttempt { candidate: _Candidate, versionIndex: integer }[]
 --- @return string
 local function describeBestAttempt(rootRequirements, bestAttempt)
     if #bestAttempt == 0 then
         return "Can't find appropriate package versions"
     end
 
-    local failedPkg = bestAttempt[#bestAttempt]
+    local failedPkg = assert(bestAttempt[#bestAttempt])
     local name = failedPkg.candidate.name
     local res = string.format("Can't find appropriate version for package %s.\n", name)
 
@@ -135,11 +126,11 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
         res = res .. "\n"
     end
 
-    local combinedSpec = version.VersionSpec:New()
+    local combinedSpec = version.VersionSpec()
 
     if rootRequirements[name] then
         res = res .. string.format("config.packages requires %s %s\n", name, rootRequirements[name])
-        combinedSpec = combinedSpec .. rootRequirements[name]
+        combinedSpec = combinedSpec:concat(rootRequirements[name])
     end
 
     for _, pinnedVersion in ipairs(bestAttempt) do
@@ -154,7 +145,7 @@ local function describeBestAttempt(rootRequirements, bestAttempt)
                     name,
                     requirements[name]
                 )
-                combinedSpec = combinedSpec .. requirements[name]
+                combinedSpec = combinedSpec:concat(requirements[name])
             end
         end
     end
@@ -194,13 +185,13 @@ end
 --- @param provider ammcore.pkg.provider.Provider
 --- @param updateAll boolean
 --- @param includeRemotePackages boolean
---- @return { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
+--- @return { candidate: _Candidate, versionIndex: integer }[]
 local function resolve(rootRequirements, provider, updateAll, includeRemotePackages)
-    --- @type table<string, ammcore.pkg.resolver._Candidate>
+    --- @type table<string, _Candidate>
     local candidates = {}
 
     for name, spec in pairs(rootRequirements) do
-        local candidate = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages), updateAll)
+        local candidate = Candidate(name, provider:findPackageVersions(name, includeRemotePackages), updateAll)
 
         candidate.isRootPackage = true
         candidate.requested = 1
@@ -209,11 +200,11 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
         candidates[name] = candidate
     end
 
-    --- @type { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
+    --- @type { candidate: _Candidate, versionIndex: integer }[]
     local pinned = {}
     --- @type table<string, ammcore.pkg.package.PackageVersion>
     local pinnedByName = {}
-    --- @type { candidate: ammcore.pkg.resolver._Candidate, versionIndex: integer }[]
+    --- @type { candidate: _Candidate, versionIndex: integer }[]
     local bestAttempt = {}
 
     do
@@ -323,7 +314,7 @@ local function resolve(rootRequirements, provider, updateAll, includeRemotePacka
             for name, spec in pairs(pinnedVersion:getAllRequirements()) do
                 if not candidates[name] then
                     -- Haven't seen this package before.
-                    candidates[name] = Candidate:New(name, provider:findPackageVersions(name, includeRemotePackages),
+                    candidates[name] = Candidate(name, provider:findPackageVersions(name, includeRemotePackages),
                         updateAll)
                 end
 

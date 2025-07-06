@@ -5,7 +5,7 @@ local bootloader = require "ammcore.bootloader"
 local log = require "ammcore.log"
 local builder = require "ammcore.pkg.builder"
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 local config = bootloader.getBootloaderConfig()
 

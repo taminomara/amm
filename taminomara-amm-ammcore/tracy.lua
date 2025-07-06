@@ -1,9 +1,8 @@
+--- @namespace ammcore.tracy
+
 --- Wrappers for tracy library.
 ---
 --- These functions don't do anything when FIN compiled without tracy.
----
---- !doctype module
---- @class ammcore.tracy
 local ns = {}
 
 --- Begin tracy zone.

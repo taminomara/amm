@@ -1,3 +1,5 @@
+--- @namespace ammcore.log
+
 local class = require "ammcore.class"
 local bootloader = require "ammcore.bootloader"
 
@@ -16,7 +18,7 @@ local bootloader = require "ammcore.bootloader"
 ---
 ---    local log = require "ammcore.log"
 ---
----    local logger = log.Logger:New()
+---    local logger = log.getLogger()
 ---
 ---    logger.info("Print any messages you like!")
 ---    logger.info("You can even format them: %s", "how cool is that?")
@@ -32,32 +34,29 @@ local bootloader = require "ammcore.bootloader"
 ---
 --- You can also configure level for the root logger by adding ``logLevel`` parameter
 --- to the computer's nick (see `ammcore.nick`).
----
---- !doctype module
---- @class ammcore.log
 local ns = {}
 
 --- Logging level.
 ---
---- @class ammcore.log.Level: integer
+--- @class Level: integer
 ns.Level = {}
 
 --- For detailed log that you only need to see when investigating behavior
 --- of a certain system. It doesn't make sense to enable trace logging
 --- for the root logger, there's just too many of them.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Trace = 0
 
 --- For messages that are helpful when you're investigating an error
 --- and need more information, but aren't intended for end users.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Debug = 100
 
 --- For messages intended for the end user.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Info = 200
 
 --- Something that the user should be aware of.
@@ -65,7 +64,7 @@ ns.Level.Info = 200
 --- Warnings indicate that system's behavior may differ from what the user might
 --- be expecting, but otherwise they don't require user attention.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Warning = 300
 
 --- Something went wrong and parts of the system aren't operational,
@@ -73,14 +72,14 @@ ns.Level.Warning = 300
 ---
 --- Errors require eventual user attention.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Error = 400
 
 --- Something went so wrong that the system can't operate any longer.
 ---
 --- Errors require immediate user attention.
 ---
---- @type ammcore.log.Level
+--- @type Level
 ns.Level.Critical = 500
 
 local lowercaseLevels = {}
@@ -95,7 +94,7 @@ lowercaseLevels["crit"] = ns.Level.Critical
 --- Parse level name and return an appropriate level value.
 ---
 --- @param name? string|integer level name or value.
---- @return ammcore.log.Level? levelName level value.
+--- @return Level? levelName level value.
 function ns.levelFromName(name)
     if type(name) == "string" then
         local level = lowercaseLevels[name:lower()]
@@ -134,7 +133,7 @@ end
 ---
 --- You can add your own names if you plan on extending the logging system.
 ---
---- @type table<ammcore.log.Level, string>
+--- @type table<Level, string>
 ns.LevelName = {
     [ns.Level.Trace] = "TRACE",
     [ns.Level.Debug] = "DEBUG",
@@ -145,29 +144,21 @@ ns.LevelName = {
 }
 
 --- @private
---- @type table<string, ammcore.log.Logger>
+--- @type table<string, Logger>
 ns._loggers = {}
 
 --- Logger.
 ---
---- @class ammcore.log.Logger: ammcore.class.Base
+--- .. warning::
+---
+---    Do not instantiate this class directly, use `getLogger` instead.
+---
+--- @class Logger: ammcore.class.Base
 ns.Logger = class.create("Logger")
 
---- @param name string?
----
---- !doctype classmethod
---- @generic T: ammcore.log.Logger
---- @param self T
---- @return T
-function ns.Logger:New(name)
-    name = name or bootloader.getMod(2)
-
-    if ns._loggers[name] then
-        return ns._loggers[name]
-    end
-
-    self = class.Base.New(self)
-
+--- @package
+--- @param name string
+function ns.Logger:__init(name)
     --- Name of this logger.
     ---
     --- !doctype const
@@ -185,12 +176,8 @@ function ns.Logger:New(name)
     ---
     --- !doctype const
     --- @protected
-    --- @type ammcore.log.Logger?
-    self._parent = name:len() > 0 and ns.Logger:New(name:match("(.*)%.[^.]*$") or "") or nil
-
-    ns._loggers[name] = self
-
-    return self
+    --- @type Logger?
+    self._parent = name:len() > 0 and ns.getLogger(name:match("(.*)%.[^.]*$") or "") or nil
 end
 
 function ns.Logger:__tostring()
@@ -202,7 +189,7 @@ end
 --- If this logger has no level, messages will be relayed to its parent.
 --- Otherwise, they will be displayed or ignored according to the level given.
 ---
---- @param level ammcore.log.Level? new logging level.
+--- @param level Level? new logging level.
 function ns.Logger:setLevel(level)
     local logLevels = bootloader.getBootloaderConfig().logLevels
     logLevels[self.name] = level
@@ -210,7 +197,7 @@ end
 
 --- Get level for this logger.
 ---
---- @return ammcore.log.Level? level current logging level.
+--- @return Level? level current logging level.
 function ns.Logger:getLevel()
     local logLevels = bootloader.getBootloaderConfig().logLevels
     return logLevels[self.name]
@@ -219,23 +206,25 @@ end
 --- Get level of this logger; if it has no configured level,
 --- return level of its parent.
 ---
---- @return ammcore.log.Level level current effective logging level.
+--- @return Level level current effective logging level.
 function ns.Logger:getEffectiveLevel()
     local logLevels = bootloader.getBootloaderConfig().logLevels
+
     local logger = self
     while logger and not logLevels[logger.name] do
         logger = logger._parent
     end
+
     if logger and logLevels[logger.name] then
         return logLevels[logger.name]
-    else
-        return ns.Level.Info
     end
+
+    return ns.Level.Info
 end
 
 --- Log a message with the given ``level``.
 ---
---- @param level ammcore.log.Level target logging level.
+--- @param level Level target logging level.
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
 function ns.Logger:log(level, msg, ...)
@@ -251,7 +240,7 @@ end
 
 --- Log a trace message.
 ---
---- See `ammcore.log.Level.Trace` for details.
+--- See `Level.Trace` for details.
 ---
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
@@ -261,7 +250,7 @@ end
 
 --- Log a debug message.
 ---
---- See `ammcore.log.Level.Debug` for details.
+--- See `Level.Debug` for details.
 ---
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
@@ -271,7 +260,7 @@ end
 
 --- Log an info message.
 ---
---- See `ammcore.log.Level.Info` for details.
+--- See `Level.Info` for details.
 ---
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
@@ -281,7 +270,7 @@ end
 
 --- Log a warning message.
 ---
---- See `ammcore.log.Level.Warning` for details.
+--- See `Level.Warning` for details.
 ---
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
@@ -291,7 +280,7 @@ end
 
 --- Log an error message.
 ---
---- See `ammcore.log.Level.Error` for details.
+--- See `Level.Error` for details.
 ---
 --- @param msg string message to be printed; will be formatted using `string.format`.
 --- @param ... any arguments for `string.format`.
@@ -305,6 +294,23 @@ end
 --- @param ... any arguments for `string.format`.
 function ns.Logger:critical(msg, ...)
     self:log(ns.Level.Critical, msg, ...)
+end
+
+--- Get logger with the given name, or return one if it was created earlier.
+---
+--- If name is not provided, this function uses name of the module
+--- where it was called from.
+---
+--- @param name string?
+--- @return Logger
+function ns.getLogger(name)
+    name = name or bootloader.getMod(2)
+
+    if not ns._loggers[name] then
+        ns._loggers[name] = ns.Logger(name)
+    end
+
+    return ns._loggers[name]
 end
 
 local userdataKeys = {
@@ -444,7 +450,7 @@ function ns.pprintVa(params, long)
 end
 
 --- !doc private
---- @class ammcore.log._Pretty
+--- @class _Pretty
 local Pretty = { __tostring = function(self) return ns.pprintVa(self, self.long) end }
 
 --- Return a wrapper that pretty prints function's arguments when converted to string.
@@ -457,14 +463,14 @@ local Pretty = { __tostring = function(self) return ns.pprintVa(self, self.long)
 --- .. code-block::
 ---
 ---    local log = require "ammcore.log"
----    local logger = log.Logger:New()
+---    local logger = log.getLogger()
 ---    logger:info("Starting a server with config=%s", log.p(config))
 ---
 --- This example will pretty-print config. It will not run printing if log level
 --- is above `~log.Level.Info`, though, because `p` does pretty printing lazily.
 ---
 --- @param ... any values to be pretty printed.
---- @return ammcore.log._Pretty an opaque value that pretty-prints given arguments.
+--- @return _Pretty an opaque value that pretty-prints given arguments.
 function ns.p(...)
     return setmetatable({ long = false, ... }, Pretty)
 end

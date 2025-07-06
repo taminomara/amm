@@ -1,12 +1,11 @@
+--- @namespace ammcore.defer
+
 local log = require "ammcore.log"
 
 --- Type-safe utilities for working with errors in Lua.
----
---- !doctype module
---- @class ammcore.defer
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Version of FIN xpcall for proper type checking.
 ---
@@ -19,13 +18,14 @@ local logger = log.Logger:New()
 --- @return boolean ok `true` if function call was successful.
 --- @return { message: any, trace: string } err an object describing an error; only returned when ``ok`` is `false`.
 function ns.xpcall(fn, ...)
-    return xpcall(fn, ...)
+    return xpcall(fn, ...) ---@diagnostic disable-line: return-type-mismatch
 end
 
 --- Deferred function, must be assigned to a `close` local variable.
 ---
---- !doc private
---- @class ammcore.defer._Defer
+--- See `defer` for more info.
+---
+--- @class Defer
 --- @field fn fun(...)
 --- @field args any[]
 --- @field closed boolean
@@ -75,7 +75,7 @@ local Defer = {
 --- @nodiscard
 --- @param fn fun(...) a function that will be called upon closing the returned value.
 --- @param ... any function parameters.
---- @return ammcore.defer._Defer defer an opaque object that should be placed to a ``close`` variable.
+--- @return Defer defer an opaque object that should be placed to a ``close`` variable.
 function ns.defer(fn, ...)
     return setmetatable({ fn = fn, args = { ... }, closed = false }, Defer)
 end

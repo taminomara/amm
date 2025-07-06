@@ -173,8 +173,6 @@
 -- function structs.Vector2D(props)
 --     assert(type(props.x) == "number", "vector.x should be a number")
 --     assert(type(props.y) == "number", "vector.y should be a number")
---     -- assert(type(props.b) == "number", "color.b should be a number")
---     -- assert(type(props.a) == "number", "color.a should be a number")
 --     return props
 -- end
 
@@ -594,6 +592,7 @@
 --     return true
 -- end
 
+-- --- @return string
 -- function filesystem.path(conversion, ...)
 --     local components = { ... }
 --     if type(conversion) == "string" then

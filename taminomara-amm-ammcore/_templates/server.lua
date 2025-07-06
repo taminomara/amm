@@ -1,12 +1,12 @@
 local bootloader = require "ammcore.bootloader"
 local json = require "ammcore._contrib.json"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 local log = require "ammcore.log"
 
 --- Write server template.
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 function ns.writeServerTemplate(devRoot)
     local templateDataJson = bootloader.findModuleCode("taminomara-amm-ammcore/_templates/bootstrap/server.json")

@@ -1,3 +1,5 @@
+--- @namespace ammcore.class
+
 local fun = require "ammcore.fun"
 local bootloader = require "ammcore.bootloader"
 
@@ -13,9 +15,9 @@ local bootloader = require "ammcore.bootloader"
 ---
 --- .. code-block:: lua
 ---
----    class = require "ammcore.class"
+---    local class = require "ammcore.class"
 ---
----    --- @class Foo: ammcore.class.Base
+---    --- @class Foo: Base
 ---    local Foo = class.create("Foo")
 ---
 ---    function Foo:doSomething()
@@ -26,23 +28,34 @@ local bootloader = require "ammcore.bootloader"
 --- Instantiating a class
 --- ---------------------
 ---
---- You can now create instances of your class by calling `New`.
---- Note that all class methods (i.e. methods that accept class as a first
---- parameter, rather than a class instance) start with a capital letter:
+--- You can now create instances of your class by simply calling it:
 ---
 --- .. code-block:: lua
 ---
----    local foo = Foo:New()
+---    local foo = Foo()
 ---
 ---
---- Inheriting a class
---- ------------------
+--- Initializing a class
+--- --------------------
+---
+--- You can initialize new instance of a class by specifying an ``__init`` method:
+---
+--- .. code-block:: lua
+---
+---    function Foo:__init()
+---        -- Initialize the new instance.
+---        self.beep = "boop"
+---    end
+---
+---    print(Foo().beep) -- prints `boop`
+---
+---
+--- Inheritance
+--- -----------
 ---
 --- You can provide a base class to `create` to inherit from it:
 ---
 --- .. code-block:: lua
----
----    class = require "ammcore.class"
 ---
 ---    --- @class Bar: Foo
 ---    local Bar = class.create("Bar", Foo)
@@ -57,18 +70,59 @@ local bootloader = require "ammcore.bootloader"
 ---        Foo.doSomething(self)
 ---    end
 ---
---- Similarly, you can override `New`:
+---    Bar():doSomething() -- prints `Doing something in Bar`, then
+---                        -- prints `Doing something in Foo`
+---
+---
+--- Multiple inheritance and mixins
+--- -------------------------------
+---
+--- This module does not support multiple inheritance. There is a mechanism
+--- for emulating it, though.
+---
+--- Mixins are tables that can contain arbitrary functions or data. They are not
+--- classes themselves, rather, they're similar to interfaces with default
+--- implementations.
+---
+--- Let's create a simple mixin:
 ---
 --- .. code-block:: lua
 ---
----    function Bar:New()
----        -- Replace `self` with a new instance of `Bar`.
----        self = Foo.New(self)
----        -- Initialize the new instance.
----        self.beep = "boop"
----        -- Don't forget to return `self`.
----        return self
+---    --- This is a mixin. Notice that it's not inherited from `Base`,
+---    --- and we don't use `create` to make it.
+---    ---
+---    --- @class PrettyPrintable
+---    local PrettyPrintable = {}
+---
+---    --- A function declared in the mixin.
+---    function PrettyPrintable:pretty()
+---        print("Default implementation for 'pretty'")
 ---    end
+---
+--- When creating a new class, you can pass mixins after the base class. All functions
+--- and data in mixin tables will be copied to the class table:
+---
+--- .. code-block:: lua
+---
+---    --- This is a class that inherits `Foo`, and uses mixin `PrettyPrintable`.
+---    ---
+---    --- @class Baz: Foo, PrettyPrintable
+---    local Baz = class.create("Baz", Foo, PrettyPrintable)
+---
+--- All members of `PrettyPrintable` were copied to `Baz`,
+--- meaning that we can use them as usual:
+---
+---    Baz():pretty() -- prints `Default implementation for 'pretty'`
+---
+--- Notice that mixins are not true superclasses. `isChildOf` will not detect them,
+--- and any changes made to them will not propagate to their children:
+---
+--- .. code-block:: lua
+---
+---    print(class.isChildOf(Baz, PrettyPrintable)) -- prints `false`
+---
+---    PrettyPrintable.newField = "newValue"
+---    print(Baz.newField) -- prints `nil`
 ---
 ---
 --- Declaring class methods
@@ -85,7 +139,7 @@ local bootloader = require "ammcore.bootloader"
 ---    end
 ---
 ---    Foo:ClassMethod() --> prints `Foo`
----    Foo:New():ClassMethod() --> prints `Foo()`
+---    Foo():ClassMethod() --> prints `Foo()`
 ---
 --- Here, `ClassMethod` expects that `self` is `Foo`, but instead
 --- it is an instance of `Foo`.
@@ -96,12 +150,12 @@ local bootloader = require "ammcore.bootloader"
 --- .. code-block:: lua
 ---
 ---    function Foo:ClassMethod()
----        self = self.__class -- Make sure we're working with a class.
+---        local self = self.__class -- Make sure we're working with a class.
 ---        print(self)
 ---    end
 ---
 ---    Foo:ClassMethod() --> prints `Foo`
----    Foo:New():ClassMethod() --> also prints `Foo`
+---    Foo():ClassMethod() --> also prints `Foo`
 ---
 ---
 --- Declaring metamethods
@@ -111,21 +165,17 @@ local bootloader = require "ammcore.bootloader"
 ---
 --- .. code-block:: lua
 ---
----    class = require "ammcore.class"
----
 ---    Point = class.create("Point")
 ---
----    function Point:New(x, y)
----        self = class.Base.New(self)
+---    function Point:__init(x, y)
 ---        self.x, self.y = x, y
----        return self
 ---    end
 ---
 ---    function Point:__tostring()
 ---        return string.format("Point(%s, %s)", self.x, self.y)
 ---    end
 ---
----    print(Point:New(0, 0)) --> prints `Point(0, 0)`
+---    print(Point(0, 0)) --> prints `Point(0, 0)`
 ---
 --- Metamethods only act on class instances:
 ---
@@ -137,17 +187,26 @@ local bootloader = require "ammcore.bootloader"
 ---
 ---    You should declare all metamethods before subclassing or instantiating
 ---    a class, otherwise they will not be inherited correctly.
----
---- !doctype module
---- @class ammcore.class
 local ns = {}
 
 --- Base class for all classes.
 ---
 --- !doc special-members
 --- !doc exclude-members: __tostring
---- @class ammcore.class.Base
-ns.Base = setmetatable({}, { __name = "Base", __tostring = function(self) return self.__name end })
+--- @class Base
+ns.Base = setmetatable({}, {
+    __name = "Base",
+    __tostring = function(self) return self.__name end,
+    __call = function(_cls, ...)
+        if not rawequal(_cls, ns.Base) then
+            error(string.format("attempt to call a %s value", _cls), 2)
+        end
+
+        local self = setmetatable({}, ns.Base)
+        ns.Base.__init(self --[[@as Base]], ...)
+        return self
+    end
+})
 
 --- Name of the class.
 ---
@@ -175,11 +234,10 @@ function ns.Base:__tostring() return string.format("%s()", self.__name) end
 --- Where to find attributes that are missing in a class instance.
 --- By default, they are searched in the class table.
 ---
---- You can redefine this as a function that takes a key and returns a value.
---- Do not redefine as a table, otherwise it will not be inherited properly.
+--- Note that overriding this field does not affect resolution of ``__init`` method.
 ---
 --- !doctype const
---- @type table<string, any> | fun(self: ammcore.class.Base, k: string): any
+--- @type table<string, any> | fun(self: Base, k: string): any
 ns.Base.__index = ns.Base
 
 --- Always points to the class itself.
@@ -187,7 +245,7 @@ ns.Base.__index = ns.Base
 --- Do not redefine, otherwise inheritance will break.
 ---
 --- !doctype const
---- @type ammcore.class.Base
+--- @type Base
 ns.Base.__class = ns.Base
 
 --- Always points to the base class.
@@ -195,64 +253,85 @@ ns.Base.__class = ns.Base
 --- Do not redefine, otherwise inheritance will break.
 ---
 --- !doctype const
---- @type ammcore.class.Base?
+--- @type Base?
 ns.Base.__base = nil
 
 --- Constructor.
 ---
 --- !doctype classmethod
---- @generic T: ammcore.class.Base
---- @param self T
---- @return T
-function ns.Base:New()
-    --- @diagnostic disable-next-line: undefined-field
-    return setmetatable({}, self.__class)
+function ns.Base:__init()
+    -- nothing to do here
 end
 
---- A class method that will be called whenever a new subclass is created.
----
---- Whenever a new subclass is created using this class as a base,
---- this method is called with subclass being ``self``. Specifically,
---- this method is called from `create`, so the subclass
---- will not have any properties or methods present.
----
---- !doctype classmethod
---- @generic T: ammcore.class.Base
---- @param self T
---- @param ... any all extra arguments passed to `create`.
---- @protected
-function ns.Base:__initSubclass(...)
-    local l = select("#", ...)
-    if l > 0 then
-        error(string.format(
-            "__initSubclass got %s unexpected argument%s: %s",
-            l,
-            l == 1 and "" or "s",
-            table.concat(fun.a.map({ ... }, tostring), ", ")
-        ))
-    end
-end
+local metamethods = {
+    ["__tostring"] = true,
+    ["__gc"] = true,
+    ["__add"] = true,
+    ["__sub"] = true,
+    ["__mul"] = true,
+    ["__div"] = true,
+    ["__mod"] = true,
+    ["__pow"] = true,
+    ["__unm"] = true,
+    ["__idiv"] = true,
+    ["__band"] = true,
+    ["__bor"] = true,
+    ["__bxor"] = true,
+    ["__bnot"] = true,
+    ["__shl"] = true,
+    ["__shr"] = true,
+    ["__concat"] = true,
+    ["__len"] = true,
+    ["__eq"] = true,
+    ["__lt"] = true,
+    ["__le"] = true,
+    ["__index"] = true,
+    ["__newindex"] = true,
+    ["__call"] = true,
+    ["__pairs"] = true,
+    ["__close"] = true,
+}
 
 --- Create a new class. Optionally takes a base class.
 ---
 --- @param name string class name, used for debug.
---- @param base ammcore.class.Base? base class, defaults to `Base`.
---- @param ... any other arguments will be passed to `Base.__initSubclass`.
+--- @param base Base? base class, defaults to `Base`.
+--- @param ... table mixins.
 --- @return any
 function ns.create(name, base, ...)
-    if type(name) ~= "string" then error("class name must be a string", 2) end
+    if type(name) ~= "string" then
+        error("class name must be a string", 2)
+    end
+
     base = base or ns.Base
-    if not ns.isChildOf(base, ns.Base) then error("class base must be a class", 2) end
-    if not rawequal(base, base.__class) then error("class base must be a class, got an instance", 2) end
+
+    if not ns.isChildOf(base, ns.Base) then
+        error("class base must be a class", 2)
+    end
+    if not rawequal(base, base.__class) then
+        error("class base must be a class, got an instance", 2)
+    end
 
     -- Class is a meta table for class instances.
     local cls = {}
 
     -- Inherit meta methods.
     for k, v in pairs(base) do
-        if type(k) == "string" and k:match("^__[a-z]+$") then
+        if type(k) == "string" and metamethods[k] then
             cls[k] = v
         end
+    end
+
+    -- Inherit mixins.
+    for i = 1, select("#", ...) do
+        local mixin = select(i, ...)
+        if type(mixin) ~= "table" then
+            error(string.format("mixin must be a table, got %s", type(mixin)))
+        end
+        if ns.isChildOf(mixin, ns.Base) then
+            error(string.format("can't use class as a mixin: %s", mixin))
+        end
+        fun.t.update(cls, mixin)
     end
 
     -- Set meta attributes.
@@ -263,7 +342,7 @@ function ns.create(name, base, ...)
     cls.__base = base
 
     -- Set `__index` unless it's manually overloaded.
-    if type(cls.__index) ~= "function" then
+    if rawequal(cls.__index, base) then
         cls.__index = cls
     end
 
@@ -273,19 +352,27 @@ function ns.create(name, base, ...)
         __index = base,
         __name = name,
         __tostring = function(self) return self.__name end,
-    })
+        __call = function(_cls, ...)
+            if not rawequal(_cls, cls) then
+                error(string.format("attempt to call a %s value", _cls), 2)
+            end
 
-    -- Run `__initSubclass` on the base class.
-    --- @diagnostic disable-next-line: invisible, redundant-parameter
-    base.__initSubclass(cls, ...)
+            local self = setmetatable({}, cls)
+            cls.__init(self, ...)
+            return self
+        end
+    })
 
     return cls
 end
 
 --- Check if ``cls`` inherits ``base``.
 ---
---- @param cls ammcore.class.Base class or instance that is checked against ``base``.
---- @param base ammcore.class.Base expected base class.
+--- @generic T: Base
+--- @param cls Base? class or instance that is checked against ``base``.
+--- @param base T expected base class.
+--- @return boolean
+--- @return_cast cls T
 function ns.isChildOf(cls, base)
     if type(cls) ~= "table" or type(base) ~= "table" then
         return false

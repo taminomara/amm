@@ -1,12 +1,11 @@
+--- @namespace ammtest
+
 local defer = require "ammcore.defer"
 local bootloader = require "ammcore.bootloader"
 local provider = require "ammcore.pkg.providers.local"
 local class = require "ammcore.class"
 
 --- AMM test library.
----
---- !doctype module
---- @class ammtest
 local ns = {}
 
 local fileRe = bootloader.getFile():match("^.-/taminomara%-amm%-ammtest/")
@@ -529,24 +528,18 @@ function ns.skip(msg)
 end
 
 --- Container for test parameters and additional debug values.
---- Used with `ammtest.Suite.caseParams`.
+--- Used with `Suite.caseParams`.
 ---
---- @class ammtest.Param: ammcore.class.Base
+--- @class Param: ammcore.class.Base
 ns.Param = class.create("Param")
 
 --- .. note::
 ---
----    Use `ammtest.param` to properly construct test parameters.
+---    Use `param` to properly construct test parameters.
 ---
 --- @param values any[]
 --- @param loc string?
----
---- @generic T: ammtest.Param
---- @param self T
---- @return T
-function ns.Param:New(values, loc)
-    self = class.Base.New(self)
-
+function ns.Param:__init(values, loc)
     --- Values that will be passed to the test function.
     ---
     --- !doctype const
@@ -558,39 +551,31 @@ function ns.Param:New(values, loc)
     --- !doctype const
     --- @type string
     self.loc = loc or bootloader.getLoc(2)
-
-    return self
 end
 
---- Test parameter, used with `ammtest.Suite.caseParams`.
+--- Test parameter, used with `Suite.caseParams`.
 ---
 --- @param ... any
---- @return ammtest.Param
+--- @return Param
 function ns.param(...)
-    return ns.Param:New({ ... }, bootloader.getLoc(2))
+    return ns.Param({ ... }, bootloader.getLoc(2))
 end
 
---- @type ammtest.Suite[]
+--- @type Suite[]
 local suites = {}
 
 --- Base class for test suites.
 ---
---- @class ammtest.Suite: ammcore.class.Base
+--- @class Suite: ammcore.class.Base
 ns.Suite = class.create("Suite")
 
 --- .. note::
 ---
----    Use `ammtest.suite` to properly construct test suites.
+---    Use `suite` to properly construct test suites.
 ---
 --- @param name string? name of the test suite.
 --- @param isSafe boolean
----
---- @generic T: ammtest.Suite
---- @param self T
---- @return T
-function ns.Suite:New(name, isSafe)
-    self = class.Base.New(self)
-
+function ns.Suite:__init(name, isSafe)
     --- Name of the suite, used for error messages.
     ---
     --- !doctype const
@@ -604,12 +589,10 @@ function ns.Suite:New(name, isSafe)
     self.isSafe = isSafe
 
     --- @package
-    --- @type { name: string, loc: string, fn: fun(...), param: ammtest.Param? }[]
+    --- @type { name: string, loc: string, fn: fun(...), param: Param? }[]
     self._cases = {}
 
     table.insert(suites, self)
-
-    return self
 end
 
 --- Runs before every test.
@@ -659,7 +642,7 @@ end
 ---    )
 ---
 --- @param name string test name, used for error messages.
---- @param params ammtest.Param[] array of test parameters.
+--- @param params Param[] array of test parameters.
 --- @param fn fun(...) test implementation, must accept parameters as its arguments.
 function ns.Suite:caseParams(name, params, fn)
     if #params == 0 then
@@ -676,19 +659,19 @@ end
 ---
 --- @param name string?
 --- @param isSafe boolean?
---- @return ammtest.Suite
+--- @return Suite
 function ns.suite(name, isSafe)
     name = name and (":" .. name) or ""
-    return ns.Suite:New(bootloader.getMod(2) .. name, isSafe or false)
+    return ns.Suite(bootloader.getMod(2) .. name, isSafe or false)
 end
 
 --- Create a new test suite and mark it as safe to run in GitHub actions.
 ---
 --- @param name string?
---- @return ammtest.Suite
+--- @return Suite
 function ns.safeSuite(name)
     name = name and ("." .. name) or ""
-    return ns.Suite:New(bootloader.getMod(2) .. name, true)
+    return ns.Suite(bootloader.getMod(2) .. name, true)
 end
 
 local testData = {
@@ -722,7 +705,7 @@ end
 --- @return { level: integer, msg: string}[]
 function ns.getLog()
     if not testData.output then
-        error("`ammtest.getLog` can't be called outside of test case")
+        error("`getLog` can't be called outside of test case")
     end
     return testData.output
 end
@@ -734,7 +717,7 @@ end
 --- @return string
 function ns.getLogStr()
     if not testData.output then
-        error("`ammtest.getLog` can't be called outside of test case")
+        error("`getLog` can't be called outside of test case")
     end
     local log = ""
     for _, line in ipairs(testData.output) do
@@ -743,7 +726,7 @@ function ns.getLogStr()
     return log
 end
 
---- Info about patches applied via `ammtest.patch`.
+--- Info about patches applied via `patch`.
 ---
 --- Patches are undone in layers: one layer for patches done in suite setup,
 --- one for patches in test setup, and one for patches in a test itself.
@@ -753,7 +736,7 @@ local patchStack = {}
 
 --- Temporarily replace value of a variable.
 ---
---- Calling `ammtest.patch(a.b, "c", x)` is equivalent to executing `a.b.c = x`, and then
+--- Calling `patch(a.b, "c", x)` is equivalent to executing `a.b.c = x`, and then
 --- restoring the old value. To replace global variable, set `env` to `nil`.
 ---
 --- Depending on where this function was called from, the effects are restored
@@ -763,12 +746,13 @@ local patchStack = {}
 --- @param name string name of the replaced value.
 --- @param value any new value.
 function ns.patch(env, name, value)
-    if #patchStack == 0 then
-        error("`ammtest.patch` can't be called outside of test suite")
+    local patchSet = patchStack[#patchStack]
+    if not patchSet then
+        error("`patch` can't be called outside of test suite")
     end
 
     env = env or _ENV or _G
-    table.insert(patchStack[#patchStack], { env = env, name = name, value = env[name] })
+    table.insert(patchSet, { env = env, name = name, value = env[name] })
     env[name] = value
 end
 
@@ -788,7 +772,7 @@ local function pushPatchContext()
             local patches = table.remove(patchStack)
 
             for i = #patches, 1, -1 do
-                local patch = patches[i]
+                local patch = assert(patches[i])
                 patch.env[patch.name] = patch.value
             end
         end,
@@ -809,7 +793,7 @@ end
 ---
 ---    Test failed.
 ---
---- @alias ammtest.Status "OK" | "SKIP" | "FAIL"
+--- @alias Status "OK" | "SKIP" | "FAIL"
 ns.Status = {
     OK = "OK",
     SKIP = "SKIP",
@@ -818,7 +802,7 @@ ns.Status = {
 
 --- Log a string using an appropriate level for the given status.
 ---
---- @param status ammtest.Status
+--- @param status Status
 --- @param msg string
 local function logWithStatus(status, msg)
     local level = { [ns.Status.OK] = 1, [ns.Status.SKIP] = 2, [ns.Status.FAIL] = 3 }
@@ -827,20 +811,14 @@ end
 
 --- Results of a single test suite.
 ---
---- @class ammtest.Result: ammcore.class.Base
+--- @class Result: ammcore.class.Base
 ns.Result = class.create("Result")
 
 --- @param name string
---- @param status ammtest.Status?
+--- @param status Status?
 --- @param msg string?
 --- @param loc string?
----
---- @generic T: ammtest.Result
---- @param self T
---- @return T
-function ns.Result:New(name, status, msg, loc)
-    self = class.Base.New(self)
-
+function ns.Result:__init(name, status, msg, loc)
     --- Name of the test suite.
     ---
     --- !doctype const
@@ -850,7 +828,7 @@ function ns.Result:New(name, status, msg, loc)
     --- Status of the test suite.
     ---
     --- !doctype const
-    --- @type ammtest.Status
+    --- @type Status
     self.status = status or ns.Status.FAIL
 
     --- Message with which the test suite failed.
@@ -869,29 +847,21 @@ function ns.Result:New(name, status, msg, loc)
     --- Array of test cases executed within this suite.
     ---
     --- !doctype const
-    --- @type ammtest.CaseResult[]
+    --- @type CaseResult[]
     self.cases = {}
-
-    return self
 end
 
 --- Results of a single test case.
 ---
---- @class ammtest.CaseResult: ammcore.class.Base
+--- @class CaseResult: ammcore.class.Base
 ns.CaseResult = class.create("Result")
 
 --- @param name string
---- @param status ammtest.Status?
+--- @param status Status?
 --- @param msg string?
 --- @param testLoc string?
 --- @param loc string?
----
---- @generic T: ammtest.CaseResult
---- @param self T
---- @return T
-function ns.CaseResult:New(name, status, msg, testLoc, loc)
-    self = class.Base.New(self)
-
+function ns.CaseResult:__init(name, status, msg, testLoc, loc)
     --- Name of the test case.
     ---
     --- !doctype const
@@ -901,7 +871,7 @@ function ns.CaseResult:New(name, status, msg, testLoc, loc)
     --- Status of the test case.
     ---
     --- !doctype const
-    --- @type ammtest.Status
+    --- @type Status
     self.status = status or ns.Status.FAIL
 
     --- Message with which the test case failed.
@@ -921,8 +891,6 @@ function ns.CaseResult:New(name, status, msg, testLoc, loc)
     --- !doctype const
     --- @type string?
     self.loc = loc
-
-    return self
 end
 
 --- Add indentation to a string.
@@ -962,7 +930,7 @@ end
 --- @param what string?
 --- @param fn fun(...)
 --- @param ... any
---- @return ammtest.Status status
+--- @return Status status
 --- @return string? msg
 --- @return string? loc
 local function run(what, fn, ...)
@@ -1058,7 +1026,7 @@ function ns.loadTests(name)
     end
 
     local devRoot = bootloader.getDevRoot()
-    local loader = provider.LocalProvider:New(devRoot, true)
+    local loader = provider.LocalProvider(devRoot, true)
 
     for _, pkg in ipairs(loader:getLocalPackages()) do
         if not name or pkg.name == name then
@@ -1072,13 +1040,13 @@ end
 
 --- Run all collected tests and return a result.
 ---
---- @return ammtest.Result[]
+--- @return Result[]
 function ns.run()
     local results = {}
     for _, suite in ipairs(suites) do
         local _ <close> = pushPatchContext()
 
-        local suiteResult = ns.Result:New(suite.name)
+        local suiteResult = ns.Result(suite.name)
         table.insert(results, suiteResult)
 
         ---@diagnostic disable-next-line: undefined-global
@@ -1101,7 +1069,7 @@ function ns.run()
         for _, case in pairs(suite._cases) do
             local _ <close> = pushPatchContext()
 
-            local testResult = ns.CaseResult:New(case.name)
+            local testResult = ns.CaseResult(case.name)
             testResult.testLoc = case.loc
             table.insert(suiteResult.cases, testResult)
 

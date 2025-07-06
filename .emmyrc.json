@@ -1,0 +1,94 @@
+{
+  "completion": {
+    "enable": true,
+    "autoRequire": true,
+    "autoRequireFunction": "require",
+    "autoRequireNamingConvention": "keep",
+    "autoRequireSeparator": ".",
+    "callSnippet": true,
+    "postfix": "@"
+  },
+  "diagnostics": {
+    "disable": [
+      "unnecessary-if",
+      "await-in-sync",
+      "unnecessary-assert"
+    ],
+    "enable": true,
+    "globals": [],
+    "globalsRegex": [],
+    "severity": {},
+    "enables": [],
+    "diagnosticInterval": 500
+  },
+  "signature": {
+    "detailSignatureHelper": true
+  },
+  "hint": {
+    "enable": true,
+    "paramHint": true,
+    "indexHint": true,
+    "localHint": true,
+    "overrideHint": true
+  },
+  "runtime": {
+    "version": "Lua5.4",
+    "requireLikeFunction": [],
+    "frameworkVersions": [],
+    "extensions": [],
+    "requirePattern": [
+      "taminomara-amm-?.lua",
+      "taminomara-amm-?/_index.lua",
+      "?.lua",
+      "?/_index.lua"
+    ],
+    "classDefaultCall": {
+      "functionName": "__init",
+      "forceNonColon": true,
+      "forceReturnSelf": true
+    }
+  },
+  "workspace": {
+    "ignoreDir": [],
+    "ignoreGlobs": [],
+    "library": [
+      "${workspaceFolder}/.amm/lib"
+    ],
+    "workspaceRoots": [],
+    "preloadFileSize": 0,
+    "encoding": "utf-8",
+    "moduleMap": [],
+    "reindexDuration": 5000,
+    "enableReindex": true
+  },
+  "resource": {
+    "paths": []
+  },
+  "codeLens": {
+    "enable": true
+  },
+  "strict": {
+    "requirePath": true,
+    "typeCall": true,
+    "arrayIndex": false,
+    "metaOverrideFileDefine": true,
+    "docBaseConstMatchBaseType": false
+  },
+  "semanticTokens": {
+    "enable": true
+  },
+  "references": {
+    "enable": true,
+    "fuzzySearch": true,
+    "shortStringSearch": true
+  },
+  "hover": {
+    "enable": true
+  },
+  "documentColor": {
+    "enable": true
+  },
+  "codeAction": {
+    "insertSpace": true
+  }
+}

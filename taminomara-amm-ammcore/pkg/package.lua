@@ -1,27 +1,21 @@
+--- @namespace ammcore.pkg.package
+
 local class = require "ammcore.class"
 local builder = require "ammcore.pkg.builder"
 local fun = require "ammcore.fun"
+local version = require("ammcore.pkg.version")
 
 --- Data about available packages and their versions.
----
---- !doctype module
---- @class ammcore.pkg.package
 local ns = {}
 
 --- Represents a single package version.
 ---
---- @class ammcore.pkg.package.PackageVersion: ammcore.class.Base
+--- @class PackageVersion: ammcore.class.Base
 ns.PackageVersion = class.create("PackageVersion")
 
 --- @param name string package name.
 --- @param version ammcore.pkg.version.Version package version.
----
---- @generic T: ammcore.pkg.package.PackageVersion
---- @param self T
---- @return T
-function ns.PackageVersion:New(name, version)
-    self = class.Base.New(self)
-
+function ns.PackageVersion:__init(name, version)
     --- Name of the package.
     ---
     --- @type string
@@ -53,8 +47,6 @@ function ns.PackageVersion:New(name, version)
     --- @private
     --- @type table<string, ammcore.pkg.version.VersionSpec>?
     self._allRequirements = nil
-
-    return self
 end
 
 --- Get or fetch package metadata.
@@ -88,14 +80,10 @@ function ns.PackageVersion:getAllRequirements()
     if not self._allRequirements then
         self._allRequirements = {}
 
-        fun.t.updateWith(self._allRequirements, self:getRequirements(), function(l, r)
-            return l .. r
-        end)
+        fun.t.updateWith(self._allRequirements, self:getRequirements(), version.VersionSpec.concat)
 
         if self.isDevMode then
-            fun.t.updateWith(self._allRequirements, self:getDevRequirements(), function(l, r)
-                return l .. r
-            end)
+            fun.t.updateWith(self._allRequirements, self:getDevRequirements(), version.VersionSpec.concat)
         end
     end
 

@@ -20,7 +20,7 @@ function api.main(config)
     elseif type(config.driveId) ~= "string" then
         error(string.format("config.driveId has invalid value %s", config.devRoot))
     end
-    if not filesystem.exists(filesystem.path("/dev", config.driveId)) then
+    if not filesystem.exists(filesystem.path("/dev", config.driveId --[[@as string]])) then
         error(string.format("no hard drive with id %s", config.driveId))
     end
 
@@ -29,7 +29,7 @@ function api.main(config)
         error(string.format("config.devRoot has invalid value %s", config.devRoot))
     end
     do
-        local ok, err = filesystem.mount(filesystem.path("/dev", config.driveId), config.mountPoint)
+        local ok, err = filesystem.mount(filesystem.path("/dev", config.driveId --[[@as string]]), config.mountPoint)
         if not ok then
             error(string.format(
                 "can't mount drive %s to %s: %s",
@@ -62,6 +62,7 @@ function api.main(config)
         error(string.format("config.srvRoot is not a directory: %s", config.srvRoot))
     end
 
+    ---@diagnostic disable-next-line: inject-field
     config.eepromVersion = "bootstrap"
 
     local code, realPath = assert(
@@ -75,7 +76,7 @@ function api.main(config)
     end
 
     -- Import loader code.
-    local bootloader = codeFn() --[[ @as ammcore.bootloader ]]
+    local bootloader = codeFn() --- @module "ammcore.bootloader"
 
     -- Run loader.
     return bootloader.main(config, ammcoreCode)

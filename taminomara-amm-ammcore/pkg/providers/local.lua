@@ -1,3 +1,5 @@
+--- @namespace ammcore.pkg.providers.local
+
 local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
 local packageJson = require "ammcore.pkg.packageJson"
@@ -5,15 +7,13 @@ local packageName = require "ammcore.pkg.packageName"
 local package = require "ammcore.pkg.package"
 local builder = require "ammcore.pkg.builder"
 local json = require "ammcore._contrib.json"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 
---- !doctype module
---- @class ammcore.pkg.providers.local
 local ns = {}
 
 --- Package version that was found on the hard drive.
 ---
---- @class ammcore.pkg.providers.local.LocalPackageVersion: ammcore.pkg.package.PackageVersion
+--- @class LocalPackageVersion: ammcore.pkg.package.PackageVersion
 ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVersion)
 
 --- @param name string
@@ -21,12 +21,8 @@ ns.LocalPackageVersion = class.create("LocalPackageVersion", package.PackageVers
 --- @param data ammcore.pkg.packageJson.PackageJson
 --- @param installationRoot string
 --- @param packageRoot string
----
---- @generic T: ammcore.pkg.providers.local.LocalPackageVersion
---- @param self T
---- @return T
-function ns.LocalPackageVersion:New(name, version, data, installationRoot, packageRoot)
-    self = package.PackageVersion.New(self, name, version)
+function ns.LocalPackageVersion:__init(name, version, data, installationRoot, packageRoot)
+    package.PackageVersion.__init(self, name, version)
 
     self.isInstalled = true
 
@@ -54,8 +50,6 @@ function ns.LocalPackageVersion:New(name, version, data, installationRoot, packa
     ---
     --- @type string
     self.packageRoot = packageRoot
-
-    return self
 end
 
 --- Override package version with a new one.
@@ -79,13 +73,12 @@ function ns.LocalPackageVersion:getDevRequirements()
 end
 
 function ns.LocalPackageVersion:build()
-    local builder = builder.PackageBuilder:New(
+    local builder = builder.PackageBuilder(
         self.name, self.version, self.installationRoot, self.packageRoot
     )
 
     builder:copyDir(self.packageRoot, ".", true)
     if self.isDevMode then
-        ---@diagnostic disable-next-line: invisible
         local buildScript = self.data._buildScript
         if buildScript then
             builder:runBuildScript(buildScript)
@@ -99,17 +92,13 @@ end
 --- Implements a provider that loads packages from a directory
 --- (usually `/.amm/packages` or `/`).
 ---
---- @class ammcore.pkg.providers.local.LocalProvider: ammcore.pkg.provider.Provider
+--- @class LocalProvider: ammcore.pkg.provider.Provider
 ns.LocalProvider = class.create("LocalProvider", provider.Provider)
 
 --- @param root string
 --- @param isDev boolean
----
---- @generic T: ammcore.pkg.providers.local.LocalProvider
---- @param self T
---- @return T
-function ns.LocalProvider:New(root, isDev)
-    self = provider.Provider.New(self)
+function ns.LocalProvider:__init(root, isDev)
+    provider.Provider.__init(self)
 
     --- @private
     --- @type string
@@ -129,7 +118,7 @@ function ns.LocalProvider:New(root, isDev)
                 if data.name ~= name then
                     error(string.format("package name from %s doesn't match the directory name", pkgPath), 0)
                 end
-                local pkg = ns.LocalPackageVersion:New(name, ver, data, root, path)
+                local pkg = ns.LocalPackageVersion(name, ver, data, root, path)
                 pkg.requirements = requirements
                 pkg.devRequirements = devRequirements
                 pkg.isDevMode = isDev
@@ -137,11 +126,9 @@ function ns.LocalProvider:New(root, isDev)
             end
         end
     end
-
-    return self
 end
 
---- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+--- @return LocalPackageVersion[]
 function ns.LocalProvider:getLocalPackages()
     local pkgs = {}
     for _, pkg in pairs(self._packages) do
@@ -152,7 +139,7 @@ end
 
 --- @param name string
 --- @param includeRemotePackages boolean
---- @return ammcore.pkg.providers.local.LocalPackageVersion[]
+--- @return LocalPackageVersion[]
 --- @return boolean
 function ns.LocalProvider:findPackageVersions(name, includeRemotePackages)
     local pkg = self._packages[name]

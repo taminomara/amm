@@ -1,3 +1,5 @@
+--- @namespace ammcore._test.pkg.resolver.
+
 local resolver = require "ammcore.pkg.resolver"
 local test = require "ammtest"
 local provider = require "ammcore.pkg.provider"
@@ -7,16 +9,12 @@ local version = require "ammcore.pkg.version"
 
 local suite = test.safeSuite()
 
---- @class ammcore._test.pkg.resolver.TestProvider: ammcore.pkg.provider.Provider
+--- @class TestProvider: ammcore.pkg.provider.Provider
 local TestProvider = class.create("TestProvider", provider.Provider)
 
 --- @param packages table<string, table<string, {[string]: string, _local?: boolean, _broken?: boolean}>>
----
---- @generic T: ammcore._test.pkg.resolver.TestProvider
---- @param self T
---- @return T
-function TestProvider:New(packages)
-    self = provider.Provider.New(self)
+function TestProvider:__init(packages)
+    provider.Provider.__init(self)
 
     --- @type table<string, ammcore.pkg.package.PackageVersion[]>
     self.packages = {}
@@ -24,24 +22,22 @@ function TestProvider:New(packages)
     for name, versions in pairs(packages) do
         self.packages[name] = {}
         for ver, requirements in pairs(versions) do
-            local pkg = localProvider.LocalPackageVersion:New(
+            local pkg = localProvider.LocalPackageVersion(
                 name, version.parse(ver), { name = name, version = ver }, "/", "/"
             )
             pkg.isInstalled = requirements._local and true or false
             if requirements._broken then
+                ---@diagnostic disable-next-line: duplicate-set-field
                 pkg.getRequirements = function() error("broken", 0) end
             end
             for reqName, spec in pairs(requirements) do
                 if reqName:sub(1, 1) ~= "_" then
-                    --- @diagnostic disable-next-line: param-type-mismatch
                     pkg.requirements[reqName] = version.parseSpec(spec)
                 end
             end
             table.insert(self.packages[name], pkg)
         end
     end
-
-    return self
 end
 
 function TestProvider:findPackageVersions(name)
@@ -67,7 +63,7 @@ local function checkResolved(got, expected)
 end
 
 suite:case("ok", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
         },
@@ -78,7 +74,7 @@ suite:case("ok", function()
 end)
 
 suite:case("ok unknown", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         foo = {
             ["1"] = { bar = "2" },
             ["2"] = { bar = "2", unknown = "1" },
@@ -99,7 +95,7 @@ suite:case("ok unknown", function()
 end)
 
 suite:case("prefer higher", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
             ["2"] = {},
@@ -112,7 +108,7 @@ suite:case("prefer higher", function()
 end)
 
 suite:case("prefer local", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
             ["2"] = { _local = true },
@@ -125,7 +121,7 @@ suite:case("prefer local", function()
 end)
 
 suite:case("prefer higher if update requested", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
             ["2"] = { _local = true },
@@ -147,7 +143,7 @@ suite:case("ok middle", function()
 end)
 
 suite:case("ok unused tail", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         foo = {
             ["1"] = {},
             ["2"] = { bar = "1" },
@@ -166,7 +162,7 @@ suite:case("ok unused tail", function()
 end)
 
 suite:case("ok broken", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
             ["2"] = { _broken = true },
@@ -178,7 +174,7 @@ suite:case("ok broken", function()
 end)
 
 suite:case("ok broken dep", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         foo = {
             ["1"] = {},
             ["2"] = { _broken = true },
@@ -194,7 +190,7 @@ suite:case("ok broken dep", function()
 end)
 
 suite:case("broken", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = { _broken = true },
             ["2"] = { _broken = true },
@@ -209,7 +205,7 @@ suite:case("broken", function()
 end)
 
 suite:case("broken dep", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         foo = {
             ["1"] = { _broken = true },
             ["2"] = { _broken = true },
@@ -239,7 +235,7 @@ suite:case("not found one", function()
 end)
 
 suite:case("conflict", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         foo = {
             ["1"] = { bar = "1" },
         },
@@ -260,7 +256,7 @@ suite:case("conflict", function()
 end)
 
 suite:case("root requirements not satisfied", function()
-    local provider = TestProvider:New({
+    local provider = TestProvider({
         baz = {
             ["1"] = {},
             ["2"] = {},

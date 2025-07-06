@@ -1,29 +1,24 @@
+--- @namespace ammcore.server.localApi
+
 local class = require "ammcore.class"
 local server = require "ammcore.server"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 local json = require "ammcore._contrib.json"
 local bootloader = require "ammcore.bootloader"
 
 --- Implements API for local code server.
----
---- !doctype module
---- @class ammcore.server.localApi
 local ns = {}
 
 --- Implements API handle that uses `ammcore.pkg` to find packages
 --- on the local hard drive.
 ---
---- @class ammcore.server.localApi.ServerApi: ammcore.server.ServerApi
+--- @class ServerApi: ammcore.server.ServerApi
 ns.ServerApi = class.create("ServerApi", server.ServerApi)
 
 --- @param packages ammcore.pkg.providers.local.LocalPackageVersion[]
 --- @param coreModuleResolver fun(path: string[]): code: string | nil, realPath: string | nil
----
---- @generic T: ammcore.server.localApi.ServerApi
---- @param self T
---- @return T
-function ns.ServerApi:New(packages, coreModuleResolver)
-    self = server.ServerApi.New(self)
+function ns.ServerApi:__init(packages, coreModuleResolver)
+    server.ServerApi.__init(self)
 
     --- List of locally installed packages. This list is used
     --- to resolve required modules.
@@ -42,8 +37,6 @@ function ns.ServerApi:New(packages, coreModuleResolver)
     --- @private
     --- @type string?
     self._prebuiltCode = nil
-
-    return self
 end
 
 function ns.ServerApi:lsPkg()
@@ -66,8 +59,11 @@ function ns.ServerApi:getCode(path)
         -- Locate package.
         local pkgName, moduleName = candidate:match("^([^/]*)/(.*)$")
 
-        if not pkgName or pkgName:len() == 0 then
+        if not pkgName or not moduleName or pkgName:len() == 0 then
             goto continue
+        else
+            --- @cast pkgName -?
+            --- @cast moduleName -?
         end
 
         local pkg = self.packages["taminomara-amm-" .. pkgName] or self.packages[pkgName]

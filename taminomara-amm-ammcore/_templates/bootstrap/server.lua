@@ -14,7 +14,7 @@ local config = {
 -- Implementation
 
 -- Find an internet card.
-local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[@as FINInternetCard?]]
 if not internetCard then
     error("AMM loader requires an internet card to download code")
 end

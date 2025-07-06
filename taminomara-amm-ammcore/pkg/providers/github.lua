@@ -1,7 +1,9 @@
+--- @namespace ammcore.pkg.providers.github
+
 local class = require "ammcore.class"
 local provider = require "ammcore.pkg.provider"
 local version = require "ammcore.pkg.version"
-local fsh = require "ammcore._util.fsh"
+local fsh = require "ammcore.fsh"
 local json = require "ammcore._contrib.json"
 local log = require "ammcore.log"
 local packageName = require "ammcore.pkg.packageName"
@@ -9,43 +11,35 @@ local package = require "ammcore.pkg.package"
 local packageJson = require "ammcore.pkg.packageJson"
 local bootloader = require "ammcore.bootloader"
 
---- !doctype module
---- @class ammcore.pkg.providers.github
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Package version that was loaded from github.
 ---
---- @class ammcore.pkg.providers.github.GithubPackageVersion: ammcore.pkg.package.PackageVersion
+--- @class GithubPackageVersion: ammcore.pkg.package.PackageVersion
 ns.GithubPackageVersion = class.create("GithubPackageVersion", package.PackageVersion)
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
---- @param cacheData ammcore.pkg.providers.github._CacheVersion
----
---- @generic T: ammcore.pkg.providers.github.GithubPackageVersion
---- @param self T
---- @return T
-function ns.GithubPackageVersion:New(name, version, cacheData)
-    self = package.PackageVersion.New(self, name, version)
+--- @param cacheData _CacheVersion
+function ns.GithubPackageVersion:__init(name, version, cacheData)
+    package.PackageVersion.__init(self, name, version)
 
     --- @private
-    --- @type ammcore.pkg.providers.github._CacheVersion
+    --- @type _CacheVersion
     self._cacheData = cacheData
 
     --- @private
     --- @type table<string, ammcore.pkg.version.VersionSpec>
     self._requirements = nil
-
-    return self
 end
 
 function ns.GithubPackageVersion:getMetadata()
     if not self._cacheData.data then
         self:_loadData()
     end
-    return self._cacheData.data
+    return self._cacheData.data --[[@as any]]
 end
 
 function ns.GithubPackageVersion:getRequirements()
@@ -67,7 +61,7 @@ end
 
 --- @private
 function ns.GithubPackageVersion:_loadData()
-    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[@as FINInternetCard?]]
     if not internetCard then
         error("GitHub dependency provider requires an internet card to download code")
     end
@@ -93,7 +87,7 @@ function ns.GithubPackageVersion:_loadData()
 end
 
 function ns.GithubPackageVersion:build()
-    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[ @as FINInternetCard? ]]
+    local internetCard = computer.getPCIDevices(classes.FINInternetCard)[1] --[[@as FINInternetCard?]]
     if not internetCard then
         error("GitHub dependency provider requires an internet card to download code")
     end
@@ -110,32 +104,28 @@ function ns.GithubPackageVersion:build()
 end
 
 --- !doc private
---- @class ammcore.pkg.providers.github._CacheVersion
+--- @class _CacheVersion
 --- @field metadataUrl string
 --- @field codeUrl string
 --- @field data? ammcore.pkg.packageJson.PackageJson
 
 --- !doc private
---- @class ammcore.pkg.providers.github._CacheRepo
---- @field packages table<string, table<string, ammcore.pkg.providers.github._CacheVersion>>
+--- @class _CacheRepo
+--- @field packages table<string, table<string, _CacheVersion>>
 
 --- Implements a provider that loads packages from github.
 ---
---- @class ammcore.pkg.providers.github.GithubProvider: ammcore.pkg.provider.Provider
+--- @class GithubProvider: ammcore.pkg.provider.Provider
 ns.GithubProvider = class.create("GithubProvider", provider.Provider)
 
 --- @param internetCard FINInternetCard
----
---- @generic T: ammcore.pkg.providers.github.GithubProvider
---- @param self T
---- @return T
-function ns.GithubProvider:New(internetCard)
-    self = provider.Provider.New(self)
+function ns.GithubProvider:__init(internetCard)
+    provider.Provider.__init(self)
 
     self._internetCard = internetCard
 
     --- @private
-    --- @type table<string, ammcore.pkg.providers.github._CacheRepo>
+    --- @type table<string, _CacheRepo>
     self._packages = {}
 
     --- @private
@@ -151,8 +141,6 @@ function ns.GithubProvider:New(internetCard)
             logger:warning("Error when loading github metadata cache: %s", err)
         end
     end
-
-    return self
 end
 
 --- @private
@@ -167,9 +155,9 @@ function ns.GithubProvider:_loadData(user, repo)
 
     logger:info("Fetching versions from github repo %s", ghName)
 
-    --- @type ammcore.pkg.providers.github._CacheRepo
+    --- @type _CacheRepo
     local cache = { packages = {} }
-    --- @type ammcore.pkg.providers.github._CacheRepo
+    --- @type _CacheRepo
     local oldCache = self._packages[ghName]
 
     self._packages[ghName] = cache
@@ -301,7 +289,7 @@ function ns.GithubProvider:findPackageVersions(name, includeRemotePackages)
     local result = {}
 
     for ver, data in pairs(self._packages[ghName].packages[pkg]) do
-        table.insert(result, ns.GithubPackageVersion:New(name, version.parse(ver), data))
+        table.insert(result, ns.GithubPackageVersion(name, version.parse(ver), data))
     end
 
     return result, true

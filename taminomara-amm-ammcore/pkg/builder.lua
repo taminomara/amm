@@ -1,31 +1,24 @@
-local fsh = require "ammcore._util.fsh"
+--- @namespace ammcore.pkg.builder
+
+local fsh = require "ammcore.fsh"
 local class = require "ammcore.class"
 local log = require "ammcore.log"
 local packageJson = require "ammcore.pkg.packageJson"
 local json = require "ammcore._contrib.json"
 
 --- Build script API.
----
---- !doctype module
---- @class ammcore.pkg.builder
 local ns = {}
 
-local logger = log.Logger:New()
+local logger = log.getLogger()
 
 --- Creates and unpacks package archives.
 ---
---- @class ammcore.pkg.builder.PackageArchiver: ammcore.class.Base
+--- @class PackageArchiver: ammcore.class.Base
 ns.PackageArchiver = class.create("PackageArchiver")
 
 --- @param name string name of the package.
 --- @param version ammcore.pkg.version.Version version of the package.
----
---- @generic T: ammcore.pkg.builder.PackageArchiver
---- @param self T
---- @return T
-function ns.PackageArchiver:New(name, version)
-    self = class.Base.New(self)
-
+function ns.PackageArchiver:__init(name, version)
     --- Name of the package that is being built.
     ---
     --- @type string
@@ -36,7 +29,12 @@ function ns.PackageArchiver:New(name, version)
     --- @type ammcore.pkg.version.Version
     self.version = version
 
-    return self
+    --- Do not mess with this. But if you do, make sure that all paths are normalized
+    --- via `filesystem.path(2, ...)` and relative to `pkgRoot`.
+    ---
+    --- @private
+    --- @type table<string, string>
+    self._outputFiles = {}
 end
 
 --- Construct builder from a packaged archive data (i.e. the result of `build`).
@@ -45,7 +43,7 @@ end
 --- @param version ammcore.pkg.version.Version version of the package.
 --- @param archive string data of the package archive.
 function ns.PackageArchiver:FromArchive(name, version, archive)
-    self = self:New(name, version)
+    local self = self(name, version)
 
     local fn, err = load("return " .. archive, "<package archive>", "bt", {})
     if not fn then
@@ -172,19 +170,15 @@ end
 
 --- Manages files that will end up in the final package distribution.
 ---
---- @class ammcore.pkg.builder.PackageBuilder: ammcore.pkg.builder.PackageArchiver
+--- @class PackageBuilder: PackageArchiver
 ns.PackageBuilder = class.create("PackageBuilder", ns.PackageArchiver)
 
 --- @param name string
 --- @param version ammcore.pkg.version.Version
 --- @param devRoot string
 --- @param pkgRoot string
----
---- @generic T: ammcore.pkg.builder.PackageBuilder
---- @param self T
---- @return T
-function ns.PackageBuilder:New(name, version, devRoot, pkgRoot)
-    self = ns.PackageArchiver.New(self, name, version)
+function ns.PackageBuilder:__init(name, version, devRoot, pkgRoot)
+    ns.PackageArchiver.__init(self, name, version)
 
     --- Root directory of the dev installation.
     ---
@@ -195,15 +189,6 @@ function ns.PackageBuilder:New(name, version, devRoot, pkgRoot)
     ---
     --- @type string
     self.pkgRoot = pkgRoot
-
-    --- Do not mess with this. But if you do, make sure that all paths are normalized
-    --- via `filesystem.path(2, ...)` and relative to `pkgRoot`.
-    ---
-    --- @private
-    --- @type table<string, string>
-    self._outputFiles = {}
-
-    return self
 end
 
 --- Copy a directory to the package.
